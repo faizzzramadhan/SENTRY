@@ -1,0 +1,163 @@
+.container {
+  color: white;
+  position: relative;
+}
+
+/* TOP RIGHT */
+.topRight {
+  position: absolute;
+  right: 0;
+  top: 0;
+  border: 1px solid #555;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+/* TITLE */
+.title {
+  margin-bottom: 20px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* ACTION BAR */
+.actionBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* SEARCH */
+.search input {
+  padding: 10px 16px;
+  border-radius: 25px;
+  border: 1px solid #555;
+  background: transparent;
+  color: white;
+  width: 260px;
+  outline: none;
+}
+
+/* BUTTONS */
+.buttons {
+  display: flex;
+  align-items: center;
+}
+
+.buttons button {
+  margin-left: 10px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid #555;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.buttons button:hover {
+  background: #2a2a2a;
+}
+
+/* BUTTON ADD */
+.add {
+  border: 1px solid #ff7a6b;
+  color: #ff7a6b;
+}
+
+.add:hover {
+  background: #ff7a6b;
+  color: white;
+}
+
+/* TABLE WRAPPER */
+.tableWrapper {
+  border: 1px solid #333;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+/* FIX CSS MODULE (NO ERROR) */
+.tableWrapper table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tableWrapper th {
+  background: #1f1f1f;
+  padding: 12px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.tableWrapper td {
+  padding: 12px;
+  border-top: 1px solid #333;
+  font-size: 14px;
+}
+
+/* ROW HOVER */
+.tableWrapper tr:hover {
+  background: #2a2a2a;
+}
+
+/* STATUS */
+.pending {
+  color: #facc15; /* kuning */
+  font-weight: 500;
+}
+
+.process {
+  color: #22c55e; /* hijau */
+  font-weight: 500;
+}
+
+.expired {
+  color: #ef4444; /* merah */
+  font-weight: 500;
+}
+
+.done {
+  color: #3b82f6; /* biru */
+  font-weight: 500;
+}
+
+/* ACTION ICON */
+.action {
+  display: flex;
+  gap: 10px;
+  cursor: pointer;
+}
+
+/* PAGINATION */
+.pagination {
+  margin-top: 25px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.pagination span,
+.pagination button {
+  padding: 10px 14px;
+  border-radius: 50%;
+  border: 1px solid #555;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.pagination span:hover,
+.pagination button:hover {
+  background: #2a2a2a;
+}
+
+/* ACTIVE PAGE */
+.active {
+  background: #ff7a6b;
+  border: none;
+  color: white;
+}
