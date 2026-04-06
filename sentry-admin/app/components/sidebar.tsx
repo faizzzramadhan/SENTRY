@@ -112,7 +112,7 @@ export default function Sidebar({ open, onClose }: Props) {
     { label: "Dashboard", href: "/dashboard", icon: <IconBox /> },
     { label: "Laporan HUMINT", href: "/humint", icon: <IconStack /> },
     { label: "Monitoring OSINT", href: "/osint", icon: <IconGlobe /> },
-    { label: "Monitoring Spasial", href: "/spasial", icon: <IconMap /> },
+    { label: "Monitoring Spasial", href: "/geoint", icon: <IconMap /> },
     { label: "Log Aktivitas", href: "/log", icon: <IconList /> },
   ];
 
