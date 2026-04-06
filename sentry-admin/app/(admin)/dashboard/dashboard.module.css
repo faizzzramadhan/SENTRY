@@ -1,0 +1,185 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.topRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.hello {
+  border: 2px solid rgba(255,255,255,0.6);
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  background: rgba(0,0,0,0.15);
+}
+
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.kpiCard {
+  border-radius: 16px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.18);
+  padding: 18px 18px 16px 18px;
+  height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.kpiTitle {
+  text-align: center;
+  color: rgba(255,255,255,0.85);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.kpiValue {
+  text-align: center;
+  font-size: 54px;
+  line-height: 1;
+  color: #bfa15a;
+  font-weight: 800;
+}
+
+.midRow {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  gap: 18px;
+}
+
+.panel {
+  border-radius: 16px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.18);
+  padding: 14px 16px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.panelTitle {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.legend {
+  margin-top: 6px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+}
+
+.dotBaru, .dotT {
+  width: 36px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.dotBaru { background: #c59b2d; }
+.dotT { background: #8a47ff; }
+
+.select {
+  background: rgba(0,0,0,0.25);
+  color: rgba(255,255,255,0.9);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 10px;
+  padding: 8px 10px;
+  outline: none;
+  font-weight: 600;
+}
+
+.chartWrap {
+  width: 100%;
+  height: 250px;
+}
+
+.sumberList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.sumberRow {
+  display: grid;
+  grid-template-columns: 90px 1fr 30px;
+  gap: 10px;
+  align-items: center;
+}
+
+.sumberLabel {
+  font-size: 13px;
+  color: rgba(255,255,255,0.85);
+}
+
+.barTrack {
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7a2cff, #b27bff);
+}
+
+.sumberValue {
+  text-align: right;
+  font-weight: 800;
+  color: rgba(255,255,255,0.9);
+}
+
+.sectionTitle {
+  font-size: 26px;
+  font-weight: 900;
+  margin-top: 6px;
+}
+
+.tableWrap {
+  border-radius: 16px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.18);
+  padding: 12px;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: rgba(255,255,255,0.9);
+}
+
+.table th, .table td {
+  border: 1px solid rgba(255,255,255,0.16);
+  padding: 10px 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.table thead th {
+  background: rgba(255,255,255,0.06);
+  font-weight: 800;
+}
