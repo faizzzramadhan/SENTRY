@@ -1,0 +1,151 @@
+.container { color:white; }
+
+.header {
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:20px;
+}
+
+.back {
+  padding:8px 16px;
+  border-radius:20px;
+}
+
+.card {
+  border:1px solid #2a2a2a;
+  padding:20px;
+  border-radius:12px;
+  background:#121212;
+}
+
+.grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:40px;
+}
+
+.field {
+  margin-bottom:15px;
+}
+
+.field label {
+  display:block;
+  margin-bottom:5px;
+  color:#aaa;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width:100%;
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #444;
+  background:#1f1f1f;
+  color:white;
+}
+
+.row { display:flex; gap:10px; }
+
+/* KORBAN */
+.korbanBox {
+  background:#1a1a1a;
+  padding:15px;
+  border-radius:10px;
+  border:1px solid #333;
+}
+
+.korbanHeader {
+  display:flex;
+  justify-content:space-between;
+}
+
+.korbanHead {
+  display:grid;
+  grid-template-columns:150px repeat(3,1fr);
+  margin-top:10px;
+}
+
+.korbanRow {
+  display:grid;
+  grid-template-columns:150px repeat(3,1fr);
+  margin-top:10px;
+}
+
+.korbanRow input {
+  width:60px;
+  background:#2a2a2a;
+  border:1px solid #444;
+}
+
+.total { color:#ff6b6b; }
+
+/* UPLOAD */
+.uploadBox {
+  border:1px dashed #444;
+  padding:20px;
+  border-radius:12px;
+  text-align:center;
+  margin-bottom:15px;
+  position:relative;
+}
+
+.uploadBox input {
+  position:absolute;
+  inset:0;
+  opacity:0;
+}
+
+.uploadIcon { font-size:28px; }
+
+.preview {
+  display:flex;
+  gap:10px;
+}
+
+.preview img {
+  width:70px;
+  height:70px;
+}
+
+/* MAP */
+.mapSection {
+  margin-top:30px;
+}
+
+:global(.leaflet-container){
+  height:300px;
+  border-radius:12px;
+}
+
+/* SEARCH */
+.searchBox input {
+  width:100%;
+  padding:10px;
+  margin-bottom:10px;
+  background:#1f1f1f;
+  border:1px solid #444;
+  color:white;
+}
+
+.dropdown { background:#1f1f1f; }
+
+.item { padding:10px; }
+
+/* BUTTON */
+.bottomAction {
+  display:flex;
+  justify-content:flex-end;
+  margin-top:20px;
+}
+
+.save {
+  padding:12px 25px;
+  border-radius:25px;
+  border:1px solid #ff7a6b;
+  color:#ff7a6b;
+}
+
+@media(max-width:768px){
+  .grid{grid-template-columns:1fr;}
+}

@@ -1,4 +1,5 @@
 import styles from './humint.module.css'
+import Link from 'next/link'
 
 const data = [
   { name: "Arif Samsudin", jenis: "Longsor", status: "pending" },
@@ -28,7 +29,9 @@ export default function HumintPage() {
           <button>⬇ Download</button>
           <button>⚙ Filter</button>
           <button>⇅ Sort</button>
-          <button className={styles.add}>＋ Tambah Laporan</button>
+         <Link href="/humint/addreport">
+        <button className={styles.add}>＋ Tambah Laporan</button>
+      </Link>
         </div>
       </div>
 
