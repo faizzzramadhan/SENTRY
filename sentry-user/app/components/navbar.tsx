@@ -1,8 +1,20 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
+  const pathname = usePathname();
+
+  const items = [
+    { label: "Beranda", href: "/" },
+    { label: "Prakiraan Cuaca", href: "/prakiraan-cuaca" },
+    { label: "Peta Bencana", href: "/peta-bencana" },
+    { label: "Kirim Laporan", href: "/kirim-laporan" },
+  ];
+
   return (
     <header className={styles.navbar}>
       <div className={styles.inner}>
@@ -14,10 +26,19 @@ export default function Navbar() {
         </div>
 
         <nav className={styles.links}>
-          <Link className={styles.link} href="#beranda">Beranda</Link>
-          <Link className={styles.link} href="#cuaca">Prakiraan Cuaca</Link>
-          <Link className={styles.link} href="#peta">Peta Bencana</Link>
-          <Link className={styles.link} href="#lapor">Kirim Laporan</Link>
+          {items.map((it) => {
+            const active = pathname === it.href;
+            return (
+              <Link
+                key={it.href}
+                href={it.href}
+                className={`${styles.link} ${active ? styles.active : ""}`}
+              >
+                {it.label}
+                {active ? <span className={styles.activeMarker} /> : null}
+              </Link>
+            );
+          })}
         </nav>
       </div>
     </header>
