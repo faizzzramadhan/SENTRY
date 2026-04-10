@@ -1,0 +1,496 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.topRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.titleWrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.backButton {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.96);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.backButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 42px;
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+}
+
+.hello {
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.leftSection {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.rightSection {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.controlBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.searchBox {
+  width: 100%;
+  max-width: 330px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.searchIconWrap {
+  position: absolute;
+  left: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.searchInput {
+  width: 100%;
+  height: 46px;
+  padding: 0 16px 0 54px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 14px;
+}
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.actionsGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.dropdownWrap {
+  position: relative;
+}
+
+.toolbarButton,
+.addButton {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  background: rgba(0, 0, 0, 0.14);
+  color: rgba(255, 255, 255, 0.95);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.2s ease;
+  white-space: nowrap;
+}
+
+.toolbarButton:hover,
+.addButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dropdownMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  min-width: 210px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #1d1d1d;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+  padding: 12px;
+  z-index: 20;
+}
+
+.dropdownTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.72);
+  margin-bottom: 10px;
+  letter-spacing: 0.5px;
+}
+
+.dropdownOptionList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dropdownOption {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.dropdownOption:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dropdownOptionActive {
+  border-color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tableWrap,
+.smallTableWrap {
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.table th,
+.table td {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 10px 12px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.table thead th {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 800;
+}
+
+.table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.emptyState {
+  padding: 18px 12px !important;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.metricCard {
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  padding: 16px 16px 14px 16px;
+  min-height: 124px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.metricTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.96);
+  line-height: 1.15;
+}
+
+.metricContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metricValueWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.metricValue {
+  font-size: 58px;
+  line-height: 1;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.editMiniButton {
+  height: 28px;
+  padding: 0 11px;
+  border: none;
+  border-radius: 8px;
+  background: #ff8f83;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.editMiniButton:hover {
+  filter: brightness(1.05);
+}
+
+.arrowMini {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.keywordSection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.actionButton {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: 0.2s ease;
+}
+
+.actionButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.paginationWrap,
+.smallPaginationWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.smallPagination {
+  padding: 10px 18px;
+}
+
+.pageArrow {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  transition: 0.2s ease;
+}
+
+.pageArrow:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pageArrow:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pageNumbers {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pageNumber {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 18px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.pageNumber:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pageNumberActive {
+  background: #ff8e80;
+  color: #ffffff;
+}
+
+.pageDots {
+  font-size: 24px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0 2px;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.backIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.actionIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.metricIcon {
+  width: 34px;
+  height: 34px;
+  color: rgba(255, 255, 255, 0.96);
+  flex-shrink: 0;
+}
+
+.pageArrowIcon {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 1480px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  .topRow {
+    grid-template-columns: 1fr;
+  }
+
+  .hello {
+    justify-self: start;
+  }
+
+  .controlBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchBox {
+    max-width: 100%;
+  }
+
+  .actionsGroup {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .pageTitle {
+    font-size: 30px;
+  }
+
+  .titleWrap {
+    align-items: flex-start;
+  }
+
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .metricValue {
+    font-size: 46px;
+  }
+
+  .actionsGroup {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbarButton,
+  .addButton {
+    justify-content: center;
+  }
+}
