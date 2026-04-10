@@ -1,0 +1,136 @@
+.container {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #121212;
+  color: white;
+  padding: 30px;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.actions { display: flex; gap: 10px; }
+.btnBack, .btnAction {
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: 1px solid #444;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.topInfo {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1.5fr 1fr;
+  border: 1px solid #333;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  background: #1a1a1a;
+  align-items: center;
+}
+
+.badge { background: #3b82f6; padding: 3px 10px; border-radius: 6px; margin: 0 10px; font-size: 12px; }
+.priority { color: #ff4444; font-size: 13px; }
+.warning { color: orange; font-weight: bold; }
+.success { color: #22c55e; font-weight: bold; }
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.card {
+  border: 1px solid #333;
+  padding: 20px;
+  border-radius: 14px;
+  background: #1a1a1a;
+  margin-bottom: 24px;
+}
+
+.card h3 {
+  font-size: 0.95rem;
+  margin-bottom: 18px;
+  color: #fff;
+  border-bottom: 1px solid #2a2a2a;
+  padding-bottom: 10px;
+}
+
+.customTable {
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  border-bottom: 1px solid #222;
+}
+
+.tableLabel { background: #222; padding: 12px; font-size: 12px; color: #888; border-right: 1px solid #333; }
+.tableValue { padding: 12px; font-size: 12px; color: #ddd; white-space: pre-wrap; line-height: 1.5; }
+
+.viewValue {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #ccc;
+  background: #111;
+  padding: 15px;
+  border-radius: 10px;
+  white-space: pre-wrap;
+}
+
+.subLabel {
+  display: block;
+  font-size: 11px;
+  color: #555;
+  text-transform: uppercase;
+  margin: 15px 0 8px;
+}
+
+.mapFrame, .imgFrame {
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #333;
+}
+
+.image { width: 100%; display: block; object-fit: cover; }
+
+.exifTable {
+  width: 100%;
+  border: 1px solid #333;
+  border-collapse: collapse;
+}
+
+.exifTable td { padding: 10px; border: 1px solid #333; font-size: 12px; }
+.exifTable td:first-child { background: #222; color: #888; width: 40%; }
+
+/* DSS LIST WITH POINTS */
+.dssListPoin {
+  list-style-type: disc;
+  font-size: 13px;
+  color: #aaa;
+  padding-left: 20px;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.dssListPoin li {
+  margin-bottom: 8px;
+}
+
+.dssListPoin li::marker {
+  color: #3b82f6; /* Warna bullet biru */
+}
+
+@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } .topInfo { grid-template-columns: 1fr; } }

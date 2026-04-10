@@ -1,0 +1,141 @@
+.container {
+  background-color: #121214;
+  min-height: 100vh;
+  padding: 40px 60px;
+  color: #e1e1e6;
+}
+
+.header {
+  margin-bottom: 40px;
+}
+
+.backLink {
+  color: #8d8d99;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.header h1 { 
+  font-size: 1.8rem; 
+  font-weight: 800; 
+  margin: 10px 0 5px;
+}
+
+/* CARDS */
+.sectionCard {
+  background: #121214;
+  border: 1px solid #323238;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.sectionHeader {
+  background: #1a1a1e;
+  padding: 12px 20px;
+  border-bottom: 1px solid #323238;
+}
+
+.sectionTitle {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #3b82f6;
+  letter-spacing: 1.2px;
+}
+
+.sectionBody { padding: 24px; }
+
+/* MAPS & MEDIA IN GRID */
+.eventGrid { 
+  display: grid; 
+  grid-template-columns: 1.2fr 1fr; 
+  padding: 24px; 
+  gap: 30px; 
+}
+
+.mapWrapper {
+  height: 220px;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #323238;
+  margin-top: 15px;
+  filter: grayscale(30%);
+}
+
+.photoBox {
+  width: 100%;
+  height: 280px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #323238;
+}
+
+.photoBox img { width: 100%; height: 100%; object-fit: cover; }
+.mediaCaption { 
+  font-size: 0.75rem; 
+  color: #666; 
+  text-align: center; 
+  margin-top: 10px; 
+  font-style: italic; 
+}
+
+/* BUTTONS */
+.btnPrimary {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 14px 40px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btnSecondary {
+  background: #29292e;
+  color: #e1e1e6;
+  text-decoration: none;
+  padding: 14px 40px;
+  border-radius: 8px;
+  font-weight: 600;
+  border: 1px solid #323238;
+}
+
+/* INFO ELEMENTS */
+.topGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.bottomGrid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; }
+
+.infoRow { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; }
+.label { color: #8d8d99; }
+.value { color: #e1e1e6; }
+
+.statusBadge {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: 800;
+  font-size: 0.7rem;
+}
+
+.statLine { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #29292e; font-size: 0.9rem; }
+.totalLine { display: flex; justify-content: space-between; padding-top: 15px; font-weight: 800; color: #3b82f6; }
+
+.warningCard {
+  background: rgba(250, 204, 21, 0.05);
+  border: 1px solid rgba(250, 204, 21, 0.2);
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.warningHeader { color: #facc15; font-weight: 800; font-size: 0.75rem; margin-bottom: 5px; }
+.warningCard p { font-size: 0.8rem; color: #8d8d99; margin: 0; }
+
+.footerActions {
+  display: flex;
+  gap: 20px;
+  margin-top: 40px;
+}
+
+@media (max-width: 1024px) {
+  .topGrid, .bottomGrid, .eventGrid { grid-template-columns: 1fr; }
+}

@@ -80,9 +80,15 @@ export default function HumintPage() {
                       : "Selesai"}
                   </span>
                 </td>
-
+                
                 <td className={styles.action}>
-                  👁 ✏️
+                  <Link href="/humint/detail">
+                    <span className={styles.icon}>👁</span>
+                  </Link>
+
+                  <Link href="/humint/edit">
+                    <span className={styles.icon}>✏️</span>
+                  </Link>
                 </td>
               </tr>
             ))}
