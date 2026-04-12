@@ -224,10 +224,14 @@ export default function SettingsOsintPage() {
   const router = useRouter();
 
   const [adminName, setAdminName] = useState("Admin");
+
   const [search, setSearch] = useState("");
   const [selectedKelurahan, setSelectedKelurahan] = useState<string>("Semua");
   const [sortType, setSortType] = useState<SortType>("newest");
   const [openFilter, setOpenFilter] = useState(false);
+
+  const [keywordSearch, setKeywordSearch] = useState("");
+  const [keywordSortType, setKeywordSortType] = useState<SortType>("newest");
 
   const [areaPage, setAreaPage] = useState(1);
   const [keywordPage, setKeywordPage] = useState(1);
@@ -252,7 +256,6 @@ export default function SettingsOsintPage() {
     return ["Semua", ...uniqueKelurahan];
   }, []);
 
-  // HANYA UNTUK TABEL KIRI
   const filteredAreaRows = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
@@ -278,19 +281,37 @@ export default function SettingsOsintPage() {
     });
   }, [search, selectedKelurahan, sortType]);
 
-  // TABEL KANAN TIDAK TERPENGARUH SEARCH/FILTER/SORT
+  const filteredKeywordRows = useMemo(() => {
+    const keyword = keywordSearch.trim().toLowerCase();
+
+    const result = keywordRows.filter((row) => {
+      if (!keyword) return true;
+
+      return [row.keyword, row.createdBy]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword);
+    });
+
+    return [...result].sort((a, b) => {
+      const timeA = parseDate(a.updatedAt);
+      const timeB = parseDate(b.updatedAt);
+      return keywordSortType === "newest" ? timeB - timeA : timeA - timeB;
+    });
+  }, [keywordSearch, keywordSortType]);
+
+  const areaRowsPerPage = 15;
   const keywordRowsPerPage = 15;
-  const areaRowsPerPage = 20;
 
   const areaTotalPages = Math.max(1, Math.ceil(filteredAreaRows.length / areaRowsPerPage));
-  const keywordTotalPages = Math.max(1, Math.ceil(keywordRows.length / keywordRowsPerPage));
+  const keywordTotalPages = Math.max(1, Math.ceil(filteredKeywordRows.length / keywordRowsPerPage));
 
   const currentAreaRows = filteredAreaRows.slice(
     (areaPage - 1) * areaRowsPerPage,
     areaPage * areaRowsPerPage
   );
 
-  const currentKeywordRows = keywordRows.slice(
+  const currentKeywordRows = filteredKeywordRows.slice(
     (keywordPage - 1) * keywordRowsPerPage,
     keywordPage * keywordRowsPerPage
   );
@@ -301,6 +322,10 @@ export default function SettingsOsintPage() {
   useEffect(() => {
     setAreaPage(1);
   }, [search, selectedKelurahan, sortType]);
+
+  useEffect(() => {
+    setKeywordPage(1);
+  }, [keywordSearch, keywordSortType]);
 
   useEffect(() => {
     if (areaPage > areaTotalPages) setAreaPage(areaTotalPages);
@@ -317,7 +342,7 @@ export default function SettingsOsintPage() {
           <button
             type="button"
             className={styles.backButton}
-            onClick={() => router.push("/monitoring-osint")}
+            onClick={() => router.push("/osint")}
             aria-label="Kembali"
           >
             <BackIcon />
@@ -329,8 +354,66 @@ export default function SettingsOsintPage() {
         <div className={styles.hello}>Halo, {adminName}</div>
       </div>
 
-      <div className={styles.mainGrid}>
-        <div className={styles.leftSection}>
+      <div className={styles.metricGrid}>
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>SET JUMLAH POSTINGAN</div>
+          <div className={styles.metricContent}>
+            <div className={styles.metricValueWrap}>
+              <PostIcon />
+              <span className={styles.metricValue}>50</span>
+            </div>
+            <button type="button" className={styles.editMiniButton}>
+              <span>Edit</span>
+              <span className={styles.arrowMini}>→</span>
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>SET JUMLAH LIKE</div>
+          <div className={styles.metricContent}>
+            <div className={styles.metricValueWrap}>
+              <HeartIcon />
+              <span className={styles.metricValue}>50</span>
+            </div>
+            <button type="button" className={styles.editMiniButton}>
+              <span>Edit</span>
+              <span className={styles.arrowMini}>→</span>
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>SET JUMLAH COMMENT</div>
+          <div className={styles.metricContent}>
+            <div className={styles.metricValueWrap}>
+              <CommentIcon />
+              <span className={styles.metricValue}>50</span>
+            </div>
+            <button type="button" className={styles.editMiniButton}>
+              <span>Edit</span>
+              <span className={styles.arrowMini}>→</span>
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>SET JUMLAH SHARE</div>
+          <div className={styles.metricContent}>
+            <div className={styles.metricValueWrap}>
+              <ShareIcon />
+              <span className={styles.metricValue}>50</span>
+            </div>
+            <button type="button" className={styles.editMiniButton}>
+              <span>Edit</span>
+              <span className={styles.arrowMini}>→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.tablesGrid}>
+        <div className={styles.tableSection}>
           <div className={styles.controlBar}>
             <div className={styles.searchBox}>
               <span className={styles.searchIconWrap}>
@@ -389,7 +472,7 @@ export default function SettingsOsintPage() {
                 }
               >
                 <SortIcon />
-                <span>{sortType === "newest" ? "Sort" : "Terlama"}</span>
+                <span>Sort</span>
               </button>
 
               <button type="button" className={styles.addButton}>
@@ -480,144 +563,117 @@ export default function SettingsOsintPage() {
           </div>
         </div>
 
-        <div className={styles.rightSection}>
-          <div className={styles.metricGrid}>
-            <div className={styles.metricCard}>
-              <div className={styles.metricTitle}>SET JUMLAH POSTINGAN</div>
-              <div className={styles.metricContent}>
-                <div className={styles.metricValueWrap}>
-                  <PostIcon />
-                  <span className={styles.metricValue}>50</span>
-                </div>
-                <button type="button" className={styles.editMiniButton}>
-                  <span>Edit</span>
-                  <span className={styles.arrowMini}>→</span>
-                </button>
-              </div>
+        <div className={styles.tableSection}>
+          <div className={styles.controlBar}>
+            <div className={styles.searchBox}>
+              <span className={styles.searchIconWrap}>
+                <SearchIcon />
+              </span>
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder="Cari berdasarkan ..."
+                value={keywordSearch}
+                onChange={(e) => setKeywordSearch(e.target.value)}
+              />
             </div>
 
-            <div className={styles.metricCard}>
-              <div className={styles.metricTitle}>SET JUMLAH LIKE</div>
-              <div className={styles.metricContent}>
-                <div className={styles.metricValueWrap}>
-                  <HeartIcon />
-                  <span className={styles.metricValue}>50</span>
-                </div>
-                <button type="button" className={styles.editMiniButton}>
-                  <span>Edit</span>
-                  <span className={styles.arrowMini}>→</span>
-                </button>
-              </div>
-            </div>
+            <div className={styles.actionsGroup}>
+              <button
+                type="button"
+                className={styles.toolbarButton}
+                onClick={() =>
+                  setKeywordSortType((prev) => (prev === "newest" ? "oldest" : "newest"))
+                }
+              >
+                <SortIcon />
+                <span>Sort</span>
+              </button>
 
-            <div className={styles.metricCard}>
-              <div className={styles.metricTitle}>SET JUMLAH COMMENT</div>
-              <div className={styles.metricContent}>
-                <div className={styles.metricValueWrap}>
-                  <CommentIcon />
-                  <span className={styles.metricValue}>50</span>
-                </div>
-                <button type="button" className={styles.editMiniButton}>
-                  <span>Edit</span>
-                  <span className={styles.arrowMini}>→</span>
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.metricCard}>
-              <div className={styles.metricTitle}>SET JUMLAH SHARE</div>
-              <div className={styles.metricContent}>
-                <div className={styles.metricValueWrap}>
-                  <ShareIcon />
-                  <span className={styles.metricValue}>50</span>
-                </div>
-                <button type="button" className={styles.editMiniButton}>
-                  <span>Edit</span>
-                  <span className={styles.arrowMini}>→</span>
-                </button>
-              </div>
+              <button type="button" className={styles.addButton}>
+                <PlusIcon />
+                <span>Tambah Keyword</span>
+              </button>
             </div>
           </div>
 
-          <div className={styles.keywordSection}>
-            <div className={styles.smallTableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Keyword</th>
-                    <th>Created By</th>
-                    <th>Last Updated Date</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentKeywordRows.length > 0 ? (
-                    currentKeywordRows.map((row, index) => (
-                      <tr key={`${row.no}-${row.keyword}-${index}`}>
-                        <td>{(keywordPage - 1) * keywordRowsPerPage + index + 1}</td>
-                        <td>{row.keyword}</td>
-                        <td>{row.createdBy}</td>
-                        <td>{row.updatedAt}</td>
-                        <td>
-                          <button type="button" className={styles.actionButton} aria-label="Edit keyword">
-                            <PencilIcon />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className={styles.emptyState}>
-                        Data keyword tidak ditemukan.
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Keyword</th>
+                  <th>Created By</th>
+                  <th>Last Updated Date</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentKeywordRows.length > 0 ? (
+                  currentKeywordRows.map((row, index) => (
+                    <tr key={`${row.no}-${row.keyword}-${index}`}>
+                      <td>{(keywordPage - 1) * keywordRowsPerPage + index + 1}</td>
+                      <td>{row.keyword}</td>
+                      <td>{row.createdBy}</td>
+                      <td>{row.updatedAt}</td>
+                      <td>
+                        <button type="button" className={styles.actionButton} aria-label="Edit keyword">
+                          <PencilIcon />
+                        </button>
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className={styles.emptyState}>
+                      Data keyword tidak ditemukan.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-            <div className={styles.smallPaginationWrap}>
-              <div className={`${styles.pagination} ${styles.smallPagination}`}>
-                <button
-                  type="button"
-                  className={styles.pageArrow}
-                  onClick={() => setKeywordPage((prev) => Math.max(1, prev - 1))}
-                  disabled={keywordPage === 1}
-                >
-                  <ChevronLeftIcon />
-                </button>
+          <div className={styles.paginationWrap}>
+            <div className={`${styles.pagination} ${styles.smallPagination}`}>
+              <button
+                type="button"
+                className={styles.pageArrow}
+                onClick={() => setKeywordPage((prev) => Math.max(1, prev - 1))}
+                disabled={keywordPage === 1}
+              >
+                <ChevronLeftIcon />
+              </button>
 
-                <div className={styles.pageNumbers}>
-                  {visibleKeywordPages.map((item, index) =>
-                    item === "..." ? (
-                      <span key={`keyword-dots-${index}`} className={styles.pageDots}>
-                        ...
-                      </span>
-                    ) : (
-                      <button
-                        key={`keyword-page-${item}`}
-                        type="button"
-                        className={`${styles.pageNumber} ${
-                          keywordPage === item ? styles.pageNumberActive : ""
-                        }`}
-                        onClick={() => setKeywordPage(Number(item))}
-                      >
-                        {item}
-                      </button>
-                    )
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  className={styles.pageArrow}
-                  onClick={() => setKeywordPage((prev) => Math.min(keywordTotalPages, prev + 1))}
-                  disabled={keywordPage === keywordTotalPages}
-                >
-                  <ChevronRightIcon />
-                </button>
+              <div className={styles.pageNumbers}>
+                {visibleKeywordPages.map((item, index) =>
+                  item === "..." ? (
+                    <span key={`keyword-dots-${index}`} className={styles.pageDots}>
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={`keyword-page-${item}`}
+                      type="button"
+                      className={`${styles.pageNumber} ${
+                        keywordPage === item ? styles.pageNumberActive : ""
+                      }`}
+                      onClick={() => setKeywordPage(Number(item))}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
               </div>
+
+              <button
+                type="button"
+                className={styles.pageArrow}
+                onClick={() => setKeywordPage((prev) => Math.min(keywordTotalPages, prev + 1))}
+                disabled={keywordPage === keywordTotalPages}
+              >
+                <ChevronRightIcon />
+              </button>
             </div>
           </div>
         </div>

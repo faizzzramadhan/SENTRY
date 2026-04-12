@@ -1,30 +1,31 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 26px;
   color: rgba(255, 255, 255, 0.95);
+  padding-top: 2px;
 }
 
 .topRow {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
 }
 
 .titleWrap {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
 }
 
 .backButton {
-  width: 42px;
-  height: 42px;
+  width: 46px;
+  height: 46px;
   border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.72);
+  border: 2px solid rgba(255, 255, 255, 0.78);
   background: transparent;
-  color: rgba(255, 255, 255, 0.96);
+  color: rgba(255, 255, 255, 0.98);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -39,56 +40,125 @@
 .pageTitle {
   margin: 0;
   font-size: 42px;
-  line-height: 1.05;
+  line-height: 1.04;
   font-weight: 900;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
 }
 
 .hello {
-  border: 2px solid rgba(255, 255, 255, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.68);
   padding: 10px 18px;
-  border-radius: 14px;
+  border-radius: 16px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(0, 0, 0, 0.15);
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.94);
+  background: rgba(0, 0, 0, 0.1);
   white-space: nowrap;
 }
 
-.mainGrid {
+.metricGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-  gap: 28px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 26px;
+  align-items: stretch;
+}
+
+.metricCard {
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
+  padding: 16px 18px 14px;
+  min-height: 106px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metricTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.97);
+  line-height: 1.1;
+}
+
+.metricContent {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metricValueWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.metricValue {
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.editMiniButton {
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: #ff8f83;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: 0.2s ease;
+  flex-shrink: 0;
+}
+
+.editMiniButton:hover {
+  filter: brightness(1.05);
+}
+
+.arrowMini {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.tablesGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1.08fr);
+  gap: 34px;
   align-items: start;
 }
 
-.leftSection {
+.tableSection {
   display: flex;
   flex-direction: column;
   gap: 18px;
-}
-
-.rightSection {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  min-width: 0;
 }
 
 .controlBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 16px;
+  flex-wrap: nowrap;
 }
 
 .searchBox {
   width: 100%;
-  max-width: 330px;
+  max-width: 312px;
   position: relative;
   display: flex;
   align-items: center;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.68);
-  background: rgba(0, 0, 0, 0.18);
+  border-radius: 999px;
+  border: 1.4px solid rgba(255, 255, 255, 0.72);
+  background: rgba(0, 0, 0, 0.14);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -104,13 +174,13 @@
 
 .searchInput {
   width: 100%;
-  height: 46px;
-  padding: 0 16px 0 54px;
+  height: 42px;
+  padding: 0 16px 0 50px;
   border: none;
   outline: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.95);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .searchInput::placeholder {
@@ -121,8 +191,9 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .dropdownWrap {
@@ -133,15 +204,16 @@
 .addButton {
   height: 42px;
   padding: 0 16px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 999px;
+  border: 1.4px solid rgba(255, 255, 255, 0.72);
   background: rgba(0, 0, 0, 0.14);
-  color: rgba(255, 255, 255, 0.95);
+  color: rgba(255, 255, 255, 0.96);
   display: inline-flex;
   align-items: center;
   gap: 10px;
   cursor: pointer;
   font-weight: 500;
+  font-size: 13px;
   transition: 0.2s ease;
   white-space: nowrap;
 }
@@ -155,11 +227,11 @@
   position: absolute;
   right: 0;
   top: calc(100% + 10px);
-  min-width: 210px;
-  border-radius: 16px;
+  min-width: 220px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: #1d1d1d;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
   padding: 12px;
   z-index: 20;
 }
@@ -182,7 +254,7 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 255, 255, 0.9);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 12px;
   text-align: left;
   cursor: pointer;
@@ -199,13 +271,12 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-.tableWrap,
-.smallTableWrap {
+.tableWrap {
   border-radius: 0;
   background: transparent;
   border: none;
   padding: 0;
-  overflow: auto;
+  overflow-x: auto;
 }
 
 .table {
@@ -217,14 +288,14 @@
 
 .table th,
 .table td {
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   padding: 10px 12px;
   text-align: center;
   white-space: nowrap;
 }
 
 .table thead th {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   font-weight: 800;
 }
 
@@ -236,82 +307,6 @@
   padding: 18px 12px !important;
   color: rgba(255, 255, 255, 0.72);
   font-weight: 600;
-}
-
-.metricGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.metricCard {
-  border-radius: 22px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.56);
-  padding: 16px 16px 14px 16px;
-  min-height: 124px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 14px;
-}
-
-.metricTitle {
-  font-size: 18px;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.96);
-  line-height: 1.15;
-}
-
-.metricContent {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.metricValueWrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.metricValue {
-  font-size: 58px;
-  line-height: 1;
-  font-weight: 800;
-  color: #ffffff;
-}
-
-.editMiniButton {
-  height: 28px;
-  padding: 0 11px;
-  border: none;
-  border-radius: 8px;
-  background: #ff8f83;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.editMiniButton:hover {
-  filter: brightness(1.05);
-}
-
-.arrowMini {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.keywordSection {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
 .actionButton {
@@ -332,21 +327,20 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-.paginationWrap,
-.smallPaginationWrap {
+.paginationWrap {
   display: flex;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .pagination {
   display: inline-flex;
   align-items: center;
-  gap: 18px;
-  padding: 12px 20px;
+  gap: 16px;
+  padding: 10px 18px;
   border-radius: 999px;
-  border: 1.5px solid rgba(255, 255, 255, 0.72);
-  background: rgba(0, 0, 0, 0.14);
+  border: 1.5px solid rgba(255, 255, 255, 0.74);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .smallPagination {
@@ -427,8 +421,8 @@
 }
 
 .metricIcon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   color: rgba(255, 255, 255, 0.96);
   flex-shrink: 0;
 }
@@ -438,13 +432,13 @@
   height: 22px;
 }
 
-@media (max-width: 1480px) {
-  .mainGrid {
+@media (max-width: 1600px) {
+  .tablesGrid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1100px) {
   .topRow {
     grid-template-columns: 1fr;
   }
@@ -464,6 +458,7 @@
 
   .actionsGroup {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }
 
@@ -477,11 +472,14 @@
   }
 
   .metricGrid {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 26px;
+    align-items: stretch;
   }
 
   .metricValue {
-    font-size: 46px;
+    font-size: 30px;
   }
 
   .actionsGroup {
