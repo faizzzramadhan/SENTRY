@@ -14,10 +14,25 @@ const MapPicker = dynamic(() => import('./MapPicker'), {
 
 export default function AddReportAdmin() {
   const router = useRouter()
+
   const [position, setPosition] = useState<any>([-7.9819, 112.6265])
   const [lat, setLat] = useState<number>(-7.9819)
   const [lng, setLng] = useState<number>(112.6265)
   const [selectedKec, setSelectedKec] = useState('')
+
+  /* ✅ DATA KORBAN */
+  const [korban, setKorban] = useState({
+    anakL: 0,
+    dewasaL: 0,
+    lansiaL: 0,
+    anakP: 0,
+    dewasaP: 0,
+    lansiaP: 0
+  })
+
+  const totalKorban =
+    korban.anakL + korban.dewasaL + korban.lansiaL +
+    korban.anakP + korban.dewasaP + korban.lansiaP
 
   const handleConfirmNavigate = () => {
     router.push('/humint/confirm')
@@ -25,6 +40,7 @@ export default function AddReportAdmin() {
 
   return (
     <div className={styles.container}>
+
       {/* HEADER */}
       <header className={styles.header}>
         <div className={styles.titleSection}>
@@ -171,6 +187,37 @@ export default function AddReportAdmin() {
                 <input type="text" placeholder="Faktor penyebab..." />
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* DATA KORBAN */}
+      <div className={styles.card} style={{ marginTop: '20px' }}>
+        <h3>👥 Data Korban</h3>
+        <div className={styles.korbanTable}>
+          <div className={styles.korbanHead}>
+            <div>Gender</div>
+            <div>Anak</div>
+            <div>Dewasa</div>
+            <div>Lansia</div>
+          </div>
+
+          <div className={styles.korbanRow}>
+            <div className={styles.korbanLabel}>Laki-laki</div>
+            <input type="number" value={korban.anakL} onChange={(e)=>setKorban({...korban, anakL:+e.target.value})}/>
+            <input type="number" value={korban.dewasaL} onChange={(e)=>setKorban({...korban, dewasaL:+e.target.value})}/>
+            <input type="number" value={korban.lansiaL} onChange={(e)=>setKorban({...korban, lansiaL:+e.target.value})}/>
+          </div>
+
+          <div className={styles.korbanRow}>
+            <div className={styles.korbanLabel}>Perempuan</div>
+            <input type="number" value={korban.anakP} onChange={(e)=>setKorban({...korban, anakP:+e.target.value})}/>
+            <input type="number" value={korban.dewasaP} onChange={(e)=>setKorban({...korban, dewasaP:+e.target.value})}/>
+            <input type="number" value={korban.lansiaP} onChange={(e)=>setKorban({...korban, lansiaP:+e.target.value})}/>
+          </div>
+
+          <div className={styles.totalText}>
+            Total: <strong>{totalKorban} Orang</strong>
           </div>
         </div>
       </div>

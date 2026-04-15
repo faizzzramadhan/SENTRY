@@ -77,7 +77,7 @@ export default function KonfirmasiLaporan() {
               <div className={styles.photoBox}>
                 <img src="https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28" alt="Evidence" />
               </div>
-              <div className={styles.mediaCaption}>Foto bukti kejadian dari masyarakat</div>
+              <div className={styles.mediaCaption}>Foto Kejadian</div>
             </div>
           </div>
         </section>
@@ -115,7 +115,7 @@ export default function KonfirmasiLaporan() {
 
             <div className={styles.warningCard}>
               <div className={styles.warningHeader}>⚠️ PERHATIAN</div>
-              <p>Laporan yang dipublish akan segera tampil di dashboard utama dan dapat diakses oleh publik.</p>
+              <p>Pastikan data yang diisi sudah sesuai dengan kondisi nyata dilapangan</p>
             </div>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function KonfirmasiLaporan() {
         {/* FOOTER ACTIONS */}
         <div className={styles.footerActions}>
            <Link href="/humint/addreport" className={styles.btnSecondary}>Edit Kembali</Link>
-           <button className={styles.btnPrimary}>Kirim & Publikasikan Laporan</button>
+           <button className={styles.btnPrimary}>Kirim Laporan</button>
         </div>
       </main>
     </div>

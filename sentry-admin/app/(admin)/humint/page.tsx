@@ -1,37 +1,41 @@
-import styles from './humint.module.css'
-import Link from 'next/link'
+"use client";
 
-const data = [
-  { name: "Arif Samsudin", jenis: "Longsor", status: "pending" },
-  { name: "Gusti Restu", jenis: "Banjir", status: "done" },
-  { name: "Arif Samsudin", jenis: "Pohon Tumbang", status: "expired" },
-]
+import React from 'react';
+import styles from './humint.module.css';
+import Link from 'next/link';
 
 export default function HumintPage() {
+  // Loop 10 data
+  const dummyData = Array.from({ length: 10 }).map((_, i) => ({
+    id: i + 1,
+    name: "Arif Samsudin",
+    jenis: i % 2 === 0 ? "Longsor" : "Banjir",
+    lokasi: "-7.952345, 112.615432",
+    prioritas: "Tinggi",
+    status: i % 2 === 0 ? "pending" : "done"
+  }));
+
   return (
     <div className={styles.container}>
-
-      {/* TOP RIGHT */}
-      <div className={styles.topRight}>
-        Halo, Admin
+      
+      {/* HEADER */}
+      <div className={styles.headerTop}>
+        <h1 className={styles.title}>DASHBOARD HUMINT</h1>
+        <div className={styles.hello}>Halo, Admin</div>
       </div>
-
-      {/* TITLE */}
-      <h1 className={styles.title}>DASHBOARD HUMINT</h1>
 
       {/* ACTION BAR */}
       <div className={styles.actionBar}>
         <div className={styles.search}>
-          <input placeholder="Cari berdasarkan ..." />
+          <input type="text" placeholder="Cari berdasarkan ..." />
         </div>
-
         <div className={styles.buttons}>
           <button>⬇ Download</button>
           <button>⚙ Filter</button>
           <button>⇅ Sort</button>
-         <Link href="/humint/addreport">
-        <button className={styles.add}>＋ Tambah Laporan</button>
-      </Link>
+          <Link href="/humint/addreport">
+            <button className={styles.add}>＋ Tambah Laporan</button>
+          </Link>
         </div>
       </div>
 
@@ -40,6 +44,7 @@ export default function HumintPage() {
         <table>
           <thead>
             <tr>
+              {/* Judul menggunakan Title Case (Bukan kapital semua) */}
               <th>No</th>
               <th>Nama Pelapor</th>
               <th>Jenis Bencana</th>
@@ -49,46 +54,29 @@ export default function HumintPage() {
               <th>Aksi</th>
             </tr>
           </thead>
-
           <tbody>
-            {Array.from({ length: 20 }).map((_, i) => (
-              <tr key={i}>
-                <td>{i + 1}</td>
-                <td>Arif Samsudin</td>
-                <td>Longsor</td>
-                <td>-7.952345, 112.615432</td>
+            {dummyData.map((item) => (
+              <tr key={item.id}>
+                <td>{item.id}</td>
+                <td>{item.name}</td>
+                <td>{item.jenis}</td>
+                <td>{item.lokasi}</td>
+                <td>{item.prioritas}</td>
                 <td>
-                  {i % 2 === 0 ? "Prioritas Tinggi" : "Prioritas Normal"}
-                </td>
-
-                <td>
-                  <span className={
-                    i < 5
-                      ? styles.pending
-                      : i < 10
-                      ? styles.process
-                      : i < 13
-                      ? styles.expired
-                      : styles.done
-                  }>
-                    {i < 5
-                      ? "Menunggu Verifikasi"
-                      : i < 10
-                      ? "Ditangani"
-                      : i < 13
-                      ? "Kedaluwarsa"
-                      : "Selesai"}
+                  <span className={`${styles.statusSpan} ${styles[item.status]}`}>
+                    {item.status === "pending" ? "Menunggu Verifikasi" : "Selesai"}
                   </span>
                 </td>
-                
-                <td className={styles.action}>
-                  <Link href="/humint/detail">
-                    <span className={styles.icon}>👁</span>
-                  </Link>
-
-                  <Link href="/humint/edit">
-                    <span className={styles.icon}>✏️</span>
-                  </Link>
+                <td>
+                  <div className={styles.actionCell}>
+                    {/* Mengarah ke halaman statis tanpa ID backend */}
+                    <Link href="/humint/detail">
+                      <button className={styles.simpleIcon} title="Lihat">👁</button>
+                    </Link>
+                    <Link href="/humint/edit">
+                      <button className={styles.simpleIcon} title="Edit">✏️</button>
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -97,15 +85,18 @@ export default function HumintPage() {
       </div>
 
       {/* PAGINATION */}
-      <div className={styles.pagination}>
-        <button>{"<"}</button>
-        <span className={styles.active}>1</span>
-        <span>2</span>
-        <span>3</span>
-        <span>...</span>
-        <button>{">"}</button>
+      <div className={styles.paginationWrap}>
+        <div className={styles.pagination}>
+          <button className={styles.pageArrow}>{"<"}</button>
+          <div className={styles.pageNumbers}>
+            <button className={`${styles.pageNumber} ${styles.pageNumberActive}`}>1</button>
+            <button className={styles.pageNumber}>2</button>
+            <button className={styles.pageNumber}>3</button>
+          </div>
+          <button className={styles.pageArrow}>{">"}</button>
+        </div>
       </div>
 
     </div>
-  )
+  );
 }

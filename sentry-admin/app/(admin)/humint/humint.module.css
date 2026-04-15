@@ -1,63 +1,76 @@
 .container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   color: white;
-  position: relative;
+  min-height: 100vh;
 }
 
-/* TOP RIGHT */
-.topRight {
-  position: absolute;
-  right: 0;
-  top: 0;
-  border: 1px solid #555;
-  padding: 8px 16px;
-  border-radius: 20px;
+.headerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* TITLE */
-.title {
-  font-size: 28px;
+.hello {
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  padding: 8px 20px;
+  border-radius: 14px;
   font-weight: 700;
-  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.05);
 }
 
-/* ACTION BAR */
+.title {
+  font-size: 24px;
+  font-weight: 900;
+  margin: 0;
+}
+
 .actionBar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
-/* SEARCH */
 .search input {
   padding: 10px 15px;
-  border-radius: 25px;
-  border: 1px solid #555;
-  background: transparent;
+  width: 250px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.2);
   color: white;
+  outline: none;
 }
 
-/* BUTTONS */
+.buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .buttons button {
-  margin-left: 10px;
-  padding: 8px 14px;
-  border-radius: 20px;
-  border: 1px solid #555;
-  background: transparent;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
   color: white;
   cursor: pointer;
 }
 
 .add {
-  border: 1px solid #ff7a6b;
-  color: #ff7a6b;
+  background: #ff7a6b !important;
+  border: none !important;
 }
 
-/* TABLE */
 .tableWrapper {
-  border: 1px solid #333;
-  border-radius: 10px;
-  overflow: hidden;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  width: 100%;
 }
 
 .tableWrapper table {
@@ -65,55 +78,89 @@
   border-collapse: collapse;
 }
 
-.tableWrapper th {
-  background: #1f1f1f;
-  padding: 12px;
-  text-align: left;
-}
-
+.tableWrapper th, 
 .tableWrapper td {
   padding: 12px;
-  border-top: 1px solid #333;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 14px;
 }
 
-/* STATUS */
-.pending {
-  color: gold;
+.tableWrapper thead th {
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 800;
+  /* Dihapus: text-transform uppercase agar tidak kapital semua */
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.process {
-  color: #00ff88;
+.actionCell {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
 }
 
-.expired {
-  color: red;
+.simpleIcon {
+  cursor: pointer;
+  color: white;
+  font-size: 16px;
+  opacity: 0.8;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
 }
 
-.done {
-  color: #4da6ff;
+.simpleIcon:hover {
+  opacity: 1;
 }
 
-/* ACTION ICON */
-.action {
+.statusSpan { font-weight: 700; }
+.pending { color: #ffcc00; }
+.done { color: #4da6ff; }
+
+.paginationWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.pageArrow {
+  border: none;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.pageNumbers {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.pageNumber {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: white;
   cursor: pointer;
 }
 
-/* PAGINATION */
-.pagination {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-.pagination span,
-.pagination button {
-  padding: 8px 12px;
-  border-radius: 50%;
-  border: 1px solid #555;
-}
-
-.active {
-  background: #ff7a6b;
-  border: none;
+.pageNumberActive {
+  background: #ff8e80 !important;
+  color: white;
 }
