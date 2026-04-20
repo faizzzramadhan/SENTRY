@@ -106,6 +106,10 @@
   color: rgba(255,255,255,0.9);
   text-decoration: none;
   border: 1px solid rgba(255,255,255,0.06);
+  transition: 0.2s ease;
+}
+.navItem:hover {
+  background: rgba(255,255,255,0.08);
 }
 
 .navIcon {

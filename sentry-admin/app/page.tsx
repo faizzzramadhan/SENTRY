@@ -4,38 +4,65 @@ import Image from "next/image";
 import styles from "../app/login/login.module.css";
 import { useState } from "react";
 
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const payload = token.split(".")[1];
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export default function LoginPage() {
-  const [adm_email, setEmail] = useState("");
-  const [adm_password, setPassword] = useState("");
+  const [usr_email, setEmail] = useState("");
+  const [usr_password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const redirectByRole = (role?: string) => {
+    if (role === "admin") {
+      window.location.href = "/manage-staff";
+      return;
+    }
+
+    window.location.href = "/dashboard";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
 
-    // Kalau kamu belum mau integrasi backend sekarang,
-    // kamu bisa hapus seluruh bagian fetch di bawah ini.
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5555/admin/auth", {
+
+      const res = await fetch("http://localhost:5555/user/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adm_email, adm_password }),
+        body: JSON.stringify({ usr_email, usr_password }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = null;
+
+      try {
+        data = JSON.parse(text);
+      } catch {
+        setErrorMsg("Response login bukan JSON. Cek route backend /user/auth.");
+        return;
+      }
 
       if (!res.ok || !data.logged) {
         setErrorMsg(data?.message || "Login gagal");
         return;
       }
 
-      // simpan token (opsi sederhana)
       localStorage.setItem("token", data.token);
 
-      // redirect (ubah sesuai route dashboard kamu)
-      window.location.href = "/dashboard";
+      const tokenPayload = decodeJwtPayload(data.token);
+      const role = data?.user?.usr_role || tokenPayload?.usr_role || "staff";
+
+      redirectByRole(role);
     } catch (err: any) {
       setErrorMsg(err?.message || "Terjadi error");
     } finally {
@@ -45,7 +72,6 @@ export default function LoginPage() {
 
   return (
     <main className={styles.bg}>
-      {/* blobs */}
       <div className={styles.blobRed} />
       <div className={styles.blobYellow} />
 
@@ -71,7 +97,7 @@ export default function LoginPage() {
             className={styles.input}
             type="email"
             placeholder="isi alamat email anda disini..."
-            value={adm_email}
+            value={usr_email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
@@ -83,7 +109,7 @@ export default function LoginPage() {
             className={styles.input}
             type="password"
             placeholder="percaya padaku ini aman..."
-            value={adm_password}
+            value={usr_password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />

@@ -1,20 +1,7 @@
 "use client";
 
 import styles from "./dashboard.module.css";
-
 import { useEffect, useState } from "react";
-
-// decode payload JWT (tanpa library)
-function decodeJwtPayload(token: string): any | null {
-  try {
-    const payload = token.split(".")[1];
-    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
-
 import {
   LineChart,
   Line,
@@ -24,6 +11,16 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const payload = token.split(".")[1];
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
 
 const trendData = [
   { name: "Minggu 1", baru: 10, ditangani: 7 },
@@ -54,30 +51,35 @@ const tableRows = [
 
 export default function DashboardPage() {
   const maxSumber = Math.max(...sumberData.map((s) => s.value));
-  const [adminName, setAdminName] = useState("Admin");
+  const [userName, setUserName] = useState("User");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
 
     const payload = decodeJwtPayload(token);
 
-    // sesuaikan kalau payload kamu pernah pakai format lama (ADM_NAMA_LENGKAP)
-    const name =
-      payload?.adm_nama_lengkap ||
-      payload?.ADM_NAMA_LENGKAP ||
-      payload?.adm_email ||
-      "Admin";
+    if (payload?.usr_role === "admin") {
+      window.location.href = "/manage-staff";
+      return;
+    }
 
-    setAdminName(name);
+    const name =
+      payload?.usr_nama_lengkap ||
+      payload?.usr_email ||
+      "User";
+
+    setUserName(name);
   }, []);
-  
 
   return (
     <div className={styles.page}>
       <div className={styles.topRow}>
         <div />
-        <div className={styles.hello}>Halo, {adminName}</div>
+        <div className={styles.hello}>Halo, {userName}</div>
       </div>
 
       <div className={styles.kpiRow}>

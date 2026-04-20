@@ -1,52 +1,29 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 28px;
   color: rgba(255, 255, 255, 0.95);
-  padding-top: 2px;
+  min-width: 0;
 }
 
 .topRow {
   display: grid;
   grid-template-columns: 1fr auto;
-  align-items: center;
+  align-items: start;
   gap: 18px;
-}
-
-.titleWrap {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-
-.backButton {
-  width: 46px;
-  height: 46px;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.78);
-  background: transparent;
-  color: rgba(255, 255, 255, 0.98);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.backButton:hover {
-  background: rgba(255, 255, 255, 0.08);
 }
 
 .pageTitle {
   margin: 0;
-  font-size: 42px;
-  line-height: 1.04;
+  font-size: 62px;
+  line-height: 1;
   font-weight: 900;
   letter-spacing: 0.6px;
+  color: #ffffff;
 }
 
 .hello {
-  border: 2px solid rgba(255, 255, 255, 0.68);
+  border: 2px solid rgba(255, 255, 255, 0.7);
   padding: 10px 18px;
   border-radius: 16px;
   font-weight: 700;
@@ -56,111 +33,32 @@
   white-space: nowrap;
 }
 
-.metricGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 26px;
-  align-items: stretch;
-}
-
-.metricCard {
-  border-radius: 22px;
-  background: rgba(0, 0, 0, 0.16);
-  border: 1.5px solid rgba(255, 255, 255, 0.72);
-  padding: 16px 18px 14px;
-  min-height: 106px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.metricTitle {
-  font-size: 18px;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.97);
-  line-height: 1.1;
-}
-
-.metricContent {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.metricValueWrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.metricValue {
-  font-size: 34px;
-  line-height: 1;
-  font-weight: 900;
-  color: #ffffff;
-}
-
-.editMiniButton {
-  height: 24px;
-  padding: 0 10px;
-  border: none;
-  border-radius: 8px;
-  background: #ff8f83;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 800;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: 0.2s ease;
-  flex-shrink: 0;
-}
-
-.editMiniButton:hover {
-  filter: brightness(1.05);
-}
-
-.arrowMini {
-  font-size: 13px;
-  line-height: 1;
-}
-
-.tablesGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1.08fr);
-  gap: 34px;
-  align-items: start;
-}
-
-.tableSection {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-width: 0;
+.errorBox {
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 127, 117, 0.45);
+  background: rgba(0, 0, 0, 0.18);
+  color: #ffb8b2;
+  font-weight: 600;
 }
 
 .controlBar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: nowrap;
+  gap: 18px;
 }
 
 .searchBox {
   width: 100%;
-  max-width: 312px;
+  max-width: 280px;
   position: relative;
   display: flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: 16px;
   border: 1.4px solid rgba(255, 255, 255, 0.72);
   background: rgba(0, 0, 0, 0.14);
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 .searchIconWrap {
@@ -191,20 +89,18 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  flex-shrink: 0;
 }
 
 .dropdownWrap {
   position: relative;
 }
 
-.toolbarButton,
-.addButton {
+.toolbarButton {
   height: 42px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: 16px;
   border: 1.4px solid rgba(255, 255, 255, 0.72);
   background: rgba(0, 0, 0, 0.14);
   color: rgba(255, 255, 255, 0.96);
@@ -218,9 +114,12 @@
   white-space: nowrap;
 }
 
-.toolbarButton:hover,
-.addButton:hover {
+.toolbarButton:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.addButton {
+  min-width: 120px;
 }
 
 .dropdownMenu {
@@ -272,10 +171,7 @@
 }
 
 .tableWrap {
-  border-radius: 0;
-  background: transparent;
-  border: none;
-  padding: 0;
+  width: 100%;
   overflow-x: auto;
 }
 
@@ -295,7 +191,7 @@
 }
 
 .table thead th {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.3);
   font-weight: 800;
 }
 
@@ -307,6 +203,12 @@
   padding: 18px 12px !important;
   color: rgba(255, 255, 255, 0.72);
   font-weight: 600;
+}
+
+.actionGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .actionButton {
@@ -341,10 +243,6 @@
   border-radius: 999px;
   border: 1.5px solid rgba(255, 255, 255, 0.74);
   background: rgba(0, 0, 0, 0.12);
-}
-
-.smallPagination {
-  padding: 10px 18px;
 }
 
 .pageArrow {
@@ -410,113 +308,14 @@
   flex-shrink: 0;
 }
 
-.backIcon {
-  width: 20px;
-  height: 20px;
-}
-
 .actionIcon {
   width: 18px;
   height: 18px;
 }
 
-.metricIcon {
-  width: 32px;
-  height: 32px;
-  color: rgba(255, 255, 255, 0.96);
-  flex-shrink: 0;
-}
-
 .pageArrowIcon {
   width: 22px;
   height: 22px;
-}
-
-@media (max-width: 1600px) {
-  .tablesGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 1100px) {
-  .topRow {
-    grid-template-columns: 1fr;
-  }
-
-  .hello {
-    justify-self: start;
-  }
-
-  .controlBar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .searchBox {
-    max-width: 100%;
-  }
-
-  .actionsGroup {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 720px) {
-  .pageTitle {
-    font-size: 30px;
-  }
-
-  .titleWrap {
-    align-items: flex-start;
-  }
-
-  .metricGrid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 26px;
-    align-items: stretch;
-  }
-
-  .metricValue {
-    font-size: 30px;
-  }
-
-  .actionsGroup {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .toolbarButton,
-  .addButton {
-    justify-content: center;
-  }
-}
-.dataState {
-  padding: 14px 18px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.18);
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 600;
-}
-
-.errorState {
-  border-color: rgba(255, 127, 117, 0.45);
-  color: #ffb8b2;
-}
-.dataState {
-  padding: 14px 18px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.18);
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 600;
-}
-
-.errorState {
-  border-color: rgba(255, 127, 117, 0.45);
-  color: #ffb8b2;
 }
 
 .modalOverlay {
@@ -532,31 +331,23 @@
 
 .modalCard {
   width: 100%;
+  max-width: 650px;
   background: #2a2a2d;
   border-radius: 22px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  padding: 68px 74px 60px;
   color: rgba(255, 255, 255, 0.96);
 }
 
-.textModalCard {
-  max-width: 650px;
-  padding: 68px 74px 68px;
-}
-
-.metricModalCard {
-  max-width: 650px;
-  min-height: 640px;
-  padding: 64px 56px 56px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+.modalField + .modalField {
+  margin-top: 18px;
 }
 
 .modalLabel {
+  display: block;
   font-size: 22px;
   line-height: 1.2;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
   color: rgba(255, 255, 255, 0.96);
 }
 
@@ -577,6 +368,19 @@
   font-size: 15px;
   padding: 0 16px;
   font-style: italic;
+}
+
+.modalHint {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
+}
+
+.modalError {
+  margin-top: 14px;
+  color: #ffb8b2;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .modalSaveButton {
@@ -605,97 +409,103 @@
   cursor: not-allowed;
 }
 
-.modalError {
-  margin-top: 12px;
-  color: #ffb8b2;
-  font-size: 14px;
-  font-weight: 600;
+@media (max-width: 1100px) {
+  .topRow {
+    grid-template-columns: 1fr;
+  }
+
+  .hello {
+    justify-self: start;
+  }
+
+  .controlBar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .actionsGroup {
+    justify-content: flex-start;
+  }
 }
 
-.metricModalTitle {
-  font-size: 34px;
-  line-height: 1.1;
-  font-weight: 900;
+@media (max-width: 720px) {
+  .pageTitle {
+    font-size: 40px;
+  }
+
+  .actionsGroup {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbarButton {
+    justify-content: center;
+  }
+
+  .searchBox {
+    max-width: 100%;
+  }
+
+  .modalCard {
+    padding: 38px 24px 34px;
+  }
+
+  .modalLabel {
+    font-size: 18px;
+  }
+}
+.checkboxTh,
+.checkboxCell {
+  width: 44px;
+  min-width: 44px;
+  padding: 10px 8px !important;
   text-align: center;
-  margin-bottom: 52px;
 }
 
-.metricEditorRow {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 88px 1fr 88px;
-  align-items: center;
-  gap: 18px;
-}
-
-.metricStepButton {
-  border: none;
+.rowCheckbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
   background: transparent;
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 72px;
-  line-height: 1;
   cursor: pointer;
+  position: relative;
   transition: 0.2s ease;
 }
 
-.metricStepButton:hover:not(:disabled) {
-  opacity: 0.8;
+.rowCheckbox:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.metricStepButton:disabled {
+.rowCheckbox:checked {
+  background: #ff8e80;
+  border-color: #ff8e80;
+}
+
+.rowCheckbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 4px;
+  height: 9px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.rowCheckbox:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.metricNumberInput {
-  width: 100%;
-  text-align: center;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: #ffffff;
-  font-size: 104px;
-  font-weight: 900;
-  line-height: 1;
-  appearance: textfield;
-  -moz-appearance: textfield;
+.deleteSelectedButton {
+  border-color: rgba(255, 142, 128, 0.85);
+  color: #ffd1cb;
 }
 
-.metricNumberInput::-webkit-outer-spin-button,
-.metricNumberInput::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-@media (max-width: 820px) {
-  .textModalCard {
-    padding: 40px 24px;
-  }
-
-  .metricModalCard {
-    min-height: auto;
-    padding: 40px 24px;
-  }
-
-  .metricModalTitle {
-    font-size: 28px;
-    margin-bottom: 34px;
-  }
-
-  .metricEditorRow {
-    grid-template-columns: 56px 1fr 56px;
-    gap: 8px;
-  }
-
-  .metricStepButton {
-    font-size: 48px;
-  }
-
-  .metricNumberInput {
-    font-size: 72px;
-  }
-
-  .modalSaveButton {
-    font-size: 20px;
-  }
+.deleteSelectedButton:hover {
+  background: rgba(255, 142, 128, 0.12);
 }
