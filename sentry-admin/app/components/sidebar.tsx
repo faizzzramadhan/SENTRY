@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "./sidebar.module.css";
 
 type Props = {
@@ -17,6 +17,18 @@ type NavItem = {
   icon: React.ReactNode;
 };
 
+type UserRole = "staff" | "admin" | null;
+
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const payload = token.split(".")[1];
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 function IconBox() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -28,6 +40,7 @@ function IconBox() {
     </svg>
   );
 }
+
 function IconStack() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -37,6 +50,7 @@ function IconStack() {
     </svg>
   );
 }
+
 function IconGlobe() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -51,6 +65,7 @@ function IconGlobe() {
     </svg>
   );
 }
+
 function IconMap() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -60,6 +75,7 @@ function IconMap() {
     </svg>
   );
 }
+
 function IconList() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -68,6 +84,17 @@ function IconList() {
     </svg>
   );
 }
+
+function IconManageStaff() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3 4 7l8 4 8-4-8-4Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M4 12l8 4 8-4" stroke="currentColor" strokeWidth="2" />
+      <path d="M4 17l8 4 8-4" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
 function IconUser() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -76,6 +103,7 @@ function IconUser() {
     </svg>
   );
 }
+
 function IconLogout() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -85,6 +113,7 @@ function IconLogout() {
     </svg>
   );
 }
+
 function IconClose() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -97,7 +126,10 @@ function IconClose() {
 export default function Sidebar({ open, onClose }: Props) {
   const pathname = usePathname();
   const router = useRouter();
+
   const [isMobile, setIsMobile] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>(null);
+
   const isActive = (href: string) => pathname === href;
 
   useEffect(() => {
@@ -108,13 +140,55 @@ export default function Sidebar({ open, onClose }: Props) {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const nav: NavItem[] = [
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setUserRole(null);
+      return;
+    }
+
+    const payload = decodeJwtPayload(token);
+    const role = payload?.usr_role || payload?.adm_role;
+
+    if (role === "staff" || role === "admin") {
+      setUserRole(role);
+    } else {
+      setUserRole(null);
+    }
+  }, [pathname]);
+
+  const staffNav: NavItem[] = [
     { label: "Dashboard", href: "/dashboard", icon: <IconBox /> },
     { label: "Laporan HUMINT", href: "/humint", icon: <IconStack /> },
     { label: "Monitoring OSINT", href: "/osint", icon: <IconGlobe /> },
     { label: "Monitoring Spasial", href: "/geoint", icon: <IconMap /> },
-    { label: "Log Aktivitas", href: "/log", icon: <IconList /> },
   ];
+
+  const adminNav: NavItem[] = [
+    { label: "Log Aktivitas", href: "/log", icon: <IconList /> },
+    { label: "Manage Staff", href: "/manage-staff", icon: <IconManageStaff /> },
+  ];
+
+  const nav = useMemo(() => {
+    if (userRole === "admin") return adminNav;
+    return staffNav;
+  }, [userRole]);
+
+  useEffect(() => {
+    if (!userRole) return;
+
+    const staffOnlyPaths = ["/dashboard", "/humint", "/osint", "/geoint"];
+    const adminOnlyPaths = ["/manage-staff", "/log"];
+
+    if (userRole === "staff" && adminOnlyPaths.includes(pathname)) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (userRole === "admin" && staffOnlyPaths.includes(pathname)) {
+      router.replace("/manage-staff");
+    }
+  }, [pathname, router, userRole]);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -122,12 +196,11 @@ export default function Sidebar({ open, onClose }: Props) {
   };
 
   const handleNavClick = () => {
-    if (isMobile) onClose(); // auto close on mobile after navigate
+    if (isMobile) onClose();
   };
 
   return (
     <>
-      {/* overlay (muncul hanya di mobile ketika open) */}
       <div
         className={`${styles.overlay} ${open ? styles.overlayShow : ""}`}
         onClick={onClose}
@@ -142,8 +215,12 @@ export default function Sidebar({ open, onClose }: Props) {
             <div className={styles.brandText}>SENTRY</div>
           </div>
 
-          {/* close button (hanya mobile) */}
-          <button className={styles.closeBtn} type="button" onClick={onClose} aria-label="Close sidebar">
+          <button
+            className={styles.closeBtn}
+            type="button"
+            onClick={onClose}
+            aria-label="Close sidebar"
+          >
             <IconClose />
           </button>
         </div>
@@ -170,9 +247,9 @@ export default function Sidebar({ open, onClose }: Props) {
             href="/profile"
             onClick={handleNavClick}
             className={`${styles.profileBtn} ${isActive("/profile") ? styles.profileActive : ""}`}
-            >
+          >
             <span className={styles.profileIcon}>
-                <IconUser />
+              <IconUser />
             </span>
             <span>Profile</span>
           </Link>

@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./profile.module.css";
 
-type AdminData = {
-  adm_id: number;
-  adm_email: string;
-  adm_nama_lengkap: string;
-  adm_no_hp: string;
+type UserData = {
+  usr_id: number;
+  usr_email: string;
+  usr_nama_lengkap: string;
+  usr_no_hp: string;
+  usr_role: "staff" | "admin";
 };
 
 function decodeJwtPayload(token: string): any | null {
@@ -25,28 +26,31 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const [adm, setAdm] = useState<AdminData | null>(null);
+  const [usr, setUsr] = useState<UserData | null>(null);
 
-  // form state
-  const [adm_email, setEmail] = useState("");
-  const [adm_password, setPassword] = useState(""); // opsional
-  const [adm_nama_lengkap, setNama] = useState("");
-  const [adm_no_hp, setNoHp] = useState("");
+  const [usr_email, setEmail] = useState("");
+  const [usr_password, setPassword] = useState("");
+  const [usr_nama_lengkap, setNama] = useState("");
+  const [usr_no_hp, setNoHp] = useState("");
 
-  const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("token") : null), []);
+  const token = useMemo(
+    () => (typeof window !== "undefined" ? localStorage.getItem("token") : null),
+    []
+  );
 
   useEffect(() => {
     const run = async () => {
       setErrorMsg("");
+
       if (!token) {
         window.location.href = "/login";
         return;
       }
 
       const payload = decodeJwtPayload(token);
-      const adm_id = payload?.adm_id || payload?.ADM_ID; // antisipasi kalau payload lama
+      const usr_id = payload?.usr_id;
 
-      if (!adm_id) {
+      if (!usr_id) {
         localStorage.removeItem("token");
         window.location.href = "/login";
         return;
@@ -55,23 +59,23 @@ export default function ProfilePage() {
       try {
         setLoading(true);
 
-        const res = await fetch(`http://localhost:5555/admin/${adm_id}`, {
+        const res = await fetch(`http://localhost:5555/user/${usr_id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const data = await res.json();
 
         if (!res.ok) {
-          setErrorMsg(data?.message || "Gagal mengambil data admin");
+          setErrorMsg(data?.message || "Gagal mengambil data user");
           return;
         }
 
-        const adminData: AdminData = data.admin;
+        const userData: UserData = data.user;
 
-        setAdm(adminData);
-        setEmail(adminData.adm_email || "");
-        setNama(adminData.adm_nama_lengkap || "");
-        setNoHp(adminData.adm_no_hp || "");
+        setUsr(userData);
+        setEmail(userData.usr_email || "");
+        setNama(userData.usr_nama_lengkap || "");
+        setNoHp(userData.usr_no_hp || "");
       } catch (err: any) {
         setErrorMsg(err?.message || "Terjadi error");
       } finally {
@@ -86,20 +90,22 @@ export default function ProfilePage() {
     e.preventDefault();
     setErrorMsg("");
 
-    if (!token || !adm) return;
+    if (!token || !usr) return;
 
     try {
       setSaving(true);
 
-      // password hanya dikirim kalau diisi
       const body: any = {
-        adm_email,
-        adm_nama_lengkap,
-        adm_no_hp,
+        usr_email,
+        usr_nama_lengkap,
+        usr_no_hp,
       };
-      if (adm_password.trim() !== "") body.adm_password = adm_password;
 
-      const res = await fetch(`http://localhost:5555/admin/${adm.adm_id}`, {
+      if (usr_password.trim() !== "") {
+        body.usr_password = usr_password;
+      }
+
+      const res = await fetch(`http://localhost:5555/user/${usr.usr_id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -114,9 +120,7 @@ export default function ProfilePage() {
         return;
       }
 
-      // refresh view state
       setPassword("");
-      // opsional: tampilkan notifikasi sederhana
       alert("Profil berhasil disimpan");
     } catch (err: any) {
       setErrorMsg(err?.message || "Terjadi error saat menyimpan");
@@ -127,10 +131,9 @@ export default function ProfilePage() {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>PROFILE ADMIN</h1>
+      <h1 className={styles.title}>PROFILE USER</h1>
 
       <div className={styles.cardWrap}>
-        {/* blob pink kanan bawah */}
         <div className={styles.blobPink} />
 
         {loading ? (
@@ -146,7 +149,7 @@ export default function ProfilePage() {
                   className={styles.input}
                   type="email"
                   placeholder="isi alamat email anda disini..."
-                  value={adm_email}
+                  value={usr_email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
@@ -160,7 +163,7 @@ export default function ProfilePage() {
                   className={styles.input}
                   type="password"
                   placeholder="percaya padaku ini aman..."
-                  value={adm_password}
+                  value={usr_password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 <div className={styles.hint}>
@@ -176,7 +179,7 @@ export default function ProfilePage() {
                   className={styles.input}
                   type="text"
                   placeholder="isi nama lengkap anda disini..."
-                  value={adm_nama_lengkap}
+                  value={usr_nama_lengkap}
                   onChange={(e) => setNama(e.target.value)}
                   required
                 />
@@ -190,7 +193,7 @@ export default function ProfilePage() {
                   className={styles.input}
                   type="text"
                   placeholder="isi nomor telepon anda disini..."
-                  value={adm_no_hp}
+                  value={usr_no_hp}
                   onChange={(e) => setNoHp(e.target.value)}
                   required
                 />

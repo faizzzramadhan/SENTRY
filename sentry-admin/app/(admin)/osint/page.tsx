@@ -4,7 +4,6 @@ import styles from "./osint.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// decode payload JWT (tanpa library)
 function decodeJwtPayload(token: string): any | null {
   try {
     const payload = token.split(".")[1];
@@ -342,7 +341,7 @@ function getVisiblePages(currentPage: number, totalPages: number) {
 export default function MonitoringOsintPage() {
   const router = useRouter();
 
-  const [adminName, setAdminName] = useState("Admin");
+  const [userName, setUserName] = useState("User");
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
@@ -355,17 +354,24 @@ export default function MonitoringOsintPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
 
     const payload = decodeJwtPayload(token);
 
-    const name =
-      payload?.adm_nama_lengkap ||
-      payload?.ADM_NAMA_LENGKAP ||
-      payload?.adm_email ||
-      "Admin";
+    if (payload?.usr_role === "admin") {
+      window.location.href = "/manage-staff";
+      return;
+    }
 
-    setAdminName(name);
+    const name =
+      payload?.usr_nama_lengkap ||
+      payload?.usr_email ||
+      "User";
+
+    setUserName(name);
   }, []);
 
   const filteredRows = useMemo(() => {
@@ -423,7 +429,7 @@ export default function MonitoringOsintPage() {
     <div className={styles.page}>
       <div className={styles.topRow}>
         <h1 className={styles.pageTitle}>MONITORING OSINT</h1>
-        <div className={styles.hello}>Halo, {adminName}</div>
+        <div className={styles.hello}>Halo, {userName}</div>
       </div>
 
       <div className={styles.kpiRow}>
@@ -456,7 +462,7 @@ export default function MonitoringOsintPage() {
             onClick={() => router.push("/osint/settings")}
           >
             <SettingsIcon />
-            <span>SETTINGS</span>
+            <span>Settings</span>
           </button>
 
           <div className={styles.dropdownWrap}>
@@ -631,7 +637,12 @@ export default function MonitoringOsintPage() {
                   </td>
                   <td>
                     <div className={styles.actionGroup}>
-                      <button type="button" className={styles.actionButton}>
+                      <button
+                        type="button"
+                        className={styles.actionButton}
+                        aria-label="Lihat detail OSINT"
+                        onClick={() => router.push(`/osint/detail/${row.id}`)}
+                      >
                         <EyeIcon />
                       </button>
                       <button type="button" className={styles.actionButton}>
