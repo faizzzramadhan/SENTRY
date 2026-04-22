@@ -16,6 +16,7 @@ function decodeJwtPayload(token: string): any | null {
   }
 }
 
+type TabKey = "kelurahan" | "kecamatan" | "keyword";
 type SortType = "newest" | "oldest";
 type MetricField =
   | "set_jumlah_postingan"
@@ -23,12 +24,9 @@ type MetricField =
   | "set_jumlah_comment"
   | "set_jumlah_share";
 
-type TextModalMode =
-  | null
-  | "addKelurahan"
-  | "editKelurahan"
-  | "addKeyword"
-  | "editKeyword";
+type KeywordModalMode = "add" | "edit" | null;
+type KelurahanModalMode = "add" | "edit" | null;
+type KecamatanModalMode = "add" | "edit" | null;
 
 type KecamatanApiRow = {
   kecamatan_id: number;
@@ -46,9 +44,6 @@ type KelurahanApiRow = {
   kelurahan_id: number;
   id_kecamatan: number | null;
   nama_kelurahan: string;
-  geojson: string | null;
-  latitude_center: string | number | null;
-  longitude_center: string | number | null;
   created_by: string;
   creation_date: string;
   last_updated_by: string;
@@ -56,6 +51,8 @@ type KelurahanApiRow = {
   kecamatan?: {
     kecamatan_id: number;
     nama_kecamatan: string;
+    latitude_center: string | number | null;
+    longitude_center: string | number | null;
   } | null;
 };
 
@@ -91,14 +88,24 @@ type KecamatanResponse = {
   data_kecamatan: KecamatanApiRow[];
 };
 
-type AreaRow = {
+type KelurahanRow = {
   id: number;
   idKecamatan: number | null;
   namaKecamatan: string;
   kelurahan: string;
-  geojson: string;
   latitudeCenter: string;
   longitudeCenter: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedAtRaw: string;
+};
+
+type KecamatanRow = {
+  id: number;
+  kecamatan: string;
+  latitudeCenter: string;
+  longitudeCenter: string;
+  hasGeojson: boolean;
   createdBy: string;
   updatedAt: string;
   updatedAtRaw: string;
@@ -115,55 +122,27 @@ type KeywordRow = {
 type KelurahanForm = {
   id_kecamatan: string;
   nama_kelurahan: string;
-  geojson: string;
+};
+
+type KecamatanForm = {
+  nama_kecamatan: string;
   latitude_center: string;
   longitude_center: string;
-};
-
-type KelurahanModalProps = {
-  open: boolean;
-  mode: "add" | "edit" | null;
-  form: KelurahanForm;
-  kecamatanOptions: KecamatanApiRow[];
-  saving: boolean;
-  errorMsg: string;
-  onChange: (field: keyof KelurahanForm, value: string) => void;
-  onClose: () => void;
-  onSave: () => void;
-};
-
-type TextEntryModalProps = {
-  open: boolean;
-  title: string;
-  label: string;
-  placeholder: string;
-  value: string;
-  saving: boolean;
-  errorMsg: string;
-  onChange: (value: string) => void;
-  onClose: () => void;
-  onSave: () => void;
-};
-
-type MetricModalProps = {
-  open: boolean;
-  title: string;
-  value: string;
-  saving: boolean;
-  errorMsg: string;
-  onChange: (value: string) => void;
-  onDecrease: () => void;
-  onIncrease: () => void;
-  onClose: () => void;
-  onSave: () => void;
+  geojson_file: File | null;
+  geojson_file_name: string;
 };
 
 const emptyKelurahanForm: KelurahanForm = {
   id_kecamatan: "",
   nama_kelurahan: "",
-  geojson: "",
+};
+
+const emptyKecamatanForm: KecamatanForm = {
+  nama_kecamatan: "",
   latitude_center: "",
   longitude_center: "",
+  geojson_file: null,
+  geojson_file_name: "",
 };
 
 function formatDateTime(value?: string | null) {
@@ -183,6 +162,11 @@ function formatDateTime(value?: string | null) {
 
 function parseDate(dateString: string) {
   return new Date(dateString).getTime();
+}
+
+function normalizeCoord(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "-";
+  return String(value);
 }
 
 function getVisiblePages(currentPage: number, totalPages: number): Array<number | "..."> {
@@ -207,35 +191,10 @@ function getMetricTitle(field: MetricField | null) {
   }
 }
 
-function getTextModalConfig(mode: TextModalMode) {
-  switch (mode) {
-    case "addKeyword":
-      return {
-        title: "Tambah data Keyword",
-        label: "Tambah data Keyword",
-        placeholder: "isi data keyword disini....",
-      };
-    case "editKeyword":
-      return {
-        title: "Edit data Keyword",
-        label: "Edit data Keyword",
-        placeholder: "isi data keyword disini....",
-      };
-    default:
-      return {
-        title: "",
-        label: "",
-        placeholder: "",
-      };
-  }
-}
-
 function parseMetricInput(value: string) {
   if (value.trim() === "") return 0;
-
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 0) return null;
-
   return parsed;
 }
 
@@ -261,14 +220,6 @@ function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" className={styles.icon} aria-hidden="true">
       <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className={styles.icon} aria-hidden="true">
-      <path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -369,6 +320,81 @@ function ChevronRightIcon() {
   );
 }
 
+type KeywordModalProps = {
+  open: boolean;
+  mode: KeywordModalMode;
+  value: string;
+  saving: boolean;
+  errorMsg: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+};
+
+function KeywordModal({
+  open,
+  mode,
+  value,
+  saving,
+  errorMsg,
+  onChange,
+  onClose,
+  onSave,
+}: KeywordModalProps) {
+  if (!open) return null;
+
+  const isEdit = mode === "edit";
+
+  return (
+    <div
+      className={styles.modalOverlay}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving) onClose();
+      }}
+    >
+      <div className={styles.formModalCard}>
+        <div className={styles.formField}>
+          <label className={styles.modalLabel}>
+            {isEdit ? "Edit data Keyword" : "Tambah data Keyword"}
+            <span className={styles.modalRequired}>*</span>
+          </label>
+          <input
+            className={styles.modalInput}
+            type="text"
+            placeholder="isi data keyword disini...."
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        {errorMsg ? <div className={styles.modalError}>{errorMsg}</div> : null}
+
+        <button
+          type="button"
+          className={styles.modalSaveButton}
+          onClick={onSave}
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type KelurahanModalProps = {
+  open: boolean;
+  mode: KelurahanModalMode;
+  form: KelurahanForm;
+  kecamatanOptions: KecamatanApiRow[];
+  saving: boolean;
+  errorMsg: string;
+  onChange: (field: keyof KelurahanForm, value: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+};
+
 function KelurahanModal({
   open,
   mode,
@@ -391,62 +417,38 @@ function KelurahanModal({
         if (e.target === e.currentTarget && !saving) onClose();
       }}
     >
-      <div className={`${styles.modalCard} ${styles.textModalCard}`}>
-        <div className={styles.modalLabel}>
-          Kecamatan<span className={styles.modalRequired}>*</span>
+      <div className={styles.formModalCard}>
+        <div className={styles.formField}>
+          <label className={styles.modalLabel}>
+            Kecamatan<span className={styles.modalRequired}>*</span>
+          </label>
+          <select
+            className={styles.modalInput}
+            value={form.id_kecamatan}
+            onChange={(e) => onChange("id_kecamatan", e.target.value)}
+          >
+            <option value="">Pilih kecamatan</option>
+            {kecamatanOptions.map((item) => (
+              <option key={item.kecamatan_id} value={item.kecamatan_id}>
+                {item.nama_kecamatan}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          className={styles.modalInput}
-          value={form.id_kecamatan}
-          onChange={(e) => onChange("id_kecamatan", e.target.value)}
-        >
-          <option value="">Pilih kecamatan</option>
-          {kecamatanOptions.map((item) => (
-            <option key={item.kecamatan_id} value={item.kecamatan_id}>
-              {item.nama_kecamatan}
-            </option>
-          ))}
-        </select>
 
-        <div className={styles.modalLabel}>
-          Nama Kelurahan<span className={styles.modalRequired}>*</span>
+        <div className={styles.formField}>
+          <label className={styles.modalLabel}>
+            {isEdit ? "Edit data Kelurahan" : "Tambah data Kelurahan"}
+            <span className={styles.modalRequired}>*</span>
+          </label>
+          <input
+            className={styles.modalInput}
+            type="text"
+            placeholder="isi data kelurahan disini...."
+            value={form.nama_kelurahan}
+            onChange={(e) => onChange("nama_kelurahan", e.target.value)}
+          />
         </div>
-        <input
-          className={styles.modalInput}
-          type="text"
-          placeholder="isi data kelurahan disini...."
-          value={form.nama_kelurahan}
-          onChange={(e) => onChange("nama_kelurahan", e.target.value)}
-        />
-
-        <div className={styles.modalLabel}>GeoJSON</div>
-        <textarea
-          className={styles.modalInput}
-          placeholder='contoh: {"type":"Polygon","coordinates":[]}'
-          value={form.geojson}
-          onChange={(e) => onChange("geojson", e.target.value)}
-          rows={5}
-        />
-
-        <div className={styles.modalLabel}>Latitude Center</div>
-        <input
-          className={styles.modalInput}
-          type="text"
-          placeholder="contoh: -7.9528300000000000"
-          value={form.latitude_center}
-          onChange={(e) => onChange("latitude_center", e.target.value)}
-        />
-
-        <div className={styles.modalLabel}>Longitude Center</div>
-        <input
-          className={styles.modalInput}
-          type="text"
-          placeholder="contoh: 112.6154300000000000"
-          value={form.longitude_center}
-          onChange={(e) => onChange("longitude_center", e.target.value)}
-        />
-
-        {isEdit ? null : null}
 
         {errorMsg ? <div className={styles.modalError}>{errorMsg}</div> : null}
 
@@ -463,19 +465,30 @@ function KelurahanModal({
   );
 }
 
-function TextEntryModal({
+type KecamatanModalProps = {
+  open: boolean;
+  mode: KecamatanModalMode;
+  form: KecamatanForm;
+  saving: boolean;
+  errorMsg: string;
+  onChange: (field: keyof KecamatanForm, value: string | File | null) => void;
+  onClose: () => void;
+  onSave: () => void;
+};
+
+function KecamatanModal({
   open,
-  title,
-  label,
-  placeholder,
-  value,
+  mode,
+  form,
   saving,
   errorMsg,
   onChange,
   onClose,
   onSave,
-}: TextEntryModalProps) {
+}: KecamatanModalProps) {
   if (!open) return null;
+
+  const isEdit = mode === "edit";
 
   return (
     <div
@@ -484,20 +497,65 @@ function TextEntryModal({
         if (e.target === e.currentTarget && !saving) onClose();
       }}
     >
-      <div className={`${styles.modalCard} ${styles.textModalCard}`}>
-        <div className={styles.modalLabel}>
-          {label}
-          <span className={styles.modalRequired}>*</span>
+      <div className={styles.formModalCard}>
+        <div className={styles.formField}>
+          <label className={styles.modalLabel}>
+            {isEdit ? "Edit data Kecamatan" : "Tambah data Kecamatan"}
+            <span className={styles.modalRequired}>*</span>
+          </label>
+          <input
+            className={styles.modalInput}
+            type="text"
+            placeholder="isi data kecamatan disini...."
+            value={form.nama_kecamatan}
+            onChange={(e) => onChange("nama_kecamatan", e.target.value)}
+          />
         </div>
 
-        <input
-          className={styles.modalInput}
-          type="text"
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          autoFocus
-        />
+        <div className={styles.formField}>
+          <label className={styles.modalLabel}>
+            File GeoJSON<span className={styles.modalRequired}>*</span>
+          </label>
+          <input
+            className={styles.fileInput}
+            type="file"
+            accept=".json,.geojson,application/json"
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null;
+              onChange("geojson_file", file);
+              onChange("geojson_file_name", file?.name || "");
+            }}
+          />
+          <div className={styles.fileHint}>
+            {form.geojson_file_name
+              ? `File dipilih: ${form.geojson_file_name}`
+              : isEdit
+              ? "Kosongkan jika tidak ingin mengganti file geojson."
+              : "Upload file .json atau .geojson"}
+          </div>
+        </div>
+
+        <div className={styles.formField}>
+          <label className={styles.modalLabel}>Latitude Center</label>
+          <input
+            className={styles.modalInput}
+            type="text"
+            placeholder="contoh: -7.8028333"
+            value={form.latitude_center}
+            onChange={(e) => onChange("latitude_center", e.target.value)}
+          />
+        </div>
+
+        <div className={styles.formField}>
+          <label className={styles.modalLabel}>Longitude Center</label>
+          <input
+            className={styles.modalInput}
+            type="text"
+            placeholder="contoh: 110.374138"
+            value={form.longitude_center}
+            onChange={(e) => onChange("longitude_center", e.target.value)}
+          />
+        </div>
 
         {errorMsg ? <div className={styles.modalError}>{errorMsg}</div> : null}
 
@@ -513,6 +571,19 @@ function TextEntryModal({
     </div>
   );
 }
+
+type MetricModalProps = {
+  open: boolean;
+  title: string;
+  value: string;
+  saving: boolean;
+  errorMsg: string;
+  onChange: (value: string) => void;
+  onDecrease: () => void;
+  onIncrease: () => void;
+  onClose: () => void;
+  onSave: () => void;
+};
 
 function MetricModal({
   open,
@@ -535,7 +606,7 @@ function MetricModal({
         if (e.target === e.currentTarget && !saving) onClose();
       }}
     >
-      <div className={`${styles.modalCard} ${styles.metricModalCard}`}>
+      <div className={styles.metricModalCard}>
         <div className={styles.metricModalTitle}>{title}</div>
 
         <div className={styles.metricEditorRow}>
@@ -588,12 +659,14 @@ function MetricModal({
 export default function SettingsOsintPage() {
   const router = useRouter();
 
+  const [activeTab, setActiveTab] = useState<TabKey>("kelurahan");
   const [userName, setUserName] = useState("User");
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const [kecamatanRows, setKecamatanRows] = useState<KecamatanApiRow[]>([]);
-  const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
+  const [kelurahanRows, setKelurahanRows] = useState<KelurahanRow[]>([]);
+  const [kecamatanRows, setKecamatanRows] = useState<KecamatanRow[]>([]);
+  const [kecamatanApiRows, setKecamatanApiRows] = useState<KecamatanApiRow[]>([]);
   const [keywordRows, setKeywordRows] = useState<KeywordRow[]>([]);
   const [kpiData, setKpiData] = useState<KpiApi>({
     osint_settings_id: null,
@@ -605,24 +678,33 @@ export default function SettingsOsintPage() {
     last_update_date: null,
   });
 
-  const [search, setSearch] = useState("");
-  const [selectedKelurahan, setSelectedKelurahan] = useState<string>("Semua");
-  const [sortType, setSortType] = useState<SortType>("newest");
-  const [openFilter, setOpenFilter] = useState(false);
-
+  const [kelurahanSearch, setKelurahanSearch] = useState("");
+  const [kecamatanSearch, setKecamatanSearch] = useState("");
   const [keywordSearch, setKeywordSearch] = useState("");
-  const [keywordSortType, setKeywordSortType] = useState<SortType>("newest");
 
-  const [areaPage, setAreaPage] = useState(1);
+  const [kelurahanSort, setKelurahanSort] = useState<SortType>("newest");
+  const [kecamatanSort, setKecamatanSort] = useState<SortType>("newest");
+  const [keywordSort, setKeywordSort] = useState<SortType>("newest");
+
+  const [kelurahanPage, setKelurahanPage] = useState(1);
+  const [kecamatanPage, setKecamatanPage] = useState(1);
   const [keywordPage, setKeywordPage] = useState(1);
 
-  const [textModalMode, setTextModalMode] = useState<TextModalMode>(null);
-  const [textModalValue, setTextModalValue] = useState("");
-  const [activeKelurahanId, setActiveKelurahanId] = useState<number | null>(null);
-  const [activeKeywordId, setActiveKeywordId] = useState<number | null>(null);
+  const [selectedKelurahanIds, setSelectedKelurahanIds] = useState<Set<number>>(new Set());
+  const [selectedKecamatanIds, setSelectedKecamatanIds] = useState<Set<number>>(new Set());
+  const [selectedKeywordIds, setSelectedKeywordIds] = useState<Set<number>>(new Set());
 
-  const [kelurahanModalMode, setKelurahanModalMode] = useState<"add" | "edit" | null>(null);
+  const [kelurahanModalMode, setKelurahanModalMode] = useState<KelurahanModalMode>(null);
+  const [kecamatanModalMode, setKecamatanModalMode] = useState<KecamatanModalMode>(null);
+  const [keywordModalMode, setKeywordModalMode] = useState<KeywordModalMode>(null);
+
   const [kelurahanForm, setKelurahanForm] = useState<KelurahanForm>(emptyKelurahanForm);
+  const [kecamatanForm, setKecamatanForm] = useState<KecamatanForm>(emptyKecamatanForm);
+  const [keywordModalValue, setKeywordModalValue] = useState("");
+
+  const [activeKelurahanId, setActiveKelurahanId] = useState<number | null>(null);
+  const [activeKecamatanId, setActiveKecamatanId] = useState<number | null>(null);
+  const [activeKeywordId, setActiveKeywordId] = useState<number | null>(null);
 
   const [metricModalField, setMetricModalField] = useState<MetricField | null>(null);
   const [metricModalValue, setMetricModalValue] = useState("0");
@@ -635,8 +717,6 @@ export default function SettingsOsintPage() {
     []
   );
 
-  const textModalConfig = useMemo(() => getTextModalConfig(textModalMode), [textModalMode]);
-
   useEffect(() => {
     const payload = token ? decodeJwtPayload(token) : null;
 
@@ -645,16 +725,7 @@ export default function SettingsOsintPage() {
       return;
     }
 
-    if (payload?.usr_role === "admin") {
-      window.location.href = "/manage-staff";
-      return;
-    }
-
-    const name =
-      payload?.usr_nama_lengkap ||
-      payload?.usr_email ||
-      "User";
-
+    const name = payload?.usr_nama_lengkap || payload?.usr_email || "User";
     setUserName(name);
   }, [token]);
 
@@ -672,21 +743,15 @@ export default function SettingsOsintPage() {
 
         const [settingsRes, kecamatanRes] = await Promise.all([
           fetch(`${API_BASE_URL}/osint/settings/frontend`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(`${API_BASE_URL}/osint/kecamatan`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
 
-        const settingsData: FrontendSettingsResponse | { message?: string } =
-          await settingsRes.json();
-        const kecamatanData: KecamatanResponse | { message?: string } =
-          await kecamatanRes.json();
+        const settingsData: FrontendSettingsResponse | { message?: string } = await settingsRes.json();
+        const kecamatanData: KecamatanResponse | { message?: string } = await kecamatanRes.json();
 
         if (!settingsRes.ok) {
           setErrorMsg((settingsData as any)?.message || "Gagal mengambil data settings OSINT");
@@ -698,29 +763,33 @@ export default function SettingsOsintPage() {
           return;
         }
 
-        const response = settingsData as FrontendSettingsResponse;
-        const responseKecamatan = kecamatanData as KecamatanResponse;
+        const settings = settingsData as FrontendSettingsResponse;
+        const kecamatanResponse = kecamatanData as KecamatanResponse;
 
-        const mappedAreaRows: AreaRow[] = (response.daftar_kelurahan || []).map((item) => ({
+        const mappedKelurahanRows: KelurahanRow[] = (settings.daftar_kelurahan || []).map((item) => ({
           id: item.kelurahan_id,
           idKecamatan: item.id_kecamatan ?? null,
           namaKecamatan: item.kecamatan?.nama_kecamatan || "-",
           kelurahan: item.nama_kelurahan,
-          geojson: item.geojson || "",
-          latitudeCenter:
-            item.latitude_center !== null && item.latitude_center !== undefined
-              ? String(item.latitude_center)
-              : "",
-          longitudeCenter:
-            item.longitude_center !== null && item.longitude_center !== undefined
-              ? String(item.longitude_center)
-              : "",
+          latitudeCenter: normalizeCoord(item.kecamatan?.latitude_center),
+          longitudeCenter: normalizeCoord(item.kecamatan?.longitude_center),
           createdBy: item.created_by,
           updatedAt: formatDateTime(item.last_update_date),
           updatedAtRaw: item.last_update_date,
         }));
 
-        const mappedKeywordRows: KeywordRow[] = (response.daftar_keyword || []).map((item) => ({
+        const mappedKecamatanRows: KecamatanRow[] = (kecamatanResponse.data_kecamatan || []).map((item) => ({
+          id: item.kecamatan_id,
+          kecamatan: item.nama_kecamatan,
+          latitudeCenter: normalizeCoord(item.latitude_center),
+          longitudeCenter: normalizeCoord(item.longitude_center),
+          hasGeojson: Boolean(item.geojson),
+          createdBy: item.created_by,
+          updatedAt: formatDateTime(item.last_update_date),
+          updatedAtRaw: item.last_update_date,
+        }));
+
+        const mappedKeywordRows: KeywordRow[] = (settings.daftar_keyword || []).map((item) => ({
           id: item.keyword_id,
           keyword: item.keyword,
           createdBy: item.created_by,
@@ -728,20 +797,19 @@ export default function SettingsOsintPage() {
           updatedAtRaw: item.last_update_date,
         }));
 
-        const mappedKpi: KpiApi = {
-          osint_settings_id: response.nilai_kpi?.osint_settings_id ?? null,
-          set_jumlah_postingan: Number(response.nilai_kpi?.set_jumlah_postingan ?? 0),
-          set_jumlah_like: Number(response.nilai_kpi?.set_jumlah_like ?? 0),
-          set_jumlah_comment: Number(response.nilai_kpi?.set_jumlah_comment ?? 0),
-          set_jumlah_share: Number(response.nilai_kpi?.set_jumlah_share ?? 0),
-          last_updated_by: response.nilai_kpi?.last_updated_by ?? null,
-          last_update_date: response.nilai_kpi?.last_update_date ?? null,
-        };
-
-        setKecamatanRows(responseKecamatan.data_kecamatan || []);
-        setAreaRows(mappedAreaRows);
+        setKelurahanRows(mappedKelurahanRows);
+        setKecamatanRows(mappedKecamatanRows);
+        setKecamatanApiRows(kecamatanResponse.data_kecamatan || []);
         setKeywordRows(mappedKeywordRows);
-        setKpiData(mappedKpi);
+        setKpiData({
+          osint_settings_id: settings.nilai_kpi?.osint_settings_id ?? null,
+          set_jumlah_postingan: Number(settings.nilai_kpi?.set_jumlah_postingan ?? 0),
+          set_jumlah_like: Number(settings.nilai_kpi?.set_jumlah_like ?? 0),
+          set_jumlah_comment: Number(settings.nilai_kpi?.set_jumlah_comment ?? 0),
+          set_jumlah_share: Number(settings.nilai_kpi?.set_jumlah_share ?? 0),
+          last_updated_by: settings.nilai_kpi?.last_updated_by ?? null,
+          last_update_date: settings.nilai_kpi?.last_update_date ?? null,
+        });
       } catch (err: any) {
         setErrorMsg(err?.message || "Terjadi error saat mengambil data");
       } finally {
@@ -755,12 +823,159 @@ export default function SettingsOsintPage() {
     fetchSettingsData(true);
   }, [fetchSettingsData]);
 
-  const closeTextModal = () => {
-    if (modalSaving) return;
-    setTextModalMode(null);
-    setTextModalValue("");
-    setActiveKeywordId(null);
-    setModalErrorMsg("");
+  const filteredKelurahanRows = useMemo(() => {
+    const keyword = kelurahanSearch.trim().toLowerCase();
+    const rows = kelurahanRows.filter((row) =>
+      [row.kelurahan, row.namaKecamatan, row.latitudeCenter, row.longitudeCenter, row.createdBy, row.updatedAt]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword)
+    );
+
+    return [...rows].sort((a, b) => {
+      const ta = parseDate(a.updatedAtRaw);
+      const tb = parseDate(b.updatedAtRaw);
+      return kelurahanSort === "newest" ? tb - ta : ta - tb;
+    });
+  }, [kelurahanRows, kelurahanSearch, kelurahanSort]);
+
+  const filteredKecamatanRows = useMemo(() => {
+    const keyword = kecamatanSearch.trim().toLowerCase();
+    const rows = kecamatanRows.filter((row) =>
+      [row.kecamatan, row.latitudeCenter, row.longitudeCenter, row.createdBy, row.updatedAt]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword)
+    );
+
+    return [...rows].sort((a, b) => {
+      const ta = parseDate(a.updatedAtRaw);
+      const tb = parseDate(b.updatedAtRaw);
+      return kecamatanSort === "newest" ? tb - ta : ta - tb;
+    });
+  }, [kecamatanRows, kecamatanSearch, kecamatanSort]);
+
+  const filteredKeywordRows = useMemo(() => {
+    const keyword = keywordSearch.trim().toLowerCase();
+    const rows = keywordRows.filter((row) =>
+      [row.keyword, row.createdBy, row.updatedAt].join(" ").toLowerCase().includes(keyword)
+    );
+
+    return [...rows].sort((a, b) => {
+      const ta = parseDate(a.updatedAtRaw);
+      const tb = parseDate(b.updatedAtRaw);
+      return keywordSort === "newest" ? tb - ta : ta - tb;
+    });
+  }, [keywordRows, keywordSearch, keywordSort]);
+
+  const rowsPerPage = 15;
+
+  const kelurahanTotalPages = Math.max(1, Math.ceil(filteredKelurahanRows.length / rowsPerPage));
+  const kecamatanTotalPages = Math.max(1, Math.ceil(filteredKecamatanRows.length / rowsPerPage));
+  const keywordTotalPages = Math.max(1, Math.ceil(filteredKeywordRows.length / rowsPerPage));
+
+  const currentKelurahanRows = filteredKelurahanRows.slice(
+    (kelurahanPage - 1) * rowsPerPage,
+    kelurahanPage * rowsPerPage
+  );
+  const currentKecamatanRows = filteredKecamatanRows.slice(
+    (kecamatanPage - 1) * rowsPerPage,
+    kecamatanPage * rowsPerPage
+  );
+  const currentKeywordRows = filteredKeywordRows.slice(
+    (keywordPage - 1) * rowsPerPage,
+    keywordPage * rowsPerPage
+  );
+
+  useEffect(() => setKelurahanPage(1), [kelurahanSearch, kelurahanSort]);
+  useEffect(() => setKecamatanPage(1), [kecamatanSearch, kecamatanSort]);
+  useEffect(() => setKeywordPage(1), [keywordSearch, keywordSort]);
+
+  useEffect(() => {
+    if (kelurahanPage > kelurahanTotalPages) setKelurahanPage(kelurahanTotalPages);
+  }, [kelurahanPage, kelurahanTotalPages]);
+
+  useEffect(() => {
+    if (kecamatanPage > kecamatanTotalPages) setKecamatanPage(kecamatanTotalPages);
+  }, [kecamatanPage, kecamatanTotalPages]);
+
+  useEffect(() => {
+    if (keywordPage > keywordTotalPages) setKeywordPage(keywordTotalPages);
+  }, [keywordPage, keywordTotalPages]);
+
+  const toggleKelurahanRow = (id: number) => {
+    setSelectedKelurahanIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleKecamatanRow = (id: number) => {
+    setSelectedKecamatanIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleKeywordRow = (id: number) => {
+    setSelectedKeywordIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allKelurahanChecked =
+    currentKelurahanRows.length > 0 &&
+    currentKelurahanRows.every((row) => selectedKelurahanIds.has(row.id));
+
+  const allKecamatanChecked =
+    currentKecamatanRows.length > 0 &&
+    currentKecamatanRows.every((row) => selectedKecamatanIds.has(row.id));
+
+  const allKeywordChecked =
+    currentKeywordRows.length > 0 &&
+    currentKeywordRows.every((row) => selectedKeywordIds.has(row.id));
+
+  const toggleAllKelurahan = () => {
+    setSelectedKelurahanIds((prev) => {
+      const next = new Set(prev);
+      if (allKelurahanChecked) {
+        currentKelurahanRows.forEach((row) => next.delete(row.id));
+      } else {
+        currentKelurahanRows.forEach((row) => next.add(row.id));
+      }
+      return next;
+    });
+  };
+
+  const toggleAllKecamatan = () => {
+    setSelectedKecamatanIds((prev) => {
+      const next = new Set(prev);
+      if (allKecamatanChecked) {
+        currentKecamatanRows.forEach((row) => next.delete(row.id));
+      } else {
+        currentKecamatanRows.forEach((row) => next.add(row.id));
+      }
+      return next;
+    });
+  };
+
+  const toggleAllKeyword = () => {
+    setSelectedKeywordIds((prev) => {
+      const next = new Set(prev);
+      if (allKeywordChecked) {
+        currentKeywordRows.forEach((row) => next.delete(row.id));
+      } else {
+        currentKeywordRows.forEach((row) => next.add(row.id));
+      }
+      return next;
+    });
   };
 
   const closeKelurahanModal = () => {
@@ -768,6 +983,22 @@ export default function SettingsOsintPage() {
     setKelurahanModalMode(null);
     setKelurahanForm(emptyKelurahanForm);
     setActiveKelurahanId(null);
+    setModalErrorMsg("");
+  };
+
+  const closeKecamatanModal = () => {
+    if (modalSaving) return;
+    setKecamatanModalMode(null);
+    setKecamatanForm(emptyKecamatanForm);
+    setActiveKecamatanId(null);
+    setModalErrorMsg("");
+  };
+
+  const closeKeywordModal = () => {
+    if (modalSaving) return;
+    setKeywordModalMode(null);
+    setKeywordModalValue("");
+    setActiveKeywordId(null);
     setModalErrorMsg("");
   };
 
@@ -785,29 +1016,53 @@ export default function SettingsOsintPage() {
     setModalErrorMsg("");
   };
 
-  const openEditKelurahan = (row: AreaRow) => {
+  const openEditKelurahan = (row: KelurahanRow) => {
     setKelurahanModalMode("edit");
     setKelurahanForm({
       id_kecamatan: row.idKecamatan ? String(row.idKecamatan) : "",
       nama_kelurahan: row.kelurahan,
-      geojson: row.geojson || "",
-      latitude_center: row.latitudeCenter || "",
-      longitude_center: row.longitudeCenter || "",
     });
     setActiveKelurahanId(row.id);
     setModalErrorMsg("");
   };
 
+  const openAddKecamatan = () => {
+    setKecamatanModalMode("add");
+    setKecamatanForm(emptyKecamatanForm);
+    setActiveKecamatanId(null);
+    setModalErrorMsg("");
+  };
+
+  const openEditKecamatan = (row: KecamatanRow) => {
+    const source = kecamatanApiRows.find((item) => item.kecamatan_id === row.id);
+    setKecamatanModalMode("edit");
+    setKecamatanForm({
+      nama_kecamatan: source?.nama_kecamatan || row.kecamatan,
+      latitude_center:
+        source?.latitude_center !== null && source?.latitude_center !== undefined
+          ? String(source.latitude_center)
+          : "",
+      longitude_center:
+        source?.longitude_center !== null && source?.longitude_center !== undefined
+          ? String(source.longitude_center)
+          : "",
+      geojson_file: null,
+      geojson_file_name: "",
+    });
+    setActiveKecamatanId(row.id);
+    setModalErrorMsg("");
+  };
+
   const openAddKeyword = () => {
-    setTextModalMode("addKeyword");
-    setTextModalValue("");
+    setKeywordModalMode("add");
+    setKeywordModalValue("");
     setActiveKeywordId(null);
     setModalErrorMsg("");
   };
 
   const openEditKeyword = (row: KeywordRow) => {
-    setTextModalMode("editKeyword");
-    setTextModalValue(row.keyword);
+    setKeywordModalMode("edit");
+    setKeywordModalValue(row.keyword);
     setActiveKeywordId(row.id);
     setModalErrorMsg("");
   };
@@ -818,14 +1073,7 @@ export default function SettingsOsintPage() {
     setModalErrorMsg("");
   };
 
-  const handleKelurahanFormChange = (field: keyof KelurahanForm, value: string) => {
-    setKelurahanForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const saveKelurahanModal = async () => {
+  const saveKelurahan = async () => {
     if (!token) {
       window.location.href = "/login";
       return;
@@ -850,21 +1098,16 @@ export default function SettingsOsintPage() {
         ? `${API_BASE_URL}/osint/kelurahan/${activeKelurahanId}`
         : `${API_BASE_URL}/osint/kelurahan`;
 
-      const body: Record<string, any> = {
-        id_kecamatan: Number(kelurahanForm.id_kecamatan),
-        nama_kelurahan: kelurahanForm.nama_kelurahan.trim(),
-        geojson: kelurahanForm.geojson.trim() || null,
-        latitude_center: kelurahanForm.latitude_center.trim() || null,
-        longitude_center: kelurahanForm.longitude_center.trim() || null,
-      };
-
       const res = await fetch(url, {
         method: isEdit ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          id_kecamatan: Number(kelurahanForm.id_kecamatan),
+          nama_kelurahan: kelurahanForm.nama_kelurahan.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -883,15 +1126,19 @@ export default function SettingsOsintPage() {
     }
   };
 
-  const saveTextModal = async () => {
+  const saveKecamatan = async () => {
     if (!token) {
       window.location.href = "/login";
       return;
     }
 
-    const trimmed = textModalValue.trim();
-    if (!trimmed) {
-      setModalErrorMsg("Field wajib diisi.");
+    if (!kecamatanForm.nama_kecamatan.trim()) {
+      setModalErrorMsg("Nama kecamatan wajib diisi.");
+      return;
+    }
+
+    if (kecamatanModalMode === "add" && !kecamatanForm.geojson_file) {
+      setModalErrorMsg("File geojson wajib diupload.");
       return;
     }
 
@@ -899,52 +1146,91 @@ export default function SettingsOsintPage() {
       setModalSaving(true);
       setModalErrorMsg("");
 
-      let url = "";
-      let method: "POST" | "PUT" = "POST";
-      let body: Record<string, any> = {};
+      const isEdit = kecamatanModalMode === "edit";
+      const url = isEdit
+        ? `${API_BASE_URL}/osint/kecamatan/${activeKecamatanId}`
+        : `${API_BASE_URL}/osint/kecamatan`;
 
-      if (textModalMode === "addKeyword") {
-        url = `${API_BASE_URL}/osint/keyword`;
-        method = "POST";
-        body = { keyword: trimmed };
-      } else if (textModalMode === "editKeyword") {
-        if (!activeKeywordId) {
-          setModalErrorMsg("ID keyword tidak valid.");
-          return;
-        }
-        url = `${API_BASE_URL}/osint/keyword/${activeKeywordId}`;
-        method = "PUT";
-        body = { keyword: trimmed };
-      } else {
-        return;
+      const formData = new FormData();
+      formData.append("nama_kecamatan", kecamatanForm.nama_kecamatan.trim());
+      formData.append("latitude_center", kecamatanForm.latitude_center.trim());
+      formData.append("longitude_center", kecamatanForm.longitude_center.trim());
+
+      if (kecamatanForm.geojson_file) {
+        formData.append("geojson_file", kecamatanForm.geojson_file);
       }
 
       const res = await fetch(url, {
-        method,
+        method: isEdit ? "PUT" : "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(body),
+        body: formData,
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data.");
+        setModalErrorMsg(data?.message || "Gagal menyimpan data kecamatan.");
         return;
       }
 
-      closeTextModal();
+      closeKecamatanModal();
       await fetchSettingsData(false);
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan.");
+      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan kecamatan.");
     } finally {
       setModalSaving(false);
     }
   };
 
-  const saveMetricModal = async () => {
+  const saveKeyword = async () => {
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const trimmed = keywordModalValue.trim();
+    if (!trimmed) {
+      setModalErrorMsg("Keyword wajib diisi.");
+      return;
+    }
+
+    try {
+      setModalSaving(true);
+      setModalErrorMsg("");
+
+      const isEdit = keywordModalMode === "edit";
+      const url = isEdit
+        ? `${API_BASE_URL}/osint/keyword/${activeKeywordId}`
+        : `${API_BASE_URL}/osint/keyword`;
+
+      const res = await fetch(url, {
+        method: isEdit ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ keyword: trimmed }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setModalErrorMsg(data?.message || "Gagal menyimpan data keyword.");
+        return;
+      }
+
+      closeKeywordModal();
+      await fetchSettingsData(false);
+    } catch (err: any) {
+      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan keyword.");
+    } finally {
+      setModalSaving(false);
+    }
+  };
+
+  const saveMetric = async () => {
     if (!token) {
       window.location.href = "/login";
       return;
@@ -1013,96 +1299,77 @@ export default function SettingsOsintPage() {
     }
   };
 
-  const kelurahanOptions = useMemo(() => {
-    const uniqueKelurahan = Array.from(new Set(areaRows.map((row) => row.kelurahan)));
-    return ["Semua", ...uniqueKelurahan];
-  }, [areaRows]);
+  const currentSearch = activeTab === "kelurahan"
+    ? kelurahanSearch
+    : activeTab === "kecamatan"
+    ? kecamatanSearch
+    : keywordSearch;
 
-  const filteredAreaRows = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+  const setCurrentSearch = (value: string) => {
+    if (activeTab === "kelurahan") setKelurahanSearch(value);
+    else if (activeTab === "kecamatan") setKecamatanSearch(value);
+    else setKeywordSearch(value);
+  };
 
-    const result = areaRows.filter((row) => {
-      const matchSearch =
-        keyword === ""
-          ? true
-          : [
-              row.kelurahan,
-              row.namaKecamatan,
-              row.createdBy,
-              row.updatedAt,
-              row.latitudeCenter,
-              row.longitudeCenter,
-            ]
-              .join(" ")
-              .toLowerCase()
-              .includes(keyword);
+  const toggleCurrentSort = () => {
+    if (activeTab === "kelurahan") {
+      setKelurahanSort((prev) => (prev === "newest" ? "oldest" : "newest"));
+    } else if (activeTab === "kecamatan") {
+      setKecamatanSort((prev) => (prev === "newest" ? "oldest" : "newest"));
+    } else {
+      setKeywordSort((prev) => (prev === "newest" ? "oldest" : "newest"));
+    }
+  };
 
-      const matchKelurahan =
-        selectedKelurahan === "Semua" ? true : row.kelurahan === selectedKelurahan;
+  const handleAddByTab = () => {
+    if (activeTab === "kelurahan") openAddKelurahan();
+    else if (activeTab === "kecamatan") openAddKecamatan();
+    else openAddKeyword();
+  };
 
-      return matchSearch && matchKelurahan;
-    });
+  const addButtonLabel =
+    activeTab === "kelurahan"
+      ? "Tambah Kelurahan"
+      : activeTab === "kecamatan"
+      ? "Tambah Kecamatan"
+      : "Tambah Keyword";
 
-    return [...result].sort((a, b) => {
-      const timeA = parseDate(a.updatedAtRaw);
-      const timeB = parseDate(b.updatedAtRaw);
-      return sortType === "newest" ? timeB - timeA : timeA - timeB;
-    });
-  }, [areaRows, search, selectedKelurahan, sortType]);
+  const pageNumbers =
+    activeTab === "kelurahan"
+      ? getVisiblePages(kelurahanPage, kelurahanTotalPages)
+      : activeTab === "kecamatan"
+      ? getVisiblePages(kecamatanPage, kecamatanTotalPages)
+      : getVisiblePages(keywordPage, keywordTotalPages);
 
-  const filteredKeywordRows = useMemo(() => {
-    const keyword = keywordSearch.trim().toLowerCase();
+  const handlePrevPage = () => {
+    if (activeTab === "kelurahan") setKelurahanPage((prev) => Math.max(1, prev - 1));
+    else if (activeTab === "kecamatan") setKecamatanPage((prev) => Math.max(1, prev - 1));
+    else setKeywordPage((prev) => Math.max(1, prev - 1));
+  };
 
-    const result = keywordRows.filter((row) => {
-      if (!keyword) return true;
+  const handleNextPage = () => {
+    if (activeTab === "kelurahan") {
+      setKelurahanPage((prev) => Math.min(kelurahanTotalPages, prev + 1));
+    } else if (activeTab === "kecamatan") {
+      setKecamatanPage((prev) => Math.min(kecamatanTotalPages, prev + 1));
+    } else {
+      setKeywordPage((prev) => Math.min(keywordTotalPages, prev + 1));
+    }
+  };
 
-      return [row.keyword, row.createdBy]
-        .join(" ")
-        .toLowerCase()
-        .includes(keyword);
-    });
+  const isPrevDisabled =
+    activeTab === "kelurahan"
+      ? kelurahanPage === 1
+      : activeTab === "kecamatan"
+      ? kecamatanPage === 1
+      : keywordPage === 1;
 
-    return [...result].sort((a, b) => {
-      const timeA = parseDate(a.updatedAtRaw);
-      const timeB = parseDate(b.updatedAtRaw);
-      return keywordSortType === "newest" ? timeB - timeA : timeA - timeB;
-    });
-  }, [keywordRows, keywordSearch, keywordSortType]);
-
-  const areaRowsPerPage = 15;
-  const keywordRowsPerPage = 15;
-
-  const areaTotalPages = Math.max(1, Math.ceil(filteredAreaRows.length / areaRowsPerPage));
-  const keywordTotalPages = Math.max(1, Math.ceil(filteredKeywordRows.length / keywordRowsPerPage));
-
-  const currentAreaRows = filteredAreaRows.slice(
-    (areaPage - 1) * areaRowsPerPage,
-    areaPage * areaRowsPerPage
-  );
-
-  const currentKeywordRows = filteredKeywordRows.slice(
-    (keywordPage - 1) * keywordRowsPerPage,
-    keywordPage * keywordRowsPerPage
-  );
-
-  const visibleAreaPages = getVisiblePages(areaPage, areaTotalPages);
-  const visibleKeywordPages = getVisiblePages(keywordPage, keywordTotalPages);
-
-  useEffect(() => {
-    setAreaPage(1);
-  }, [search, selectedKelurahan, sortType]);
-
-  useEffect(() => {
-    setKeywordPage(1);
-  }, [keywordSearch, keywordSortType]);
-
-  useEffect(() => {
-    if (areaPage > areaTotalPages) setAreaPage(areaTotalPages);
-  }, [areaPage, areaTotalPages]);
-
-  useEffect(() => {
-    if (keywordPage > keywordTotalPages) setKeywordPage(keywordTotalPages);
-  }, [keywordPage, keywordTotalPages]);
+  const isNextDisabled =
+    activeTab === "kelurahan"
+      ? kelurahanPage === kelurahanTotalPages
+      : activeTab === "kecamatan"
+      ? kecamatanPage === kecamatanTotalPages
+      : keywordPage === keywordTotalPages;
 
   return (
     <>
@@ -1117,16 +1384,13 @@ export default function SettingsOsintPage() {
             >
               <BackIcon />
             </button>
-
             <h1 className={styles.pageTitle}>SETTINGS OSINT</h1>
           </div>
 
           <div className={styles.hello}>Halo, {userName}</div>
         </div>
 
-        {errorMsg ? (
-          <div className={`${styles.dataState} ${styles.errorState}`}>{errorMsg}</div>
-        ) : null}
+        {errorMsg ? <div className={`${styles.dataState} ${styles.errorState}`}>{errorMsg}</div> : null}
 
         {loading ? (
           <div className={styles.dataState}>Memuat data settings OSINT...</div>
@@ -1206,106 +1470,104 @@ export default function SettingsOsintPage() {
               </div>
             </div>
 
-            <div className={styles.tablesGrid}>
-              <div className={styles.tableSection}>
-                <div className={styles.controlBar}>
-                  <div className={styles.searchBox}>
-                    <span className={styles.searchIconWrap}>
-                      <SearchIcon />
-                    </span>
-                    <input
-                      type="text"
-                      className={styles.searchInput}
-                      placeholder="Cari berdasarkan ..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                  </div>
+            <section className={styles.panel}>
+              <div className={styles.tabRow}>
+                <button
+                  type="button"
+                  className={`${styles.tabButton} ${activeTab === "kelurahan" ? styles.tabButtonActive : ""}`}
+                  onClick={() => setActiveTab("kelurahan")}
+                >
+                  Data Kelurahan
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.tabButton} ${activeTab === "kecamatan" ? styles.tabButtonActive : ""}`}
+                  onClick={() => setActiveTab("kecamatan")}
+                >
+                  Data Kecamatan
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.tabButton} ${activeTab === "keyword" ? styles.tabButtonActive : ""}`}
+                  onClick={() => setActiveTab("keyword")}
+                >
+                  Data Keyword
+                </button>
+              </div>
 
-                  <div className={styles.actionsGroup}>
-                    <div className={styles.dropdownWrap}>
-                      <button
-                        type="button"
-                        className={styles.toolbarButton}
-                        onClick={() => setOpenFilter((prev) => !prev)}
-                      >
-                        <FilterIcon />
-                        <span>Filter</span>
-                      </button>
-
-                      {openFilter && (
-                        <div className={styles.dropdownMenu}>
-                          <div className={styles.dropdownTitle}>Filter by Kelurahan</div>
-
-                          <div className={styles.dropdownOptionList}>
-                            {kelurahanOptions.map((item) => (
-                              <button
-                                key={item}
-                                type="button"
-                                className={`${styles.dropdownOption} ${
-                                  selectedKelurahan === item ? styles.dropdownOptionActive : ""
-                                }`}
-                                onClick={() => {
-                                  setSelectedKelurahan(item);
-                                  setOpenFilter(false);
-                                }}
-                              >
-                                {item}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      className={styles.toolbarButton}
-                      onClick={() =>
-                        setSortType((prev) => (prev === "newest" ? "oldest" : "newest"))
-                      }
-                    >
-                      <SortIcon />
-                      <span>Sort</span>
-                    </button>
-
-                    <button type="button" className={styles.addButton} onClick={openAddKelurahan}>
-                      <PlusIcon />
-                      <span>Tambah Kelurahan</span>
-                    </button>
-                  </div>
+              <div className={styles.panelToolbar}>
+                <div className={styles.searchBox}>
+                  <span className={styles.searchIconWrap}>
+                    <SearchIcon />
+                  </span>
+                  <input
+                    type="text"
+                    className={styles.searchInput}
+                    placeholder="Cari berdasarkan ..."
+                    value={currentSearch}
+                    onChange={(e) => setCurrentSearch(e.target.value)}
+                  />
                 </div>
 
-                <div className={styles.tableWrap}>
+                <div className={styles.actionsGroup}>
+                  <button type="button" className={styles.toolbarButton} onClick={toggleCurrentSort}>
+                    <SortIcon />
+                    <span>Sort</span>
+                  </button>
+
+                  <button type="button" className={styles.addButton} onClick={handleAddByTab}>
+                    <PlusIcon />
+                    <span>{addButtonLabel}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.tableWrap}>
+                {activeTab === "kelurahan" && (
                   <table className={styles.table}>
                     <thead>
                       <tr>
+                        <th className={styles.checkboxCol}>
+                          <input
+                            type="checkbox"
+                            className={styles.checkInput}
+                            checked={allKelurahanChecked}
+                            onChange={toggleAllKelurahan}
+                          />
+                        </th>
                         <th>No</th>
-                        <th>Kecamatan</th>
                         <th>Kelurahan</th>
-                        <th>Latitude Center</th>
-                        <th>Longitude Center</th>
+                        <th>Kecamatan</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
                         <th>Created By</th>
                         <th>Last Updated Date</th>
                         <th>Aksi</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {currentAreaRows.length > 0 ? (
-                        currentAreaRows.map((row, index) => (
+                      {currentKelurahanRows.length > 0 ? (
+                        currentKelurahanRows.map((row, index) => (
                           <tr key={`kelurahan-${row.id}`}>
-                            <td>{(areaPage - 1) * areaRowsPerPage + index + 1}</td>
-                            <td>{row.namaKecamatan}</td>
+                            <td className={styles.checkboxCol}>
+                              <input
+                                type="checkbox"
+                                className={styles.checkInput}
+                                checked={selectedKelurahanIds.has(row.id)}
+                                onChange={() => toggleKelurahanRow(row.id)}
+                              />
+                            </td>
+                            <td>{(kelurahanPage - 1) * rowsPerPage + index + 1}</td>
                             <td>{row.kelurahan}</td>
-                            <td>{row.latitudeCenter || "-"}</td>
-                            <td>{row.longitudeCenter || "-"}</td>
+                            <td>{row.namaKecamatan}</td>
+                            <td>{row.latitudeCenter}</td>
+                            <td>{row.longitudeCenter}</td>
                             <td>{row.createdBy}</td>
                             <td>{row.updatedAt}</td>
                             <td>
                               <button
                                 type="button"
                                 className={styles.actionButton}
-                                aria-label="Edit kelurahan"
                                 onClick={() => openEditKelurahan(row)}
                               >
                                 <PencilIcon />
@@ -1315,97 +1577,90 @@ export default function SettingsOsintPage() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={8} className={styles.emptyState}>
+                          <td colSpan={9} className={styles.emptyState}>
                             Data kelurahan tidak ditemukan.
                           </td>
                         </tr>
                       )}
                     </tbody>
                   </table>
-                </div>
+                )}
 
-                <div className={styles.paginationWrap}>
-                  <div className={styles.pagination}>
-                    <button
-                      type="button"
-                      className={styles.pageArrow}
-                      onClick={() => setAreaPage((prev) => Math.max(1, prev - 1))}
-                      disabled={areaPage === 1}
-                    >
-                      <ChevronLeftIcon />
-                    </button>
-
-                    <div className={styles.pageNumbers}>
-                      {visibleAreaPages.map((item, index) =>
-                        item === "..." ? (
-                          <span key={`area-dots-${index}`} className={styles.pageDots}>
-                            ...
-                          </span>
-                        ) : (
-                          <button
-                            key={`area-page-${item}`}
-                            type="button"
-                            className={`${styles.pageNumber} ${
-                              areaPage === item ? styles.pageNumberActive : ""
-                            }`}
-                            onClick={() => setAreaPage(Number(item))}
-                          >
-                            {item}
-                          </button>
-                        )
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      className={styles.pageArrow}
-                      onClick={() => setAreaPage((prev) => Math.min(areaTotalPages, prev + 1))}
-                      disabled={areaPage === areaTotalPages}
-                    >
-                      <ChevronRightIcon />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.tableSection}>
-                <div className={styles.controlBar}>
-                  <div className={styles.searchBox}>
-                    <span className={styles.searchIconWrap}>
-                      <SearchIcon />
-                    </span>
-                    <input
-                      type="text"
-                      className={styles.searchInput}
-                      placeholder="Cari berdasarkan ..."
-                      value={keywordSearch}
-                      onChange={(e) => setKeywordSearch(e.target.value)}
-                    />
-                  </div>
-
-                  <div className={styles.actionsGroup}>
-                    <button
-                      type="button"
-                      className={styles.toolbarButton}
-                      onClick={() =>
-                        setKeywordSortType((prev) => (prev === "newest" ? "oldest" : "newest"))
-                      }
-                    >
-                      <SortIcon />
-                      <span>Sort</span>
-                    </button>
-
-                    <button type="button" className={styles.addButton} onClick={openAddKeyword}>
-                      <PlusIcon />
-                      <span>Tambah Keyword</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className={styles.tableWrap}>
+                {activeTab === "kecamatan" && (
                   <table className={styles.table}>
                     <thead>
                       <tr>
+                        <th className={styles.checkboxCol}>
+                          <input
+                            type="checkbox"
+                            className={styles.checkInput}
+                            checked={allKecamatanChecked}
+                            onChange={toggleAllKecamatan}
+                          />
+                        </th>
+                        <th>No</th>
+                        <th>Kecamatan</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>GeoJSON</th>
+                        <th>Created By</th>
+                        <th>Last Updated Date</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentKecamatanRows.length > 0 ? (
+                        currentKecamatanRows.map((row, index) => (
+                          <tr key={`kecamatan-${row.id}`}>
+                            <td className={styles.checkboxCol}>
+                              <input
+                                type="checkbox"
+                                className={styles.checkInput}
+                                checked={selectedKecamatanIds.has(row.id)}
+                                onChange={() => toggleKecamatanRow(row.id)}
+                              />
+                            </td>
+                            <td>{(kecamatanPage - 1) * rowsPerPage + index + 1}</td>
+                            <td>{row.kecamatan}</td>
+                            <td>{row.latitudeCenter}</td>
+                            <td>{row.longitudeCenter}</td>
+                            <td>{row.hasGeojson ? "Ada file" : "-"}</td>
+                            <td>{row.createdBy}</td>
+                            <td>{row.updatedAt}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className={styles.actionButton}
+                                onClick={() => openEditKecamatan(row)}
+                              >
+                                <PencilIcon />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={9} className={styles.emptyState}>
+                            Data kecamatan tidak ditemukan.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+
+                {activeTab === "keyword" && (
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th className={styles.checkboxCol}>
+                          <input
+                            type="checkbox"
+                            className={styles.checkInput}
+                            checked={allKeywordChecked}
+                            onChange={toggleAllKeyword}
+                          />
+                        </th>
                         <th>No</th>
                         <th>Keyword</th>
                         <th>Created By</th>
@@ -1417,7 +1672,15 @@ export default function SettingsOsintPage() {
                       {currentKeywordRows.length > 0 ? (
                         currentKeywordRows.map((row, index) => (
                           <tr key={`keyword-${row.id}`}>
-                            <td>{(keywordPage - 1) * keywordRowsPerPage + index + 1}</td>
+                            <td className={styles.checkboxCol}>
+                              <input
+                                type="checkbox"
+                                className={styles.checkInput}
+                                checked={selectedKeywordIds.has(row.id)}
+                                onChange={() => toggleKeywordRow(row.id)}
+                              />
+                            </td>
+                            <td>{(keywordPage - 1) * rowsPerPage + index + 1}</td>
                             <td>{row.keyword}</td>
                             <td>{row.createdBy}</td>
                             <td>{row.updatedAt}</td>
@@ -1425,7 +1688,6 @@ export default function SettingsOsintPage() {
                               <button
                                 type="button"
                                 className={styles.actionButton}
-                                aria-label="Edit keyword"
                                 onClick={() => openEditKeyword(row)}
                               >
                                 <PencilIcon />
@@ -1435,59 +1697,67 @@ export default function SettingsOsintPage() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={5} className={styles.emptyState}>
+                          <td colSpan={6} className={styles.emptyState}>
                             Data keyword tidak ditemukan.
                           </td>
                         </tr>
                       )}
                     </tbody>
                   </table>
-                </div>
+                )}
+              </div>
 
-                <div className={styles.paginationWrap}>
-                  <div className={`${styles.pagination} ${styles.smallPagination}`}>
-                    <button
-                      type="button"
-                      className={styles.pageArrow}
-                      onClick={() => setKeywordPage((prev) => Math.max(1, prev - 1))}
-                      disabled={keywordPage === 1}
-                    >
-                      <ChevronLeftIcon />
-                    </button>
+              <div className={styles.paginationWrap}>
+                <div className={styles.pagination}>
+                  <button
+                    type="button"
+                    className={styles.pageArrow}
+                    onClick={handlePrevPage}
+                    disabled={isPrevDisabled}
+                  >
+                    <ChevronLeftIcon />
+                  </button>
 
-                    <div className={styles.pageNumbers}>
-                      {visibleKeywordPages.map((item, index) =>
-                        item === "..." ? (
-                          <span key={`keyword-dots-${index}`} className={styles.pageDots}>
-                            ...
-                          </span>
-                        ) : (
-                          <button
-                            key={`keyword-page-${item}`}
-                            type="button"
-                            className={`${styles.pageNumber} ${
-                              keywordPage === item ? styles.pageNumberActive : ""
-                            }`}
-                            onClick={() => setKeywordPage(Number(item))}
-                          >
-                            {item}
-                          </button>
-                        )
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      className={styles.pageArrow}
-                      onClick={() => setKeywordPage((prev) => Math.min(keywordTotalPages, prev + 1))}
-                      disabled={keywordPage === keywordTotalPages}
-                    >
-                      <ChevronRightIcon />
-                    </button>
+                  <div className={styles.pageNumbers}>
+                    {pageNumbers.map((item, index) =>
+                      item === "..." ? (
+                        <span key={`dots-${index}`} className={styles.pageDots}>
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={item}
+                          type="button"
+                          className={`${styles.pageNumber} ${
+                            (activeTab === "kelurahan" && kelurahanPage === item) ||
+                            (activeTab === "kecamatan" && kecamatanPage === item) ||
+                            (activeTab === "keyword" && keywordPage === item)
+                              ? styles.pageNumberActive
+                              : ""
+                          }`}
+                          onClick={() => {
+                            if (activeTab === "kelurahan") setKelurahanPage(Number(item));
+                            else if (activeTab === "kecamatan") setKecamatanPage(Number(item));
+                            else setKeywordPage(Number(item));
+                          }}
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
                   </div>
+
+                  <button
+                    type="button"
+                    className={styles.pageArrow}
+                    onClick={handleNextPage}
+                    disabled={isNextDisabled}
+                  >
+                    <ChevronRightIcon />
+                  </button>
                 </div>
               </div>
-            </div>
+            </section>
           </>
         )}
       </div>
@@ -1496,25 +1766,44 @@ export default function SettingsOsintPage() {
         open={kelurahanModalMode !== null}
         mode={kelurahanModalMode}
         form={kelurahanForm}
-        kecamatanOptions={kecamatanRows}
+        kecamatanOptions={kecamatanApiRows}
         saving={modalSaving}
         errorMsg={modalErrorMsg}
-        onChange={handleKelurahanFormChange}
+        onChange={(field, value) =>
+          setKelurahanForm((prev) => ({
+            ...prev,
+            [field]: value,
+          }))
+        }
         onClose={closeKelurahanModal}
-        onSave={saveKelurahanModal}
+        onSave={saveKelurahan}
       />
 
-      <TextEntryModal
-        open={textModalMode !== null}
-        title={textModalConfig.title}
-        label={textModalConfig.label}
-        placeholder={textModalConfig.placeholder}
-        value={textModalValue}
+      <KecamatanModal
+        open={kecamatanModalMode !== null}
+        mode={kecamatanModalMode}
+        form={kecamatanForm}
         saving={modalSaving}
         errorMsg={modalErrorMsg}
-        onChange={setTextModalValue}
-        onClose={closeTextModal}
-        onSave={saveTextModal}
+        onChange={(field, value) =>
+          setKecamatanForm((prev) => ({
+            ...prev,
+            [field]: value as never,
+          }))
+        }
+        onClose={closeKecamatanModal}
+        onSave={saveKecamatan}
+      />
+
+      <KeywordModal
+        open={keywordModalMode !== null}
+        mode={keywordModalMode}
+        value={keywordModalValue}
+        saving={modalSaving}
+        errorMsg={modalErrorMsg}
+        onChange={setKeywordModalValue}
+        onClose={closeKeywordModal}
+        onSave={saveKeyword}
       />
 
       <MetricModal
@@ -1542,7 +1831,7 @@ export default function SettingsOsintPage() {
           setMetricModalValue(String(current + 1));
         }}
         onClose={closeMetricModal}
-        onSave={saveMetricModal}
+        onSave={saveMetric}
       />
     </>
   );

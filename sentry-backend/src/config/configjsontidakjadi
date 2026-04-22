@@ -1,17 +1,11 @@
 {
   "development": {
-    "username": "2FRQG6MaYJvC1ja.root",
-    "password": "lP3OkUlOawNU3LeE",
+    "username": "root",
+    "password": "",
     "database": "sentry",
-    "host": "gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
-    "port": 4000,
-    "dialect": "mysql",
-    "dialectOptions": {
-      "ssl": {
-        "minVersion": "TLSv1.2",
-        "rejectUnauthorized": true
-      }
-    }
+    "host": "127.0.0.1",
+    "port": 3306,
+    "dialect": "mysql"
   },
   "test": {
     "username": "root",

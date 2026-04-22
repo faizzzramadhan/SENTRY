@@ -1,12 +1,50 @@
 const express = require("express");
 const router = express.Router();
 const { Op } = require("sequelize");
+const multer = require("multer");
+const path = require("path");
 
 const models = require("../../models");
 const auth = require("../../middlewares/auth");
 const requireRole = require("../../middlewares/requireRole");
 
 const DataKecamatan = models.data_kecamatan;
+
+const storage = multer.memoryStorage();
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname || "").toLowerCase();
+    const allowedExt = [".json", ".geojson"];
+    const allowedMime = [
+      "application/json",
+      "application/geo+json",
+      "application/octet-stream",
+      "text/plain",
+    ];
+
+    if (allowedExt.includes(ext) || allowedMime.includes(file.mimetype)) {
+      return cb(null, true);
+    }
+
+    return cb(new Error("File harus berformat .json atau .geojson"));
+  },
+});
+
+function uploadGeojson(req, res, next) {
+  upload.single("geojson_file")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        message: err.message || "Upload file geojson gagal",
+      });
+    }
+    next();
+  });
+}
 
 function parseNullableDecimal(value, fieldName) {
   if (value === undefined) return undefined;
@@ -20,13 +58,16 @@ function parseNullableDecimal(value, fieldName) {
   return parsed;
 }
 
-function parseNullableGeojson(value) {
-  if (value === undefined) return undefined;
-  if (value === null || value === "") return null;
+function parseGeojsonFromFile(file) {
+  if (!file) return undefined;
 
-  if (typeof value === "string") return value;
-
-  return JSON.stringify(value);
+  try {
+    const raw = file.buffer.toString("utf-8");
+    const parsed = JSON.parse(raw);
+    return JSON.stringify(parsed);
+  } catch (error) {
+    throw new Error("Isi file geojson tidak valid");
+  }
 }
 
 // GET ALL
@@ -78,17 +119,20 @@ router.get("/:kecamatan_id", auth, requireRole("staff"), async (req, res) => {
 });
 
 // CREATE
-router.post("/", auth, requireRole("staff"), async (req, res) => {
+router.post("/", auth, requireRole("staff"), uploadGeojson, async (req, res) => {
   try {
     const {
       nama_kecamatan,
-      geojson,
       latitude_center,
       longitude_center,
-    } = req.body;
+    } = req.body || {};
 
     if (!nama_kecamatan) {
       return res.status(400).json({ message: "nama_kecamatan wajib diisi" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "File geojson wajib diupload" });
     }
 
     const exists = await DataKecamatan.findOne({ where: { nama_kecamatan } });
@@ -97,10 +141,11 @@ router.post("/", auth, requireRole("staff"), async (req, res) => {
     }
 
     const actor = req.user?.usr_nama_lengkap || "system";
+    const geojsonValue = parseGeojsonFromFile(req.file);
 
     const created = await DataKecamatan.create({
       nama_kecamatan,
-      geojson: parseNullableGeojson(geojson),
+      geojson: geojsonValue,
       latitude_center: parseNullableDecimal(latitude_center, "latitude_center"),
       longitude_center: parseNullableDecimal(longitude_center, "longitude_center"),
       created_by: actor,
@@ -119,7 +164,7 @@ router.post("/", auth, requireRole("staff"), async (req, res) => {
 });
 
 // UPDATE
-router.put("/:kecamatan_id", auth, requireRole("staff"), async (req, res) => {
+router.put("/:kecamatan_id", auth, requireRole("staff"), uploadGeojson, async (req, res) => {
   try {
     const existing = await DataKecamatan.findOne({
       where: { kecamatan_id: req.params.kecamatan_id },
@@ -130,7 +175,7 @@ router.put("/:kecamatan_id", auth, requireRole("staff"), async (req, res) => {
     }
 
     const actor = req.user?.usr_nama_lengkap || "system";
-    const nama_kecamatan = req.body.nama_kecamatan ?? existing.nama_kecamatan;
+    const nama_kecamatan = req.body?.nama_kecamatan ?? existing.nama_kecamatan;
 
     const duplicate = await DataKecamatan.findOne({
       where: {
@@ -143,19 +188,18 @@ router.put("/:kecamatan_id", auth, requireRole("staff"), async (req, res) => {
       return res.status(409).json({ message: "Nama kecamatan sudah terdaftar" });
     }
 
+    const nextGeojson = req.file ? parseGeojsonFromFile(req.file) : existing.geojson;
+
     await DataKecamatan.update(
       {
         nama_kecamatan,
-        geojson:
-          req.body.geojson !== undefined
-            ? parseNullableGeojson(req.body.geojson)
-            : existing.geojson,
+        geojson: nextGeojson,
         latitude_center:
-          req.body.latitude_center !== undefined
+          req.body?.latitude_center !== undefined
             ? parseNullableDecimal(req.body.latitude_center, "latitude_center")
             : existing.latitude_center,
         longitude_center:
-          req.body.longitude_center !== undefined
+          req.body?.longitude_center !== undefined
             ? parseNullableDecimal(req.body.longitude_center, "longitude_center")
             : existing.longitude_center,
         last_updated_by: actor,

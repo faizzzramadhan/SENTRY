@@ -8,7 +8,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const routes = require("./src/routes");
+const jenisBencanaRoutes = require("./src/routes/jenis_bencana");
+const namaBencanaRoutes = require("./src/routes/nama_bencana");
 app.use("/", routes);
+app.use("/jenis-bencana", jenisBencanaRoutes);
+app.use("/nama-bencana", namaBencanaRoutes);
 
 app.use(express.static(__dirname));
 
