@@ -1,72 +1,41 @@
-"use client";
+'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
-import styles from './LocationSearch.module.css';
+import { useState, useEffect } from 'react'
+import styles from './LocationSearch.module.css'
 
-interface LocationSearchProps {
-  onSelect: (item: any) => void;
-}
-
-export default function LocationSearch({ onSelect }: LocationSearchProps) {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+export default function LocationSearch({ onSelect }: any) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<any[]>([])
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    if (query.length < 3) return
 
-  const searchLocation = async (text: string) => {
-    setQuery(text);
-    if (text.length < 3) {
-      setResults([]);
-      return;
-    }
+    const delay = setTimeout(() => {
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(data => setResults(data))
+    }, 400)
 
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${text}&limit=5`);
-      const data = await res.json();
-      setResults(data);
-      setIsOpen(true);
-    } catch (err) {
-      console.error("Search error:", err);
-    }
-  };
+    return () => clearTimeout(delay)
+  }, [query])
 
   return (
-    <div className={styles.searchWrapper} ref={wrapperRef}>
+    <div className={styles.searchBox}>
       <input
-        type="text"
-        className={styles.searchInput}
-        placeholder="Cari lokasi kejadian (misal: Jl. Soekarno Hatta)..."
+        placeholder="Cari alamat..."
         value={query}
-        onChange={(e) => searchLocation(e.target.value)}
-        onFocus={() => query.length >= 3 && setIsOpen(true)}
+        onChange={(e)=>setQuery(e.target.value)}
       />
-      {isOpen && results.length > 0 && (
-        <ul className={styles.resultsList}>
-          {results.map((item: any) => (
-            <li
-              key={item.place_id}
-              className={styles.resultItem}
-              onClick={() => {
-                onSelect(item);
-                setQuery(item.display_name);
-                setIsOpen(false);
-              }}
-            >
+
+      {results.length > 0 && (
+        <div className={styles.dropdown}>
+          {results.map((item,i)=>(
+            <div key={i} className={styles.item} onClick={()=>onSelect(item)}>
               {item.display_name}
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
-  );
+  )
 }

@@ -30,9 +30,9 @@ export default function HumintPage() {
           <input type="text" placeholder="Cari berdasarkan ..." />
         </div>
         <div className={styles.buttons}>
-          <button>⬇ Download</button>
-          <button>⚙ Filter</button>
-          <button>⇅ Sort</button>
+          <button>Download</button>
+          <button>Filter</button>
+          <button>Sort</button>
           <Link href="/humint/addreport">
             <button className={styles.add}>＋ Tambah Laporan</button>
           </Link>

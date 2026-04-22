@@ -169,28 +169,53 @@
 }
 
 /* ================= KORBAN ================= */
+
 .korbanTable {
   padding: 15px;
   background: #111;
-
   border-radius: 10px;
   border: 1px solid #333;
+  margin-top: 10px;
 }
 
 .korbanHead,
 .korbanRow {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 8px;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr; /* lebih lega */
+  gap: 12px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.korbanHead div {
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+  text-align: center;
+}
+
+.korbanHead div:first-child {
+  text-align: left;
+}
+
+.korbanHead span {
+  display: block;
+  font-size: 10px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.korbanRow div {
+  font-size: 13px;
+  color: #ddd;
+  font-weight: 500;
 }
 
 .korbanRow input {
   width: 100%;
-  box-sizing: border-box;
-
   padding: 8px;
   text-align: center;
+  font-weight: 500;
 
   color: #fff;
   background: #2a2a2a;
@@ -200,13 +225,11 @@
 }
 
 .totalText {
-  margin-top: 10px;
+  margin-top: 12px;
   text-align: right;
-
   font-size: 13px;
   color: #aaa;
 }
-
 /* ================= MEDIA ================= */
 .mapContainer {
   width: 100%;

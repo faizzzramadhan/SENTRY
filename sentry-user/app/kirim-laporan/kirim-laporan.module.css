@@ -53,6 +53,203 @@
   padding: 14px; border-radius: 10px; border: 1.5px solid #cbd5e1;
   background: #f8fafc; font-size: 15px;
 }
+/* --- PERBAIKAN TABEL KORBAN (ASSESSMENT) --- */
+.korbanTable {
+  margin-top: 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.korbanHead {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1fr;
+  background: #f8fafc;
+  padding: 12px;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  border-bottom: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+.korbanRow {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1fr;
+  padding: 10px;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.korbanRow:last-child {
+  border-bottom: none;
+}
+
+.korbanRow div {
+  font-weight: 600;
+  font-size: 14px;
+  color: #475569;
+  padding-left: 10px;
+}
+
+.korbanRow input {
+  width: 90%;
+  margin: 0 auto;
+  padding: 8px !important;
+  text-align: center;
+  border-radius: 8px !important;
+}
+
+.totalText {
+  background: #f1f5f9;
+  padding: 15px;
+  text-align: right;
+  font-size: 15px;
+  border-top: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+/* --- PERBAIKAN FORM ROW & SPACING --- */
+.form h3 {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 10px 0 5px 0;
+  border-left: 4px solid #2f6fff;
+  padding-left: 12px;
+}
+
+.summaryBox {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin: 15px 0;
+}
+
+.summaryBox p {
+  margin: 0;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Responsivitas Tabel di Mobile */
+@media (max-width: 640px) {
+  .korbanHead {
+    display: none; /* Sembunyikan header di mobile agar tidak sempit */
+  }
+  .korbanRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 15px;
+  }
+  .korbanRow div {
+    grid-column: span 2;
+    background: #f1f5f9;
+    padding: 5px 10px;
+    border-radius: 4px;
+  }
+}
+.latLngDisplay {
+  display: flex;
+  gap: 20px;
+  background: #f1f5f9;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  border: 1px solid #e2e8f0;
+}
+
+.summaryContainer {
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin: 20px 0;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.summaryCard {
+  background: white;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+
+.activeSummary {
+  border-color: #2f6fff;
+  background: #f0f7ff;
+}
+
+.totalBadge {
+  margin-top: 15px;
+  font-weight: bold;
+  color: #1e293b;
+  text-align: center;
+  font-size: 14px;
+}
+/* Menyamakan ukuran card upload */
+.uploadBox {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 140px; /* Ukuran tinggi tetap agar simetris */
+  border: 2px dashed #e2e8f0;
+  border-radius: 12px;
+  cursor: pointer;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+  padding: 15px;
+  text-align: center;
+}
+
+.uploadBox:hover {
+  border-color: #2f6fff;
+  background: #f0f7ff;
+}
+
+/* Menyamakan ukuran font di dalam upload box */
+.uploadText {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 8px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.fileListInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.latLngDisplay {
+  display: flex;
+  gap: 20px;
+  background: #f1f5f9;
+  padding: 12px 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+}
 
 /* MAP SECTION & Z-INDEX FIX */
 .mapSection {
@@ -63,6 +260,30 @@
 .mapFrame {
   height: 350px; border-radius: 12px; overflow: hidden;
   border: 1px solid #cbd5e1; position: relative; z-index: 1;
+}
+.btnGps {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s;
+}
+
+.btnGps:hover {
+  background: #059669;
+}
+
+/* Update gaya input untuk placeholder agar terlihat di mobile */
+.korbanRow input::placeholder {
+  color: #94a3b8;
+  font-size: 11px;
 }
 
 .coordsDisplay { display: flex; gap: 10px; margin-top: 5px; }

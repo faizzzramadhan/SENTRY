@@ -58,14 +58,7 @@ export default function AddReportAdmin() {
         {/* KOLOM 1: PELAPOR & OPERASIONAL */}
         <div className={styles.column}>
           <div className={styles.card}>
-            <h3>👤 Informasi Pelapor</h3>
-            <div className={styles.inputGroup}>
-              <label className={styles.fieldLabel}>Jenis Laporan</label>
-              <select>
-                <option value="NON_ASSESSMENT">Non-Assessment</option>
-                <option value="ASSESSMENT">Assessment</option>
-              </select>
-            </div>
+            <h3>Informasi Pelapor</h3>
             <div className={styles.rowFields}>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Nama Pelapor</label>
@@ -83,16 +76,18 @@ export default function AddReportAdmin() {
           </div>
 
           <div className={styles.card}>
-            <h3>⚙️ Operasional BPBD</h3>
-            <div className={styles.rowFields}>
-              <div className={styles.inputGroup}>
-                <label className={styles.fieldLabel}>Status Laporan</label>
-                <select>
-                  <option>Menunggu Verifikasi</option>
-                  <option>Terverifikasi</option>
-                  <option>Sedang Ditangani</option>
-                </select>
-              </div>
+  <h3>Operasional BPBD</h3>
+
+        <div className={styles.fieldGroup}>
+          <div className={styles.inputGroupVertical}>
+            <label className={styles.fieldLabel}>Status Laporan</label>
+            <select className={styles.selectField}>
+              <option>Menunggu Verifikasi</option>
+              <option>Terverifikasi</option>
+              <option>Sedang Ditangani</option>
+            </select>
+          </div>
+
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Penugasan Petugas</label>
                 <input type="text" placeholder="Nama regu..." />
@@ -104,7 +99,7 @@ export default function AddReportAdmin() {
         {/* KOLOM 2: DETAIL KEJADIAN (FULL HEIGHT) */}
         <div className={styles.column}>
           <div className={styles.card} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <h3>🚨 Detail Kejadian Bencana</h3>
+            <h3>Detail Kejadian Bencana</h3>
             <div className={styles.rowFields}>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Jenis Bencana</label>
@@ -140,7 +135,7 @@ export default function AddReportAdmin() {
         {/* KOLOM 3: WILAYAH & ASSESSMENT */}
         <div className={styles.column}>
           <div className={styles.card}>
-            <h3>🏢 Administrasi Wilayah</h3>
+            <h3>Administrasi Wilayah</h3>
             <div className={styles.rowFields}>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Kecamatan</label>
@@ -172,7 +167,7 @@ export default function AddReportAdmin() {
           </div>
 
           <div className={styles.card}>
-            <h3>📊 Assessment Dampak</h3>
+            <h3>Assessment Dampak</h3>
             <div className={styles.inputGroup}>
               <label className={styles.fieldLabel}>Kerusakan Bangunan</label>
               <textarea placeholder="Deskripsi kerusakan..." rows={2} />
@@ -192,41 +187,89 @@ export default function AddReportAdmin() {
       </div>
 
       {/* DATA KORBAN */}
-      <div className={styles.card} style={{ marginTop: '20px' }}>
-        <h3>👥 Data Korban</h3>
-        <div className={styles.korbanTable}>
-          <div className={styles.korbanHead}>
-            <div>Gender</div>
-            <div>Anak</div>
-            <div>Dewasa</div>
-            <div>Lansia</div>
-          </div>
+<div className={styles.card} style={{ marginTop: '20px' }}>
+  <h3>Data Korban</h3>
 
-          <div className={styles.korbanRow}>
-            <div className={styles.korbanLabel}>Laki-laki</div>
-            <input type="number" value={korban.anakL} onChange={(e)=>setKorban({...korban, anakL:+e.target.value})}/>
-            <input type="number" value={korban.dewasaL} onChange={(e)=>setKorban({...korban, dewasaL:+e.target.value})}/>
-            <input type="number" value={korban.lansiaL} onChange={(e)=>setKorban({...korban, lansiaL:+e.target.value})}/>
-          </div>
+  <div className={styles.inputGroup}>
+    <label>Pilih jenis korban yang ingin diisi</label>
+    <select>
+      <option>Luka/Sakit</option>
+      <option>Meninggal</option>
+      <option>Mengungsi</option>
+      <option>Hilang</option>
+    </select>
+  </div>
 
-          <div className={styles.korbanRow}>
-            <div className={styles.korbanLabel}>Perempuan</div>
-            <input type="number" value={korban.anakP} onChange={(e)=>setKorban({...korban, anakP:+e.target.value})}/>
-            <input type="number" value={korban.dewasaP} onChange={(e)=>setKorban({...korban, dewasaP:+e.target.value})}/>
-            <input type="number" value={korban.lansiaP} onChange={(e)=>setKorban({...korban, lansiaP:+e.target.value})}/>
-          </div>
+  <div className={styles.korbanTable}>
+    <div className={styles.korbanHead}>
+      <div>Gender</div>
+      <div>Anak (0-17 tahun)</div>
+      <div>Dewasa (18-59 tahun)</div>
+      <div>Lansia (≥ 60 tahun)</div>
+    </div>
 
-          <div className={styles.totalText}>
-            Total: <strong>{totalKorban} Orang</strong>
-          </div>
-        </div>
-      </div>
+    <div className={styles.korbanRow}>
+      <div className={styles.korbanLabel}>Laki-laki</div>
+      <input
+        type="number"
+        value={korban.anakL}
+        onChange={(e) => setKorban({ ...korban, anakL: +e.target.value })}
+      />
+      <input
+        type="number"
+        value={korban.dewasaL}
+        onChange={(e) => setKorban({ ...korban, dewasaL: +e.target.value })}
+      />
+      <input
+        type="number"
+        value={korban.lansiaL}
+        onChange={(e) => setKorban({ ...korban, lansiaL: +e.target.value })}
+      />
+    </div>
+
+    <div className={styles.korbanRow}>
+      <div className={styles.korbanLabel}>Perempuan</div>
+      <input
+        type="number"
+        value={korban.anakP}
+        onChange={(e) => setKorban({ ...korban, anakP: +e.target.value })}
+      />
+      <input
+        type="number"
+        value={korban.dewasaP}
+        onChange={(e) => setKorban({ ...korban, dewasaP: +e.target.value })}
+      />
+      <input
+        type="number"
+        value={korban.lansiaP}
+        onChange={(e) => setKorban({ ...korban, lansiaP: +e.target.value })}
+      />
+    </div>
+
+    <div className={styles.totalText}>
+      Total: <strong>{totalKorban} Orang</strong>
+    </div>
+  </div>
+</div>
+
+<div className={styles.fullWidthCard}>
+  <div className={styles.card}>
+    <h2 className={styles.cardTitle}>Tindakan Nyata (Real Action)</h2>
+    <div className={styles.actionGroup}>
+      <label className={styles.fieldLabel}>TINDAK LANJUT PETUGAS</label>
+      <textarea 
+        className={styles.textAreaAction}
+        placeholder="Jelaskan tindakan yang telah diambil oleh tim di lapangan secara detail..."
+      ></textarea>
+    </div>
+  </div>
+</div>
 
       {/* SECTION BAWAH: MAPS & MEDIA (SEJAJAR) */}
       <div className={styles.bottomSection}>
         <div className={styles.card}>
           <div className={styles.mapHeader}>
-            <h3>📍 Verifikasi Geospasial & Dokumentasi</h3>
+            <h3>Verifikasi Geospasial & Dokumentasi</h3>
           </div>
           
           <div className={styles.mapContentGrid}>
@@ -259,7 +302,7 @@ export default function AddReportAdmin() {
               <div className={styles.uploadVertical}>
                 <div className={styles.uploadBox}>
                   <div className={styles.boxContent}>
-                    <span className={styles.boxIcon}>📸</span>
+                    <span className={styles.boxIcon}></span>
                     <label className={styles.fieldLabel} style={{color: '#3b82f6'}}>FOTO KEJADIAN UTAMA</label>
                     <p>Klik atau Seret Foto ke Sini</p>
                   </div>
@@ -267,7 +310,7 @@ export default function AddReportAdmin() {
                 </div>
                 <div className={styles.uploadBox}>
                   <div className={styles.boxContent}>
-                    <span className={styles.boxIcon}>🏚️</span>
+                    <span className={styles.boxIcon}></span>
                     <label className={styles.fieldLabel} style={{color: '#3b82f6'}}>FOTO BUKTI KERUSAKAN</label>
                     <p>Klik atau Seret Foto ke Sini</p>
                   </div>
@@ -275,7 +318,7 @@ export default function AddReportAdmin() {
                 </div>
               </div>
               <button className={styles.btnConfirm} onClick={handleConfirmNavigate}>
-                🚀 LANJUTKAN KE KONFIRMASI
+                LANJUTKAN KE KONFIRMASI
               </button>
             </div>
           </div>

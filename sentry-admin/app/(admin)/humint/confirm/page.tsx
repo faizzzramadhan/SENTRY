@@ -31,7 +31,7 @@ export default function KonfirmasiLaporan() {
         <div className={styles.topGrid}>
           <section className={styles.sectionCard}>
             <div className={styles.sectionHeader}>
-              <div className={styles.sectionTitle}>👤 DATA PELAPOR</div>
+              <div className={styles.sectionTitle}>DATA PELAPOR</div>
             </div>
             <div className={styles.sectionBody}>
               <div className={styles.infoRow}><span className={styles.label}>Nama</span><span className={styles.value}>Rifcha Sya'bani</span></div>
@@ -42,7 +42,7 @@ export default function KonfirmasiLaporan() {
 
           <section className={styles.sectionCard}>
             <div className={styles.sectionHeader}>
-              <div className={styles.sectionTitle}>⚙️ OPERASIONAL BPBD</div>
+              <div className={styles.sectionTitle}>OPERASIONAL BPBD</div>
             </div>
             <div className={styles.sectionBody}>
               <div className={styles.infoRow}><span className={styles.label}>Status</span><span className={styles.statusBadge}>TERVERIFIKASI</span></div>
@@ -55,7 +55,7 @@ export default function KonfirmasiLaporan() {
         {/* ROW 2: DETAIL KEJADIAN, MAPS & FOTO */}
         <section className={styles.sectionCard}>
           <div className={styles.sectionHeader}>
-            <div className={styles.sectionTitle}>🚨 DETAIL KEJADIAN & VERIFIKASI LOKASI</div>
+            <div className={styles.sectionTitle}>DETAIL KEJADIAN & VERIFIKASI LOKASI</div>
           </div>
           <div className={styles.eventGrid}>
             <div className={styles.eventInfo}>
@@ -86,14 +86,14 @@ export default function KonfirmasiLaporan() {
         <div className={styles.bottomGrid}>
           <div className={styles.leftCol}>
             <section className={styles.sectionCard}>
-              <div className={styles.sectionHeader}><div className={styles.sectionTitle}>📝 KRONOLOGI</div></div>
+              <div className={styles.sectionHeader}><div className={styles.sectionTitle}>KRONOLOGI</div></div>
               <div className={styles.sectionBody}>
                 <p className={styles.longText}>Air meluap akibat hujan deras sejak pagi, menyebabkan banjir genangan setinggi lutut di Jl. Kalijurang, Malang. Beberapa warga terpaksa mengungsi karena air sudah masuk hingga ke dalam rumah.</p>
               </div>
             </section>
 
             <section className={styles.sectionCard}>
-              <div className={styles.sectionHeader}><div className={styles.sectionTitle}>📊 ASSESSMENT DAMPAK</div></div>
+              <div className={styles.sectionHeader}><div className={styles.sectionTitle}>ASSESSMENT DAMPAK</div></div>
               <div className={styles.sectionBody}>
                 <div className={styles.infoRow}><span className={styles.label}>Kerusakan</span><span className={styles.value}>Rumah warga terendam air 1m</span></div>
                 <div className={styles.infoRow}><span className={styles.label}>Terdampak</span><span className={styles.value}>15 KK / 45 Jiwa</span></div>
@@ -106,15 +106,15 @@ export default function KonfirmasiLaporan() {
             <section className={styles.sectionCard}>
               <div className={styles.sectionHeader}><div className={styles.sectionTitle}>👥 DATA KORBAN</div></div>
               <div className={styles.sectionBody}>
-                <div className={styles.statLine}><span>🚑 Meninggal</span><strong>0</strong></div>
-                <div className={styles.statLine}><span>🏥 Luka-luka</span><strong>5</strong></div>
-                <div className={styles.statLine}><span>🔍 Hilang</span><strong>0</strong></div>
+                <div className={styles.statLine}><span>Meninggal</span><strong>0</strong></div>
+                <div className={styles.statLine}><span>Luka-luka</span><strong>5</strong></div>
+                <div className={styles.statLine}><span>Hilang</span><strong>0</strong></div>
                 <div className={styles.totalLine}><span>Total Korban</span><span>5 Jiwa</span></div>
               </div>
             </section>
 
             <div className={styles.warningCard}>
-              <div className={styles.warningHeader}>⚠️ PERHATIAN</div>
+              <div className={styles.warningHeader}>PERHATIAN</div>
               <p>Pastikan data yang diisi sudah sesuai dengan kondisi nyata dilapangan</p>
             </div>
           </div>

@@ -316,3 +316,53 @@
   color: #ccc;
   border-top: 1px solid #222;
 }
+/* Class baru untuk membuat card atau field melebar penuh */
+.fullWidthCard {
+  width: 100%;
+  grid-column: span 2; /* Jika kamu pakai grid 2 kolom, dia akan ambil semua kolom */
+  margin-top: 20px;
+}
+
+.textAreaAction {
+  width: 100%;
+  min-height: 150px;
+  padding: 12px;
+  background: #1a1a1a; /* Sesuaikan dengan tone gelap dashboard kamu */
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #fff;
+  font-family: inherit;
+  resize: vertical; /* Biar user bisa tarik tinggi-rendahnya saja */
+}
+
+/* Memastikan container di dalamnya juga rapi */
+.actionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* Pastikan container input menggunakan flex-direction column */
+.inputGroupVertical {
+  display: flex;
+  flex-direction: column; /* Ini yang membuat atas-bawah */
+  gap: 8px;              /* Jarak antara label dan select */
+  width: 100%;           /* Agar selebaran mungkin */
+  margin-bottom: 15px;
+}
+
+.selectField {
+  width: 100%;
+  padding: 12px;
+  background-color: #1a1a1e; /* Sesuaikan dengan tema gelap Anda */
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: white;
+  outline: none;
+}
+
+/* Menghilangkan pengaruh rowFields jika terpaksa menggunakannya */
+.rowFields {
+  display: grid;
+  grid-template-columns: 1fr; /* Paksa jadi 1 kolom saja */
+  gap: 20px;
+}
