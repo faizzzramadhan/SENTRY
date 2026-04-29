@@ -1,7 +1,8 @@
 "use client";
 
 import styles from "./dashboard.module.css";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   LineChart,
   Line,
@@ -11,6 +12,57 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5555";
+
+type TrendItem = {
+  name: string;
+  baru: number;
+  ditangani: number;
+};
+
+type DashboardRow = {
+  no: number;
+  laporan_id: number;
+  jenis: string;
+  lokasi: string;
+  waktu: string;
+  status: string;
+  prioritas: string;
+};
+
+type DashboardData = {
+  kpi: {
+    laporan_bulan_ini: number;
+    laporan_dalam_penanganan: number;
+    laporan_butuh_verifikasi: number;
+  };
+  trend: TrendItem[];
+  table: DashboardRow[];
+};
+
+const defaultDashboardData: DashboardData = {
+  kpi: {
+    laporan_bulan_ini: 0,
+    laporan_dalam_penanganan: 0,
+    laporan_butuh_verifikasi: 0,
+  },
+  trend: [
+    { name: "Minggu 1", baru: 0, ditangani: 0 },
+    { name: "Minggu 2", baru: 0, ditangani: 0 },
+    { name: "Minggu 3", baru: 0, ditangani: 0 },
+    { name: "Minggu 4", baru: 0, ditangani: 0 },
+  ],
+  table: [],
+};
+
+const sumberData = [
+  { label: "Instagram", value: 12 },
+  { label: "X", value: 8 },
+  { label: "BMKG", value: 20 },
+  { label: "HUMINT", value: 24 },
+];
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -22,39 +74,31 @@ function decodeJwtPayload(token: string): any | null {
   }
 }
 
-const trendData = [
-  { name: "Minggu 1", baru: 10, ditangani: 7 },
-  { name: "Minggu 2", baru: 15, ditangani: 14 },
-  { name: "Minggu 3", baru: 11, ditangani: 9 },
-  { name: "Minggu 4", baru: 20, ditangani: 14 },
-];
+function formatText(value: string) {
+  if (!value) return "-";
 
-const sumberData = [
-  { label: "Instagram", value: 12 },
-  { label: "X", value: 8 },
-  { label: "BMKG", value: 20 },
-  { label: "HUMINT", value: 24 },
-];
-
-const tableRows = [
-  { no: 1, jenis: "Banjir", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Ditangani", prioritas: "Prioritas Tinggi" },
-  { no: 2, jenis: "Longsor", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Menunggu Verifikasi", prioritas: "Prioritas Normal" },
-  { no: 3, jenis: "Longsor", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Menunggu Verifikasi", prioritas: "Prioritas Normal" },
-  { no: 4, jenis: "Longsor", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Menunggu Verifikasi", prioritas: "Prioritas Normal" },
-  { no: 5, jenis: "Longsor", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Kedaluwarsa", prioritas: "Prioritas Normal" },
-  { no: 6, jenis: "Longsor", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Kedaluwarsa", prioritas: "Prioritas Normal" },
-  { no: 7, jenis: "Longsor", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Kedaluwarsa", prioritas: "Prioritas Tinggi" },
-  { no: 8, jenis: "Longsor", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Selesai", prioritas: "Prioritas Tinggi" },
-  { no: 9, jenis: "Longsor", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Selesai", prioritas: "Prioritas Tinggi" },
-  { no: 10, jenis: "Longsor", lokasi: "-7.952345, 112.615432", waktu: "2025-01-12 14:30", status: "Selesai", prioritas: "Prioritas Tinggi" },
-];
+  return value
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export default function DashboardPage() {
-  const maxSumber = Math.max(...sumberData.map((s) => s.value));
-  const [userName, setUserName] = useState("User");
+  const router = useRouter();
+
+  const [userName, setUserName] = useState("Admin");
+  const [dashboardData, setDashboardData] =
+    useState<DashboardData>(defaultDashboardData);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const maxSumber = useMemo(() => {
+    return Math.max(...sumberData.map((item) => item.value));
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     if (!token) {
       window.location.href = "/login";
       return;
@@ -62,18 +106,61 @@ export default function DashboardPage() {
 
     const payload = decodeJwtPayload(token);
 
-    if (payload?.usr_role === "admin") {
-      window.location.href = "/manage-staff";
-      return;
-    }
-
     const name =
       payload?.usr_nama_lengkap ||
+      payload?.nama_lengkap ||
+      payload?.name ||
       payload?.usr_email ||
-      "User";
+      payload?.email ||
+      "Admin";
 
     setUserName(name);
+
+    async function fetchDashboard() {
+      try {
+        setLoading(true);
+        setErrorMsg("");
+
+        const response = await fetch(`${API_BASE_URL}/humint/dashboard`, {
+          method: "GET",
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result?.message || "Gagal mengambil data dashboard");
+        }
+
+        setDashboardData({
+          kpi: {
+            laporan_bulan_ini:
+              Number(result?.data?.kpi?.laporan_bulan_ini) || 0,
+            laporan_dalam_penanganan:
+              Number(result?.data?.kpi?.laporan_dalam_penanganan) || 0,
+            laporan_butuh_verifikasi:
+              Number(result?.data?.kpi?.laporan_butuh_verifikasi) || 0,
+          },
+          trend:
+            Array.isArray(result?.data?.trend) && result.data.trend.length > 0
+              ? result.data.trend
+              : defaultDashboardData.trend,
+          table: Array.isArray(result?.data?.table) ? result.data.table : [],
+        });
+      } catch (error: any) {
+        console.error(error);
+        setErrorMsg(error?.message || "Gagal mengambil data dashboard");
+        setDashboardData(defaultDashboardData);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDashboard();
   }, []);
+
+  const handleOpenDetail = (laporanId: number) => {
+    router.push(`/humint/detail/${laporanId}`);
+  };
 
   return (
     <div className={styles.page}>
@@ -82,18 +169,28 @@ export default function DashboardPage() {
         <div className={styles.hello}>Halo, {userName}</div>
       </div>
 
+      {errorMsg && <div className={styles.errorBox}>{errorMsg}</div>}
+
       <div className={styles.kpiRow}>
         <div className={styles.kpiCard}>
           <div className={styles.kpiTitle}>LAPORAN BULAN INI</div>
-          <div className={styles.kpiValue}>20</div>
+          <div className={styles.kpiValue}>
+            {loading ? "..." : dashboardData.kpi.laporan_bulan_ini}
+          </div>
         </div>
+
         <div className={styles.kpiCard}>
-          <div className={styles.kpiTitle}>LAPORAN DALAM PENANGANGAN</div>
-          <div className={styles.kpiValue}>10</div>
+          <div className={styles.kpiTitle}>LAPORAN DALAM PENANGANAN</div>
+          <div className={styles.kpiValue}>
+            {loading ? "..." : dashboardData.kpi.laporan_dalam_penanganan}
+          </div>
         </div>
+
         <div className={styles.kpiCard}>
           <div className={styles.kpiTitle}>LAPORAN BUTUH VERIFIKASI</div>
-          <div className={styles.kpiValue}>5</div>
+          <div className={styles.kpiValue}>
+            {loading ? "..." : dashboardData.kpi.laporan_butuh_verifikasi}
+          </div>
         </div>
       </div>
 
@@ -103,30 +200,70 @@ export default function DashboardPage() {
             <div>
               <div className={styles.panelTitle}>Tren Laporan</div>
               <div className={styles.legend}>
-                <span className={styles.dotBaru} /> Laporan baru
-                <span className={styles.dotT} /> Ditangani
+                <span className={styles.dotBaru} />
+                Laporan baru
+                <span className={styles.dotT} />
+                Ditangani
               </div>
             </div>
 
-            <select className={styles.select}>
-              <option>Bulanan</option>
-              <option>Mingguan</option>
-              <option>Harian</option>
+            <select className={styles.select} defaultValue="Bulanan">
+              <option value="Bulanan">Bulanan</option>
             </select>
           </div>
 
           <div className={styles.chartWrap}>
-            <ResponsiveContainer width="100%" height={230}>
-              <LineChart data={trendData} margin={{ top: 10, right: 15, left: -10, bottom: 0 }}>
-                <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fill: "rgba(255,255,255,0.8)", fontSize: 12 }} />
-                <YAxis tick={{ fill: "rgba(255,255,255,0.8)", fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{ background: "#1f1f1f", border: "1px solid rgba(255,255,255,0.12)" }}
-                  labelStyle={{ color: "rgba(255,255,255,0.85)" }}
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dashboardData.trend}
+                margin={{ top: 10, right: 16, left: -14, bottom: 0 }}
+              >
+                <CartesianGrid
+                  stroke="rgba(255,255,255,0.12)"
+                  strokeDasharray="3 3"
                 />
-                <Line type="monotone" dataKey="baru" stroke="#c59b2d" strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="ditangani" stroke="#8a47ff" strokeWidth={3} dot={false} />
+                <XAxis
+                  dataKey="name"
+                  tick={{
+                    fill: "rgba(255,255,255,0.78)",
+                    fontSize: 12,
+                  }}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{
+                    fill: "rgba(255,255,255,0.78)",
+                    fontSize: 12,
+                  }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "#1f1f2e",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    borderRadius: "10px",
+                    color: "#ffffff",
+                  }}
+                  labelStyle={{
+                    color: "#ffffff",
+                    fontWeight: 700,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="baru"
+                  name="Laporan Baru"
+                  stroke="#c59b2d"
+                  strokeWidth={3}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="ditangani"
+                  name="Ditangani"
+                  stroke="#8a47ff"
+                  strokeWidth={3}
+                  dot={false}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -138,15 +275,22 @@ export default function DashboardPage() {
           </div>
 
           <div className={styles.sumberList}>
-            {sumberData.map((s) => {
-              const width = Math.round((s.value / maxSumber) * 100);
+            {sumberData.map((item) => {
+              const width =
+                maxSumber > 0 ? Math.round((item.value / maxSumber) * 100) : 0;
+
               return (
-                <div key={s.label} className={styles.sumberRow}>
-                  <div className={styles.sumberLabel}>{s.label}</div>
+                <div key={item.label} className={styles.sumberRow}>
+                  <div className={styles.sumberLabel}>{item.label}</div>
+
                   <div className={styles.barTrack}>
-                    <div className={styles.barFill} style={{ width: `${width}%` }} />
+                    <div
+                      className={styles.barFill}
+                      style={{ width: `${width}%` }}
+                    />
                   </div>
-                  <div className={styles.sumberValue}>{s.value}</div>
+
+                  <div className={styles.sumberValue}>{item.value}</div>
                 </div>
               );
             })}
@@ -168,17 +312,41 @@ export default function DashboardPage() {
               <th>Prioritas Penanganan</th>
             </tr>
           </thead>
+
           <tbody>
-            {tableRows.map((r) => (
-              <tr key={r.no}>
-                <td>{r.no}</td>
-                <td>{r.jenis}</td>
-                <td>{r.lokasi}</td>
-                <td>{r.waktu}</td>
-                <td>{r.status}</td>
-                <td>{r.prioritas}</td>
+            {loading ? (
+              <tr>
+                <td colSpan={6}>Memuat data dashboard...</td>
               </tr>
-            ))}
+            ) : dashboardData.table.length === 0 ? (
+              <tr>
+                <td colSpan={6}>Belum ada laporan.</td>
+              </tr>
+            ) : (
+              dashboardData.table.map((item) => (
+                <tr
+                  key={item.laporan_id}
+                  className={styles.clickableRow}
+                  onClick={() => handleOpenDetail(item.laporan_id)}
+                  tabIndex={0}
+                  role="button"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleOpenDetail(item.laporan_id);
+                    }
+                  }}
+                  title="Klik untuk melihat detail laporan"
+                >
+                  <td>{item.no}</td>
+                  <td>{item.jenis}</td>
+                  <td>{item.lokasi}</td>
+                  <td>{item.waktu}</td>
+                  <td>{formatText(item.status)}</td>
+                  <td>{formatText(item.prioritas)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
