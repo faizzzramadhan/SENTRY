@@ -1,0 +1,3 @@
+# kosong, karena worker ini pakai built-in Python
+# kalau nanti mau pakai pandas, tambahkan:
+# pandas
