@@ -214,4 +214,28 @@ router.delete("/:bencana_id", auth, requireRole("staff", "admin"), async (req, r
   }
 });
 
+router.post("/bulk-delete", auth, requireRole("staff", "admin"), async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const normalizedIds = [...new Set(
+      ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)
+    )];
+
+    if (normalizedIds.length === 0) {
+      return res.status(400).json({ message: "ids wajib berupa array bencana_id yang valid" });
+    }
+
+    const deletedCount = await NamaBencana.destroy({
+      where: { bencana_id: { [Op.in]: normalizedIds } },
+    });
+
+    return res.json({
+      message: `${deletedCount} data nama bencana berhasil dihapus`,
+      deleted_count: deletedCount,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;

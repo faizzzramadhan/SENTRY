@@ -6,8 +6,7 @@ const models = require("../../models");
 const auth = require("../../middlewares/auth");
 const requireRole = require("../../middlewares/requireRole");
 
-const OsintSettings = models.osint_settings;
-const DataKelurahan = models.data_kelurahan;
+const OsintKpi = models.osint_kpi;
 const DataKeyword = models.data_keyword;
 
 function toNonNegativeInt(value, fieldName) {
@@ -20,21 +19,18 @@ function toNonNegativeInt(value, fieldName) {
 
 router.get("/frontend", auth, requireRole("staff"), async (req, res) => {
   try {
-    const [daftar_kelurahan, daftar_keyword, latestKpi] = await Promise.all([
-      DataKelurahan.findAll({
-        order: [["last_update_date", "DESC"], ["kelurahan_id", "DESC"]],
-      }),
+    const [daftar_keyword, latestKpi] = await Promise.all([
       DataKeyword.findAll({
         order: [["last_update_date", "DESC"], ["keyword_id", "DESC"]],
       }),
-      OsintSettings.findOne({
-        order: [["last_update_date", "DESC"], ["osint_settings_id", "DESC"]],
+      OsintKpi.findOne({
+        order: [["last_update_date", "DESC"], ["osint_kpi_id", "DESC"]],
       }),
     ]);
 
     const nilai_kpi = latestKpi
       ? {
-          osint_settings_id: latestKpi.osint_settings_id,
+          osint_kpi_id: latestKpi.osint_kpi_id,
           set_jumlah_postingan: latestKpi.set_jumlah_postingan,
           set_jumlah_like: latestKpi.set_jumlah_like,
           set_jumlah_comment: latestKpi.set_jumlah_comment,
@@ -43,7 +39,7 @@ router.get("/frontend", auth, requireRole("staff"), async (req, res) => {
           last_update_date: latestKpi.last_update_date,
         }
       : {
-          osint_settings_id: null,
+          osint_kpi_id: null,
           set_jumlah_postingan: 0,
           set_jumlah_like: 0,
           set_jumlah_comment: 0,
@@ -53,9 +49,7 @@ router.get("/frontend", auth, requireRole("staff"), async (req, res) => {
         };
 
     return res.json({
-      count_kelurahan: daftar_kelurahan.length,
       count_keyword: daftar_keyword.length,
-      daftar_kelurahan,
       daftar_keyword,
       nilai_kpi,
     });
@@ -82,28 +76,28 @@ router.get("/", auth, requireRole("staff"), async (req, res) => {
         ? [["last_update_date", "ASC"]]
         : [["last_update_date", "DESC"]];
 
-    const rows = await OsintSettings.findAll({ where, order });
+    const rows = await OsintKpi.findAll({ where, order });
 
     return res.json({
       count: rows.length,
-      osint_settings: rows,
+      osint_kpi: rows,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
 });
 
-router.get("/:osint_settings_id", auth, requireRole("staff"), async (req, res) => {
+router.get("/:osint_kpi_id", auth, requireRole("staff"), async (req, res) => {
   try {
-    const row = await OsintSettings.findOne({
-      where: { osint_settings_id: req.params.osint_settings_id },
+    const row = await OsintKpi.findOne({
+      where: { osint_kpi_id: req.params.osint_kpi_id },
     });
 
     if (!row) {
-      return res.status(404).json({ message: "OSINT settings tidak ditemukan" });
+      return res.status(404).json({ message: "OSINT KPI tidak ditemukan" });
     }
 
-    return res.json({ osint_settings: row });
+    return res.json({ osint_kpi: row });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -132,7 +126,7 @@ router.post("/", auth, requireRole("staff"), async (req, res) => {
 
     const actor = req.user?.usr_nama_lengkap || "system";
 
-    const created = await OsintSettings.create({
+    const created = await OsintKpi.create({
       set_jumlah_postingan: toNonNegativeInt(set_jumlah_postingan, "set_jumlah_postingan"),
       set_jumlah_like: toNonNegativeInt(set_jumlah_like, "set_jumlah_like"),
       set_jumlah_comment: toNonNegativeInt(set_jumlah_comment, "set_jumlah_comment"),
@@ -144,8 +138,8 @@ router.post("/", auth, requireRole("staff"), async (req, res) => {
     });
 
     return res.status(201).json({
-      message: "OSINT settings berhasil ditambahkan",
-      osint_settings: created,
+      message: "OSINT KPI berhasil ditambahkan",
+      osint_kpi: created,
     });
   } catch (error) {
     if (error.message.includes("harus berupa angka")) {
@@ -155,19 +149,19 @@ router.post("/", auth, requireRole("staff"), async (req, res) => {
   }
 });
 
-router.put("/:osint_settings_id", auth, requireRole("staff"), async (req, res) => {
+router.put("/:osint_kpi_id", auth, requireRole("staff"), async (req, res) => {
   try {
-    const existing = await OsintSettings.findOne({
-      where: { osint_settings_id: req.params.osint_settings_id },
+    const existing = await OsintKpi.findOne({
+      where: { osint_kpi_id: req.params.osint_kpi_id },
     });
 
     if (!existing) {
-      return res.status(404).json({ message: "OSINT settings tidak ditemukan" });
+      return res.status(404).json({ message: "OSINT KPI tidak ditemukan" });
     }
 
     const actor = req.user?.usr_nama_lengkap || "system";
 
-    await OsintSettings.update(
+    await OsintKpi.update(
       {
         set_jumlah_postingan:
           req.body.set_jumlah_postingan !== undefined
@@ -188,16 +182,16 @@ router.put("/:osint_settings_id", auth, requireRole("staff"), async (req, res) =
         last_updated_by: actor,
         last_update_date: new Date(),
       },
-      { where: { osint_settings_id: req.params.osint_settings_id } }
+      { where: { osint_kpi_id: req.params.osint_kpi_id } }
     );
 
-    const updated = await OsintSettings.findOne({
-      where: { osint_settings_id: req.params.osint_settings_id },
+    const updated = await OsintKpi.findOne({
+      where: { osint_kpi_id: req.params.osint_kpi_id },
     });
 
     return res.json({
-      message: "OSINT settings berhasil diupdate",
-      osint_settings: updated,
+      message: "OSINT KPI berhasil diupdate",
+      osint_kpi: updated,
     });
   } catch (error) {
     if (error.message.includes("harus berupa angka")) {
@@ -207,17 +201,17 @@ router.put("/:osint_settings_id", auth, requireRole("staff"), async (req, res) =
   }
 });
 
-router.delete("/:osint_settings_id", auth, requireRole("staff"), async (req, res) => {
+router.delete("/:osint_kpi_id", auth, requireRole("staff"), async (req, res) => {
   try {
-    const deleted = await OsintSettings.destroy({
-      where: { osint_settings_id: req.params.osint_settings_id },
+    const deleted = await OsintKpi.destroy({
+      where: { osint_kpi_id: req.params.osint_kpi_id },
     });
 
     if (!deleted) {
-      return res.status(404).json({ message: "OSINT settings tidak ditemukan" });
+      return res.status(404).json({ message: "OSINT KPI tidak ditemukan" });
     }
 
-    return res.json({ message: "OSINT settings berhasil dihapus" });
+    return res.json({ message: "OSINT KPI berhasil dihapus" });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

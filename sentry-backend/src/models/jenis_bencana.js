@@ -27,7 +27,7 @@ module.exports = (sequelize, DataTypes) => {
         field: "nama_jenis",
       },
       icon_marker: {
-        type: DataTypes.STRING(100),
+        type: DataTypes.STRING(255),
         allowNull: true,
         field: "icon_marker",
       },

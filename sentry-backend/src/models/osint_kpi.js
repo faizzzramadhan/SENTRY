@@ -2,20 +2,20 @@
 const { Model } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
-  class osint_settings extends Model {
+  class osint_kpi extends Model {
     static associate(models) {
       // tidak ada relasi langsung
     }
   }
 
-  osint_settings.init(
+  osint_kpi.init(
     {
-      osint_settings_id: {
+      osint_kpi_id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
         allowNull: false,
-        field: "osint_settings_id",
+        field: "osint_kpi_id",
       },
       set_jumlah_postingan: {
         type: DataTypes.INTEGER,
@@ -66,11 +66,11 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       sequelize,
-      modelName: "osint_settings",
-      tableName: "osint_settings",
+      modelName: "osint_kpi",
+      tableName: "osint_kpi",
       timestamps: false,
     }
   );
 
-  return osint_settings;
+  return osint_kpi;
 };

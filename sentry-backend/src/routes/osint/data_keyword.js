@@ -153,4 +153,37 @@ router.delete("/:keyword_id", auth, requireRole("staff"), async (req, res) => {
   }
 });
 
+router.post("/bulk-delete", auth, requireRole("staff"), async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+
+    const normalizedIds = [...new Set(
+      ids
+        .map((id) => Number(id))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    )];
+
+    if (normalizedIds.length === 0) {
+      return res.status(400).json({
+        message: "ids wajib berupa array berisi keyword_id yang valid",
+      });
+    }
+
+    const deletedCount = await DataKeyword.destroy({
+      where: {
+        keyword_id: {
+          [Op.in]: normalizedIds,
+        },
+      },
+    });
+
+    return res.json({
+      message: `${deletedCount} data keyword berhasil dihapus`,
+      deleted_count: deletedCount,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
