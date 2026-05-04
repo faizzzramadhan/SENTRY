@@ -1,0 +1,160 @@
+const fs = require("fs");
+const exifr = require("exifr");
+const geolib = require("geolib");
+
+/**
+ * Ambil koordinat dari EXIF atau fallback ke GPS browser
+ */
+async function extractExifLocation(filePath, browserGps = {}) {
+  const browserLat =
+    browserGps.latitude != null ? Number(browserGps.latitude) : null;
+
+  const browserLng =
+    browserGps.longitude != null ? Number(browserGps.longitude) : null;
+
+  const hasBrowserGps =
+    browserLat !== null &&
+    browserLng !== null &&
+    !Number.isNaN(browserLat) &&
+    !Number.isNaN(browserLng);
+
+  try {
+    console.log("========== DEBUG EXIF ==========");
+    console.log("filePath:", filePath);
+    console.log("browserGps:", browserGps);
+
+    const exists = fs.existsSync(filePath);
+
+    // FILE TIDAK ADA
+    if (!exists) {
+      if (hasBrowserGps) {
+        console.log("FILE TIDAK ADA → pakai browser GPS");
+        return {
+          exif_latitude: browserLat,
+          exif_longitude: browserLng,
+          source: "browser",
+        };
+      }
+
+      return {
+        exif_latitude: null,
+        exif_longitude: null,
+        source: "none",
+      };
+    }
+
+    // 🔥 BACA EXIF
+    const exif = await exifr.parse(filePath, {
+      gps: true,
+      mergeOutput: true,
+    });
+
+    console.log("HASIL EXIF:", exif);
+
+    // TIDAK ADA GPS DI EXIF
+    if (!exif || !exif.latitude || !exif.longitude) {
+      console.log("EXIF TIDAK ADA GPS");
+
+      if (hasBrowserGps) {
+        console.log("FALLBACK → browser GPS");
+
+        return {
+          exif_latitude: browserLat,
+          exif_longitude: browserLng,
+          source: "browser",
+        };
+      }
+
+      return {
+        exif_latitude: null,
+        exif_longitude: null,
+        source: "none",
+      };
+    }
+
+    // EXIF ADA
+    console.log("GPS DARI EXIF:", exif.latitude, exif.longitude);
+
+    return {
+      exif_latitude: Number(exif.latitude),
+      exif_longitude: Number(exif.longitude),
+      source: "exif",
+    };
+  } catch (error) {
+    console.error("ERROR EXIF:", error);
+
+    // ERROR → fallback ke browser
+    if (hasBrowserGps) {
+      console.log("ERROR → fallback browser GPS");
+
+      return {
+        exif_latitude: browserLat,
+        exif_longitude: browserLng,
+        source: "browser",
+      };
+    }
+
+    return {
+      exif_latitude: null,
+      exif_longitude: null,
+      source: "none",
+    };
+  }
+}
+
+/**
+ * Hitung validasi lokasi (jarak antara lokasi laporan vs foto)
+ */
+function hitungValidasiLokasi({
+  laporanLatitude,
+  laporanLongitude,
+  exifLatitude,
+  exifLongitude,
+  batasMeter = 500,
+}) {
+  if (
+    laporanLatitude == null ||
+    laporanLongitude == null ||
+    exifLatitude == null ||
+    exifLongitude == null
+  ) {
+    return {
+      selisih_jarak: null,
+      is_valid_location: false,
+    };
+  }
+
+  const laporanLat = Number(laporanLatitude);
+  const laporanLng = Number(laporanLongitude);
+  const exifLat = Number(exifLatitude);
+  const exifLng = Number(exifLongitude);
+
+  if (
+    Number.isNaN(laporanLat) ||
+    Number.isNaN(laporanLng) ||
+    Number.isNaN(exifLat) ||
+    Number.isNaN(exifLng)
+  ) {
+    return {
+      selisih_jarak: null,
+      is_valid_location: false,
+    };
+  }
+
+  const jarakMeter = geolib.getDistance(
+    { latitude: laporanLat, longitude: laporanLng },
+    { latitude: exifLat, longitude: exifLng }
+  );
+
+  console.log("JARAK:", jarakMeter, "meter");
+
+  return {
+    selisih_jarak: Number(jarakMeter.toFixed(2)),
+    is_valid_location: jarakMeter <= batasMeter,
+  };
+}
+
+module.exports = {
+  extractExifLocation,
+  hitungValidasiLokasi,
+};

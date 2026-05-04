@@ -3,7 +3,6 @@ const multer = require("multer");
 const path = require("path");
 
 const router = express.Router();
-
 const db = require("../../models");
 
 const {
@@ -22,29 +21,232 @@ const {
   hitungValidasiLokasi,
 } = require("../../utils/exifFoto");
 
-/*
-  HUMINT SCORING
-  Total maksimal: 100
+const {
+  calculateDssResult,
+  calculateTotalDssScore,
+  getAnalisisPrioritasFromDss,
+} = require("../../utils/dssScoring");
 
-  1. EXIF lokasi: 0 - 50
-  2. Kelengkapan data: 0 - 25
-  3. Dampak korban: 0 - 15
-  4. Konsistensi laporan: 0 - 10
-*/
+function normalizeText(value) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim();
+  return text.length ? text : null;
+}
+
+function normalizeDecimal(value) {
+  if (value === undefined || value === null || value === "") return null;
+
+  const cleaned = String(value)
+    .replace(/Rp/gi, "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, ".");
+
+  const number = Number(cleaned);
+
+  if (Number.isNaN(number)) return null;
+
+  return number.toFixed(2);
+}
+
+function normalizeInteger(value) {
+  if (value === undefined || value === null || value === "") return null;
+
+  const number = Number(value);
+
+  if (!Number.isInteger(number)) return null;
+
+  return number;
+}
+
+function normalizeCoordinate(value) {
+  if (value === undefined || value === null || value === "") return null;
+
+  const cleaned = String(value)
+    .trim()
+    .replace(/,/g, ".");
+
+  if (!cleaned) return null;
+
+  const number = Number(cleaned);
+
+  if (Number.isNaN(number)) return null;
+
+  return cleaned;
+}
+
+
+
+function toNumberCoordinate(value) {
+  if (value === undefined || value === null || value === "") return null;
+
+  const number = Number(String(value).trim().replace(/,/g, "."));
+
+  if (Number.isNaN(number)) return null;
+
+  return number;
+}
+
+function calculateDistanceMeter(lat1, lon1, lat2, lon2) {
+  const firstLat = toNumberCoordinate(lat1);
+  const firstLon = toNumberCoordinate(lon1);
+  const secondLat = toNumberCoordinate(lat2);
+  const secondLon = toNumberCoordinate(lon2);
+
+  if (
+    firstLat === null ||
+    firstLon === null ||
+    secondLat === null ||
+    secondLon === null
+  ) {
+    return null;
+  }
+
+  const earthRadiusMeter = 6371000;
+  const toRad = (degree) => (degree * Math.PI) / 180;
+
+  const dLat = toRad(secondLat - firstLat);
+  const dLon = toRad(secondLon - firstLon);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(firstLat)) *
+      Math.cos(toRad(secondLat)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Number((earthRadiusMeter * c).toFixed(2));
+}
+
+function hitungValidasiLokasiAman({
+  laporanLatitude,
+  laporanLongitude,
+  gpsLatitude,
+  gpsLongitude,
+  batasMeter = 500,
+}) {
+  const jarakFallback = calculateDistanceMeter(
+    laporanLatitude,
+    laporanLongitude,
+    gpsLatitude,
+    gpsLongitude
+  );
+
+  let validasi = {
+    selisih_jarak: jarakFallback,
+    is_valid_location:
+      jarakFallback !== null ? jarakFallback <= Number(batasMeter) : false,
+  };
+
+  try {
+    const validasiUtil = hitungValidasiLokasi({
+      laporanLatitude,
+      laporanLongitude,
+      exifLatitude: gpsLatitude,
+      exifLongitude: gpsLongitude,
+      batasMeter,
+    });
+
+    if (
+      validasiUtil &&
+      validasiUtil.selisih_jarak !== null &&
+      validasiUtil.selisih_jarak !== undefined &&
+      !Number.isNaN(Number(validasiUtil.selisih_jarak))
+    ) {
+      validasi = {
+        selisih_jarak: Number(Number(validasiUtil.selisih_jarak).toFixed(2)),
+        is_valid_location: Boolean(validasiUtil.is_valid_location),
+      };
+    }
+  } catch (error) {
+    console.error("Validasi lokasi util gagal, memakai perhitungan fallback:", error.message);
+  }
+
+  return validasi;
+}
+
+
+function getKategoriValidasiGpsByDistance(distanceMeter, jenisId) {
+  const distance = Number(distanceMeter);
+
+  if (!Number.isFinite(distance)) {
+    return {
+      kategori: "METADATA GPS TIDAK TERSEDIA",
+      skorExif: 0,
+      isValidLocation: false,
+      keterangan:
+        "Data lokasi foto tidak tersedia sehingga diperlukan pengecekan manual oleh petugas.",
+    };
+  }
+
+  const [sangatAkurat, akurat, cukup] = getThresholdByJenisId(jenisId);
+
+  if (distance <= sangatAkurat) {
+    return {
+      kategori: "SANGAT AKURAT",
+      skorExif: 50,
+      isValidLocation: true,
+      keterangan:
+        "Lokasi foto sangat dekat dengan lokasi laporan sehingga dapat dianggap sangat akurat.",
+    };
+  }
+
+  if (distance <= akurat) {
+    return {
+      kategori: "AKURAT",
+      skorExif: 40,
+      isValidLocation: true,
+      keterangan:
+        "Lokasi foto masih sesuai dengan lokasi laporan.",
+    };
+  }
+
+  if (distance <= cukup) {
+    return {
+      kategori: "CUKUP",
+      skorExif: 25,
+      isValidLocation: true,
+      keterangan:
+        "Lokasi foto masih dapat diterima, namun tidak terlalu dekat dengan lokasi laporan.",
+    };
+  }
+
+  return {
+    kategori: "PERLU PENGECEKAN",
+    skorExif: 5,
+    isValidLocation: false,
+    keterangan:
+      "Lokasi yang diperoleh berbeda dengan lokasi laporan sehingga diperlukan pengecekan lebih lanjut oleh petugas.",
+  };
+}
+
+function getFirstCoordinate(body, keys) {
+  for (const key of keys) {
+    const value = normalizeCoordinate(body[key]);
+
+    if (value !== null) {
+      return value;
+    }
+  }
+
+  return null;
+}
 
 function getThresholdByJenisId(jenisId) {
   const id = Number(jenisId);
 
   const map = {
-    60001: [200, 500, 1500], // Banjir
-    60002: [100, 300, 700], // Tanah Longsor
-    60003: [200, 500, 1500], // Gelombang Pasang dan Abrasi
-    60004: [300, 800, 2000], // Cuaca Ekstrem
-    60005: [500, 1500, 3000], // Kekeringan
-    60006: [200, 700, 2000], // Kebakaran Hutan dan Lahan
-    60007: [500, 2000, 5000], // Gempabumi
-    60008: [500, 2000, 5000], // Tsunami
-    60009: [300, 1000, 3000], // Erupsi Gunung Api
+    60001: [200, 500, 1500],
+    60002: [100, 300, 700],
+    60003: [200, 500, 1500],
+    60004: [300, 800, 2000],
+    60005: [500, 1500, 3000],
+    60006: [200, 700, 2000],
+    60007: [500, 2000, 5000],
+    60008: [500, 2000, 5000],
+    60009: [300, 1000, 3000],
   };
 
   return map[id] || [100, 300, 700];
@@ -206,41 +408,58 @@ function hitungSkorDampak(korban) {
   };
 }
 
-function hitungSkorKonsistensiLaporan(body, fotoKejadian) {
-  let skor = 0;
-  const detail = [];
+function hitungSkorKonsistensiLaporan(body) {
+  const jenisLokasi = String(body?.jenis_lokasi || "")
+    .trim()
+    .toUpperCase();
 
-  if (body.kronologi && String(body.kronologi).trim().length >= 20) {
-    skor += 4;
-    detail.push("Kronologi cukup jelas (+4)");
+  if (jenisLokasi === "PEMUKIMAN") {
+    return {
+      skor: 10,
+      detail: ["Lokasi kejadian berada di area pemukiman (+10)"],
+    };
   }
 
-  if (
-    body.alamat_lengkap_kejadian &&
-    String(body.alamat_lengkap_kejadian).trim().length >= 10
-  ) {
-    skor += 3;
-    detail.push("Alamat kejadian cukup detail (+3)");
+  if (jenisLokasi === "FASILITAS_UMUM") {
+    return {
+      skor: 9,
+      detail: ["Lokasi kejadian berada di fasilitas umum (+9)"],
+    };
   }
 
-  if (fotoKejadian) {
-    skor += 3;
-    detail.push("Foto kejadian tersedia sebagai bukti visual (+3)");
+  if (jenisLokasi === "JALAN_RAYA") {
+    return {
+      skor: 8,
+      detail: ["Lokasi kejadian berada di jalan raya (+8)"],
+    };
+  }
+
+  if (jenisLokasi === "AREA_TIDAK_PADAT") {
+    return {
+      skor: 5,
+      detail: ["Lokasi kejadian berada di area tidak padat (+5)"],
+    };
   }
 
   return {
-    skor: Math.min(skor, 10),
-    detail,
+    skor: 0,
+    detail: ["Jenis lokasi tidak dikenali oleh sistem (+0)"],
   };
 }
 
 function getSkorKredibilitasLabel(humintScore) {
-  if (humintScore >= 70) return "TINGGI";
+  const score = Number(humintScore || 0);
+
+  if (score >= 70) return "TINGGI";
+  if (score >= 50) return "SEDANG";
   return "RENDAH";
 }
 
 function getPrioritasByHumintScore(humintScore) {
-  if (humintScore >= 70) return "PRIORITAS TINGGI";
+  const score = Number(humintScore || 0);
+
+  if (score >= 70) return "PRIORITAS TINGGI";
+  if (score >= 50) return "PRIORITAS SEDANG";
   return "PRIORITAS RENDAH";
 }
 
@@ -282,7 +501,52 @@ router.post(
         null;
 
       const now = new Date();
-      const actor = body.created_by || "staff";
+
+      const actor =
+        normalizeText(body.staff_puskodal) ||
+        normalizeText(body.last_updated_by) ||
+        normalizeText(body.created_by) ||
+        "staff";
+
+      const usrId = normalizeInteger(body.usr_id);
+
+      // ---------------------------------------------------------------------------
+      // Ambil browser GPS dari berbagai kemungkinan nama field yang dikirim frontend
+      // Ini dipakai sebagai FALLBACK jika metadata EXIF foto tidak terbaca
+      // PENTING: Nilai ini TIDAK menggantikan koordinat lokasi kejadian (latitude/longitude)
+      // ---------------------------------------------------------------------------
+      const browserLatitude = getFirstCoordinate(body, [
+        "browser_latitude",
+        "browserLatitude",
+        "browser_gps_lat",
+        "browserGpsLat",
+        "browser_gps_latitude",
+        "browserGpsLatitude",
+        "gps_browser_lat",
+        "gpsBrowserLat",
+        "gps_browser_latitude",
+        "gpsBrowserLatitude",
+        "foto_browser_latitude",
+        "fotoBrowserLatitude",
+        "foto_gps_lat",
+        "fotoGpsLat",
+      ]);
+      const browserLongitude = getFirstCoordinate(body, [
+        "browser_longitude",
+        "browserLongitude",
+        "browser_gps_lng",
+        "browserGpsLng",
+        "browser_gps_longitude",
+        "browserGpsLongitude",
+        "gps_browser_lng",
+        "gpsBrowserLng",
+        "gps_browser_longitude",
+        "gpsBrowserLongitude",
+        "foto_browser_longitude",
+        "fotoBrowserLongitude",
+        "foto_gps_lng",
+        "fotoGpsLng",
+      ]);
 
       if (!fotoKejadian) {
         await t.rollback();
@@ -325,6 +589,8 @@ router.post(
           foto_kejadian: fotoKejadian,
           foto_kerusakan: fotoKerusakan,
           jenis_lokasi: body.jenis_lokasi,
+          // latitude & longitude di bawah adalah koordinat LOKASI KEJADIAN,
+          // bukan koordinat GPS browser/EXIF foto. Tidak boleh diubah.
           latitude: body.latitude,
           longitude: body.longitude,
           alamat_lengkap_kejadian: body.alamat_lengkap_kejadian,
@@ -340,6 +606,9 @@ router.post(
 
       const laporanId = newLaporan.laporan_id;
 
+      // ---------------------------------------------------------------------------
+      // Ekstrak metadata EXIF dari foto kejadian
+      // ---------------------------------------------------------------------------
       let exifData = {
         exif_latitude: null,
         exif_longitude: null,
@@ -349,18 +618,65 @@ router.post(
         exifData = await extractExifLocation(fotoKejadianFile.path);
       }
 
+      const adaExifGps = Boolean(exifData.exif_latitude && exifData.exif_longitude);
+      const adaBrowserGps = Boolean(browserLatitude && browserLongitude);
+
+      // gps_source menentukan sumber GPS yang dipakai untuk validasi metadata foto:
+      // - "exif"    : metadata EXIF foto berhasil dibaca → pakai EXIF
+      // - "browser" : EXIF tidak tersedia, tapi browser GPS ada → fallback browser
+      // - "none"    : tidak ada sumber GPS sama sekali
+      // CATATAN: Nilai ini HANYA untuk kolom metadata_foto, bukan koordinat laporan
+      const gpsSource = adaExifGps ? "exif" : adaBrowserGps ? "browser" : "none";
+
+      // Tentukan koordinat yang dipakai untuk menghitung selisih jarak validasi foto
+      // Prioritas: EXIF > browser GPS > null (tidak ada validasi)
+      const gpsValidasiLatitude = adaExifGps
+        ? exifData.exif_latitude
+        : adaBrowserGps
+        ? browserLatitude
+        : null;
+
+      const gpsValidasiLongitude = adaExifGps
+        ? exifData.exif_longitude
+        : adaBrowserGps
+        ? browserLongitude
+        : null;
+
+      // Hitung selisih jarak antara GPS foto (exif/browser) vs koordinat lokasi kejadian
       const validasi = hitungValidasiLokasi({
         laporanLatitude: body.latitude,
         laporanLongitude: body.longitude,
-        exifLatitude: exifData.exif_latitude,
-        exifLongitude: exifData.exif_longitude,
+        exifLatitude: gpsValidasiLatitude,
+        exifLongitude: gpsValidasiLongitude,
         batasMeter: 500,
       });
 
-      const hasilExif = getKategoriValidasiExif(
+      // Dapatkan kategori validasi berdasarkan selisih jarak
+      // Jika gpsSource "none", selisih_jarak akan null dan kategori otomatis "METADATA GPS TIDAK TERSEDIA"
+      const hasilExif = getKategoriValidasiGpsByDistance(
         validasi.selisih_jarak,
         body.id_jenis
       );
+
+      // Jika EXIF tidak tersedia, GPS browser tetap memakai aturan jarak yang sama
+      // dengan validasi EXIF: SANGAT AKURAT, AKURAT, CUKUP, atau PERLU PENGECEKAN.
+      if (gpsSource === "browser") {
+        hasilExif.kategori = `FALLBACK GPS BROWSER - ${hasilExif.kategori}`;
+
+        if (hasilExif.isValidLocation) {
+          hasilExif.keterangan =
+            "Foto tidak memiliki metadata GPS EXIF. Sistem menggunakan GPS browser sebagai alternatif dan lokasi yang diperoleh sesuai dengan lokasi laporan.";
+        } else {
+          hasilExif.keterangan =
+            "Foto tidak memiliki metadata GPS EXIF. Sistem menggunakan GPS browser sebagai alternatif, namun lokasi yang diperoleh berbeda dengan lokasi laporan sehingga diperlukan pengecekan lebih lanjut oleh petugas.";
+        }
+      }
+
+      // Keterangan khusus jika tidak ada GPS sama sekali
+      if (gpsSource === "none") {
+        hasilExif.keterangan =
+          "Foto tidak memiliki metadata GPS EXIF dan GPS browser tidak tersedia sehingga diperlukan pengecekan manual oleh petugas.";
+      }
 
       const kelengkapanData = hitungSkorKelengkapanData(body, fotoKejadian);
       const dampakKorban = hitungSkorDampak(korban);
@@ -378,58 +694,85 @@ router.post(
       );
 
       const skorKredibilitas = getSkorKredibilitasLabel(humintScore);
-      const prioritas = getPrioritasByHumintScore(humintScore);
+
+      const totalScore = calculateTotalDssScore({
+        humintScore,
+        osintScore: null,
+        spatialScore: null,
+      });
+
+      const dssResult = calculateDssResult({
+        humintScore,
+        osintScore: 0,
+        spatialScore: 0,
+        totalScore,
+        totalKorban: dampakKorban.totalKorban,
+        skorExif: hasilExif.skorExif,
+        gpsSource,
+        jenisLaporan: body.jenis_laporan || ("ASSESSMENT"),
+      });
+
+      const prioritas = getAnalisisPrioritasFromDss(dssResult);
 
       const parameterCek = {
         jenis_analisis: "HUMINT",
-        sumber_validasi: "Metadata EXIF foto kejadian dan data laporan",
+        sumber_validasi:
+          gpsSource === "exif"
+            ? "Metadata EXIF foto kejadian dan data laporan"
+            : gpsSource === "browser"
+            ? "Fallback GPS browser dan data laporan"
+            : "Data laporan tanpa GPS foto",
         id_jenis_bencana: Number(body.id_jenis),
-
         lokasi_laporan: {
           latitude: Number(body.latitude),
           longitude: Number(body.longitude),
           alamat_lengkap_kejadian: body.alamat_lengkap_kejadian,
         },
-
         lokasi_exif: {
           exif_latitude: exifData.exif_latitude,
           exif_longitude: exifData.exif_longitude,
+          browser_latitude: browserLatitude,
+          browser_longitude: browserLongitude,
+          gps_source: gpsSource,
           selisih_jarak_meter: validasi.selisih_jarak,
           kategori_validasi_exif: hasilExif.kategori,
           is_valid_location: hasilExif.isValidLocation,
           skor_exif: hasilExif.skorExif,
           keterangan: hasilExif.keterangan,
         },
-
         kelengkapan_data: {
           skor: kelengkapanData.skor,
           detail: kelengkapanData.detail,
         },
-
         dampak_korban: {
           skor: dampakKorban.skor,
           total_korban: dampakKorban.totalKorban,
           kategori: dampakKorban.kategori,
           alasan: dampakKorban.alasan,
         },
-
         konsistensi_laporan: {
           skor: konsistensiLaporan.skor,
           detail: konsistensiLaporan.detail,
         },
-
         hasil_akhir: {
           skor_humint_total: humintScore,
           skor_kredibilitas: skorKredibilitas,
           prioritas,
+          dss: dssResult,
         },
       };
 
+      // Simpan metadata foto termasuk browser GPS (fallback)
+      // Kolom browser_latitude/browser_longitude adalah data metadata foto,
+      // bukan pengganti koordinat lokasi kejadian di tabel laporan
       await metadata_foto.create(
         {
           laporan_id: laporanId,
           exif_latitude: exifData.exif_latitude,
           exif_longitude: exifData.exif_longitude,
+          browser_latitude: browserLatitude,
+          browser_longitude: browserLongitude,
+          gps_source: gpsSource,
           selisih_jarak: validasi.selisih_jarak,
           is_valid_location: hasilExif.isValidLocation,
           created_by: actor,
@@ -473,11 +816,14 @@ router.post(
       await verifikasi_staff.create(
         {
           laporan_id: laporanId,
-          kerusakan_verifikasi: body.kerusakan_identifikasi || null,
-          terdampak_verifikasi: body.terdampak_identifikasi || null,
-          penyebab_verifikasi: body.penyebab_identifikasi || null,
-          tindak_lanjut: body.tindak_lanjut || null,
-          petugas_trc: body.petugas_trc || null,
+          kerusakan_verifikasi: normalizeText(body.kerusakan_identifikasi || body.kerusakan_verifikasi),
+          terdampak_verifikasi: normalizeText(body.terdampak_identifikasi || body.terdampak_verifikasi),
+          penyebab_verifikasi: normalizeText(body.penyebab_identifikasi || body.penyebab_verifikasi),
+          prakiraan_kerugian: normalizeDecimal(body.prakiraan_kerugian),
+          rekomendasi_tindak_lanjut: normalizeText(body.rekomendasi_tindak_lanjut),
+          tindak_lanjut: normalizeText(body.tindak_lanjut),
+          petugas_trc: normalizeText(body.petugas_trc),
+          usr_id: usrId,
           created_by: actor,
           creation_date: now,
           last_updated_by: actor,
@@ -506,7 +852,7 @@ router.post(
           humint_score: humintScore,
           osint_score: 0,
           spatial_score: 0,
-          total_score: humintScore,
+          total_score: totalScore,
         },
         { transaction: t }
       );
@@ -516,9 +862,14 @@ router.post(
       return res.status(201).json({
         message: "Laporan admin berhasil ditambahkan",
         laporan_id: laporanId,
+        staff_puskodal: actor,
+        prakiraan_kerugian: normalizeDecimal(body.prakiraan_kerugian),
         metadata_foto: {
           exif_latitude: exifData.exif_latitude,
           exif_longitude: exifData.exif_longitude,
+          browser_latitude: browserLatitude,
+          browser_longitude: browserLongitude,
+          gps_source: gpsSource,
           selisih_jarak: validasi.selisih_jarak,
           kategori_validasi: hasilExif.kategori,
           is_valid_location: hasilExif.isValidLocation,
@@ -532,6 +883,7 @@ router.post(
           humint_score: humintScore,
           skor_kredibilitas: skorKredibilitas,
           prioritas,
+          dss: dssResult,
         },
       });
     } catch (error) {

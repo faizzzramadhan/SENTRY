@@ -1,15 +1,14 @@
 /* ================= ROOT ================= */
 .container {
   width: 100%;
-  max-width: 1400px;
+  max-width: 1180px;
   margin: 0 auto;
-
-  padding: 20px 30px;
+  padding: 20px 24px;
   box-sizing: border-box;
-
   background-color: #121212;
   color: #ffffff;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ================= HEADER ================= */
@@ -17,7 +16,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
 }
 
 .reportId {
@@ -31,7 +36,7 @@
   gap: 12px;
 }
 
-/* BUTTON */
+/* ================= BUTTON ================= */
 .btnBack,
 .btnSave {
   padding: 10px 24px;
@@ -39,6 +44,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  font-size: 14px;
 }
 
 .btnBack {
@@ -62,12 +68,24 @@
   opacity: 0.85;
 }
 
+.btnSave:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ================= GRID ================= */
 .mainGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+  gap: 18px;
   align-items: start;
+}
+
+.bottomWideGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-top: 4px;
 }
 
 /* ================= CARD ================= */
@@ -75,68 +93,51 @@
   background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 14px;
-
-  padding: 20px;
-  margin-bottom: 20px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-
-  overflow: hidden; /* FIX OVERFLOW */
+  padding: 18px;
+  margin-bottom: 18px;
+  overflow: hidden;
 }
 
 .cardTitle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  margin-bottom: 15px;
-
-  font-size: 0.9rem;
-  font-weight: bold;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+  font-weight: 800;
   color: #fff;
+  text-transform: none;
 }
 
 /* ================= VIEW MODE ================= */
 .viewLabel {
   display: block;
   margin-bottom: 6px;
-
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #444;
+  color: #777;
 }
 
 .viewValue {
-  margin-bottom: 15px;
-  padding: 12px;
-
-  font-size: 0.85rem;
-  line-height: 1.6;
-
-  color: #666;
+  margin-bottom: 14px;
+  padding: 11px;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #c5c5c5;
   background: #0d0d0d;
-
   border-radius: 8px;
   border: 1px solid #222;
-
   white-space: pre-wrap;
-  word-break: break-word; /* FIX TEXT PANJANG */
-  cursor: not-allowed;
+  word-break: break-word;
 }
 
 /* ================= INPUT ================= */
 .inputGroup {
   display: flex;
   flex-direction: column;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .inputGroup label {
   margin-bottom: 8px;
-
   font-size: 0.75rem;
   font-weight: bold;
   color: #aaa;
@@ -145,19 +146,19 @@
 .inputGroup input,
 .inputGroup select,
 .inputGroup textarea {
-  width: 100%; /* FIX OVERFLOW */
+  width: 100%;
   box-sizing: border-box;
-
-  padding: 12px;
-  font-size: 0.9rem;
-
+  padding: 11px;
+  font-size: 0.88rem;
   color: #fff;
   background: #222;
-
   border: 1px solid #444;
   border-radius: 8px;
+}
 
-  transition: all 0.2s ease;
+.inputGroup textarea {
+  resize: vertical;
+  min-height: 88px;
 }
 
 .inputGroup input:focus,
@@ -168,94 +169,258 @@
   background: #2a2a2a;
 }
 
-/* ================= KORBAN ================= */
-
-.korbanTable {
-  padding: 15px;
-  background: #111;
-  border-radius: 10px;
-  border: 1px solid #333;
-  margin-top: 10px;
+/* ================= KORBAN MATRIX ================= */
+.korbanFullCard {
+  background: #101014;
+  border: 1px solid #262626;
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 18px;
 }
 
-.korbanHead,
-.korbanRow {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr; /* lebih lega */
-  gap: 12px;
-  margin-bottom: 10px;
-  align-items: center;
+.korbanTitle {
+  margin: 0 0 26px;
+  padding-left: 14px;
+  border-left: 3px solid #5a5a5a;
+  color: #cfd4dc;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.korbanHead div {
-  font-size: 12px;
-  font-weight: 600;
-  color: #aaa;
-  text-align: center;
-}
-
-.korbanHead div:first-child {
-  text-align: left;
-}
-
-.korbanHead span {
+.korbanSelectLabel {
   display: block;
-  font-size: 10px;
-  color: #666;
-  margin-top: 2px;
+  margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
 }
 
-.korbanRow div {
-  font-size: 13px;
-  color: #ddd;
-  font-weight: 500;
-}
-
-.korbanRow input {
+.korbanSelect {
   width: 100%;
-  padding: 8px;
-  text-align: center;
-  font-weight: 500;
-
+  box-sizing: border-box;
+  padding: 13px 14px;
+  margin-bottom: 30px;
   color: #fff;
-  background: #2a2a2a;
+  background: #1d1d20;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 15px;
+}
 
-  border: 1px solid #555;
+.korbanTableBox {
+  background: #111;
+  border: 1px solid #292929;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.korbanMatrix {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.korbanMatrix th,
+.korbanMatrix td {
+  border-bottom: 1px solid #242424;
+  border-right: 1px solid #242424;
+  padding: 13px 12px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.korbanMatrix th {
+  color: #8f949d;
+  background: #1a1a1a;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.korbanMatrix th:first-child,
+.korbanMatrix td:first-child {
+  text-align: left;
+  width: 220px;
+}
+
+.korbanMatrix td {
+  color: #fff;
+}
+
+.korbanMatrix input {
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #fff;
+  text-align: center;
+  font-weight: 800;
+  font-size: 16px;
+  padding: 8px;
   border-radius: 6px;
 }
 
-.totalText {
+.korbanMatrix input:focus {
+  outline: none;
+  border-color: #fff;
+  background: #171717;
+}
+
+.korbanTotal {
+  padding: 12px 16px;
+  text-align: right;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* ================= RINGKASAN KORBAN DARK CARD ================= */
+.korbanSummaryTitleMain {
+  margin: 28px 0 14px;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.korbanSummary {
+  padding: 16px 18px;
+  background: #151518;
+  border: 1px solid #33333a;
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.korbanSummaryTitle {
+  margin: 0 0 10px;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.korbanSummaryText {
+  margin: 0;
+  color: #d7d7dc;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.korbanCardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
   margin-top: 12px;
+}
+
+.korbanCardDark {
+  border: 1px solid #2e2e33;
+  background: #1a1a1f;
+  border-radius: 16px;
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s ease;
+}
+
+.korbanCardDark:hover {
+  transform: translateY(-2px);
+  border-color: #3f3f46;
+  background: #1f1f25;
+}
+
+.korbanCardDarkActive {
+  border: 2px solid #3b82f6;
+  background: #1e293b;
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.18);
+}
+
+.korbanCardTitleDark {
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.korbanCardNumberDark {
+  font-size: 24px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.korbanCardUnitDark {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9ca3af;
+  margin-left: 5px;
+}
+
+.korbanCardDetailDark {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #d1d5db;
+  font-weight: 600;
+}
+
+.totalText {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #2f2f36;
   text-align: right;
   font-size: 13px;
-  color: #aaa;
+  color: #b9bbc2;
+  font-weight: 700;
 }
-/* ================= MEDIA ================= */
+
+/* ================= MAP ================= */
+.locationWideCard {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.locationGrid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 18px;
+  align-items: stretch;
+}
+
 .mapContainer {
   width: 100%;
-  height: 200px;
-  max-width: 100%;
-
+  height: 320px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #333;
+  background: #0d0d0d;
 }
 
+.locationInfo {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+/* ================= FOTO ================= */
 .imgFrame {
   width: 100%;
-  max-width: 100%;
-
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #333;
+  margin-bottom: 12px;
 }
 
 .imgFrame img {
   width: 100%;
   height: auto;
+  max-height: 220px;
   object-fit: cover;
   display: block;
-
   filter: grayscale(20%);
 }
 
@@ -268,72 +433,112 @@
 
 .exifTable td {
   padding: 10px;
-
   font-size: 0.8rem;
-  color: #555;
-
+  color: #bdbdbd;
   border: 1px solid #222;
+  word-break: break-word;
 }
 
-.statusSuccess {
-  color: #15803d;
-  font-weight: bold;
+.exifTable td:first-child {
+  background: #222;
+  color: #888;
+  width: 42%;
 }
 
 /* ================= OSINT ================= */
 .osintTable {
   overflow: hidden;
-
   background: #111;
-
   border: 1px solid #333;
   border-radius: 8px;
 }
 
 .osintRow {
   display: grid;
-  grid-template-columns: 130px 1fr;
+  grid-template-columns: 120px 1fr;
   border-bottom: 1px solid #222;
 }
 
+.osintRow:last-child {
+  border-bottom: none;
+}
+
 .osintLabel {
-  display: flex;
-  align-items: center;
-
   padding: 12px;
-
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-
   color: #777;
   background: #1a1a1a;
-
   border-right: 1px solid #222;
 }
 
 .osintValue {
-  display: flex;
-  align-items: center;
-
   padding: 12px;
-
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   line-height: 1.5;
   color: #ddd;
+  word-break: break-word;
+}
 
-  word-break: break-word; /* FIX TEXT PANJANG */
+/* ================= SAVE FOOTER ================= */
+.saveFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-bottom: 36px;
+}
+
+.saveFooter .btnSave {
+  min-width: 180px;
 }
 
 /* ================= RESPONSIVE ================= */
 @media (max-width: 1280px) {
+  .container {
+    max-width: 100%;
+  }
+
   .mainGrid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .locationGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .mapContainer {
+    height: 280px;
   }
 }
 
 @media (max-width: 900px) {
+  .container {
+    padding: 18px;
+  }
+
   .mainGrid {
     grid-template-columns: 1fr;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .korbanMatrix th:first-child,
+  .korbanMatrix td:first-child {
+    width: 110px;
+  }
+
+  .korbanMatrix th,
+  .korbanMatrix td {
+    padding: 10px 8px;
+    font-size: 12px;
   }
 }

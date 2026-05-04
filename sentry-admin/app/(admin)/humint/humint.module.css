@@ -164,3 +164,152 @@
   background: #ff8e80 !important;
   color: white;
 }
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  backdrop-filter: blur(6px);
+}
+
+.downloadModal {
+  width: 100%;
+  max-width: 430px;
+  background: rgba(12, 18, 32, 0.96);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  color: white;
+  animation: downloadModalPop 0.22s ease-out;
+}
+
+@keyframes downloadModalPop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.modalTitle {
+  margin: 0;
+  color: white;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.modalDescription {
+  margin: 7px 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.modalClose {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 30px;
+  padding: 0;
+  transition: 0.2s ease;
+}
+
+.modalClose:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.modalForm {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.modalField label {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.modalField select {
+  width: 100%;
+  height: 46px;
+  border-radius: 12px;
+  border: 1.3px solid rgba(255, 255, 255, 0.18);
+  padding: 0 14px;
+  color: white;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 15px;
+  outline: none;
+}
+
+.modalField select:focus {
+  border-color: rgba(255, 142, 128, 0.9);
+  box-shadow: 0 0 0 3px rgba(255, 142, 128, 0.14);
+}
+
+.modalField option {
+  color: #111827;
+  background: white;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modalCancel {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1.3px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.modalCancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.modalDownload {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: none;
+  background: #ff8e80;
+  color: white;
+  cursor: pointer;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(255, 142, 128, 0.25);
+}
+
+.modalDownload:hover {
+  background: #ff7a6b;
+}

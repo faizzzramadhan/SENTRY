@@ -1,12 +1,40 @@
 'use client'
 
-import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import { useEffect } from 'react'
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 
-export default function MapPicker({ position }: any) {
+type MapPickerProps = {
+  position: [number, number]
+}
+
+const MALANG_BOUNDS: [[number, number], [number, number]] = [
+  [-8.06, 112.56],
+  [-7.86, 112.72],
+]
+
+function RecenterMap({ position }: MapPickerProps) {
+  const map = useMap()
+
+  useEffect(() => {
+    map.setView(position, 16)
+  }, [map, position])
+
+  return null
+}
+
+export default function MapPicker({ position }: MapPickerProps) {
   return (
-    <MapContainer center={position} zoom={13} style={{ height: '300px' }}>
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
-      <Marker position={position}/>
+    <MapContainer
+      center={position}
+      zoom={13}
+      minZoom={12}
+      maxBounds={MALANG_BOUNDS}
+      maxBoundsViscosity={1}
+      style={{ height: '300px', width: '100%' }}
+    >
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <RecenterMap position={position} />
+      <Marker position={position} />
     </MapContainer>
   )
 }

@@ -3,7 +3,9 @@
 import styles from "./log.module.css";
 import { useEffect, useMemo, useState } from "react";
 
-// decode payload JWT tanpa library
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5555";
+
 function decodeJwtPayload(token: string): any | null {
   try {
     const payload = token.split(".")[1];
@@ -17,29 +19,13 @@ function decodeJwtPayload(token: string): any | null {
 type SortType = "newest" | "oldest";
 
 type ActivityRow = {
-  no: number;
-  adminName: string;
-  activityName: string;
-  activityTime: string;
+  log_id: number;
+  usr_id: number;
+  nama_user: string;
+  role: "staff" | "admin" | string;
+  nama_aktivitas: string;
+  waktu_aktivitas: string;
 };
-
-const activityRows: ActivityRow[] = [
-  { no: 1, adminName: "Arif Samsudin", activityName: "Bojongsoang", activityTime: "2025-01-12 14:30" },
-  { no: 2, adminName: "Gusti Restu", activityName: "Bojongsoang", activityTime: "2025-01-12 14:30" },
-  { no: 3, adminName: "Arif Samsudin", activityName: "Bojongsoang", activityTime: "2025-01-12 14:30" },
-  { no: 4, adminName: "Arif Samsudin", activityName: "Bojongsoang", activityTime: "2025-01-12 14:30" },
-  { no: 5, adminName: "Arif Samsudin", activityName: "Lowokwaru", activityTime: "2025-01-12 14:30" },
-  { no: 6, adminName: "Arif Samsudin", activityName: "Rampal Celaket", activityTime: "2025-01-12 14:30" },
-  { no: 7, adminName: "Arif Samsudin", activityName: "Oro Oro Dowo", activityTime: "2025-01-12 14:30" },
-  { no: 8, adminName: "Gusti Restu", activityName: "Samaan", activityTime: "2025-01-12 12:30" },
-  { no: 9, adminName: "Gusti Restu", activityName: "Buring", activityTime: "2025-01-12 10:30" },
-  { no: 10, adminName: "Gusti Restu", activityName: "Wonokoyo", activityTime: "2025-01-12 15:30" },
-  { no: 11, adminName: "Gusti Restu", activityName: "Tasikmadu", activityTime: "2025-01-12 14:30" },
-  { no: 12, adminName: "Gusti Restu", activityName: "Jodipan", activityTime: "2025-01-12 18:30" },
-  { no: 13, adminName: "Gusti Restu", activityName: "Balearjosari", activityTime: "2025-01-12 19:30" },
-  { no: 14, adminName: "Arif Samsudin", activityName: "Bojongsoang", activityTime: "2025-01-12 14:30" },
-  { no: 15, adminName: "Arif Samsudin", activityName: "Bojongsoang", activityTime: "2025-01-12 14:30" },
-];
 
 function parseDate(dateString: string) {
   return new Date(dateString.replace(" ", "T")).getTime();
@@ -89,30 +75,71 @@ function SortIcon() {
 
 export default function LogAktivitasPage() {
   const [adminName, setAdminName] = useState("Admin");
+  const [activityRows, setActivityRows] = useState<ActivityRow[]>([]);
   const [search, setSearch] = useState("");
-  const [selectedAdmin, setSelectedAdmin] = useState("Semua");
+  const [selectedUser, setSelectedUser] = useState("Semua");
   const [sortType, setSortType] = useState<SortType>("newest");
   const [openFilter, setOpenFilter] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return;
 
-    const payload = decodeJwtPayload(token);
+    if (token) {
+      const payload = decodeJwtPayload(token);
 
-    const name =
-      payload?.adm_nama_lengkap ||
-      payload?.ADM_NAMA_LENGKAP ||
-      payload?.adm_email ||
-      "Admin";
+      const name =
+        payload?.usr_nama_lengkap ||
+        payload?.adm_nama_lengkap ||
+        payload?.usr_email ||
+        payload?.adm_email ||
+        "Admin";
 
-    setAdminName(name);
+      setAdminName(name);
+    }
+
+    fetchLogAktivitas();
   }, []);
 
-  const adminOptions = useMemo(() => {
-    const uniqueAdmins = Array.from(new Set(activityRows.map((row) => row.adminName)));
-    return ["Semua", ...uniqueAdmins];
-  }, []);
+  const fetchLogAktivitas = async () => {
+    try {
+      setLoading(true);
+      setErrorMsg("");
+
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`${API_BASE_URL}/log-aktivitas`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || result.error || "Gagal mengambil log aktivitas");
+      }
+
+      setActivityRows(result.data || []);
+    } catch (error: any) {
+      console.error("Gagal mengambil log aktivitas:", error);
+      setErrorMsg(error.message || "Gagal mengambil log aktivitas");
+      setActivityRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const userOptions = useMemo(() => {
+    const uniqueUsers = Array.from(
+      new Set(activityRows.map((row) => row.nama_user).filter(Boolean))
+    );
+
+    return ["Semua", ...uniqueUsers];
+  }, [activityRows]);
 
   const filteredRows = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -121,31 +148,39 @@ export default function LogAktivitasPage() {
       const matchSearch =
         keyword === ""
           ? true
-          : [row.adminName, row.activityName, row.activityTime]
+          : [
+              row.nama_user,
+              row.role,
+              row.nama_aktivitas,
+              row.waktu_aktivitas,
+            ]
               .join(" ")
               .toLowerCase()
               .includes(keyword);
 
-      const matchAdmin =
-        selectedAdmin === "Semua" ? true : row.adminName === selectedAdmin;
+      const matchUser =
+        selectedUser === "Semua" ? true : row.nama_user === selectedUser;
 
-      return matchSearch && matchAdmin;
+      return matchSearch && matchUser;
     });
 
     return [...result].sort((a, b) => {
-      const timeA = parseDate(a.activityTime);
-      const timeB = parseDate(b.activityTime);
+      const timeA = parseDate(a.waktu_aktivitas);
+      const timeB = parseDate(b.waktu_aktivitas);
+
       return sortType === "newest" ? timeB - timeA : timeA - timeB;
     });
-  }, [search, selectedAdmin, sortType]);
+  }, [activityRows, search, selectedUser, sortType]);
 
-  const handleDownloadCsv = () => {
-    const headers = ["No", "Nama Admin", "Nama Aktivitas", "Waktu Aktivitas"];
+  const handleDownloadCsv = async () => {
+    const headers = ["No", "Nama User", "Role", "Nama Aktivitas", "Waktu Aktivitas"];
+
     const rows = filteredRows.map((row, index) => [
       String(index + 1),
-      row.adminName,
-      row.activityName,
-      row.activityTime,
+      row.nama_user,
+      row.role,
+      row.nama_aktivitas,
+      row.waktu_aktivitas,
     ]);
 
     const csvContent = [headers, ...rows]
@@ -154,7 +189,10 @@ export default function LogAktivitasPage() {
       )
       .join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement("a");
@@ -163,6 +201,20 @@ export default function LogAktivitasPage() {
     link.click();
 
     URL.revokeObjectURL(url);
+
+    // Catat aktivitas download CSV ke backend
+    try {
+      const token = localStorage.getItem("token");
+      await fetch(`${API_BASE_URL}/log-aktivitas/catat-download-csv`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+    } catch {
+      // Jika gagal mencatat log, tidak perlu throw — download tetap berhasil
+    }
   };
 
   return (
@@ -177,10 +229,11 @@ export default function LogAktivitasPage() {
           <span className={styles.searchIconWrap}>
             <SearchIcon />
           </span>
+
           <input
             type="text"
             className={styles.searchInput}
-            placeholder="Cari berdasarkan ..."
+            placeholder="Cari aktivitas..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -191,6 +244,7 @@ export default function LogAktivitasPage() {
             type="button"
             className={styles.toolbarButton}
             onClick={handleDownloadCsv}
+            disabled={filteredRows.length === 0}
           >
             <DownloadIcon />
             <span>Download</span>
@@ -208,18 +262,18 @@ export default function LogAktivitasPage() {
 
             {openFilter && (
               <div className={styles.dropdownMenu}>
-                <div className={styles.dropdownTitle}>Filter by Nama Admin</div>
+                <div className={styles.dropdownTitle}>Filter by Nama User</div>
 
                 <div className={styles.dropdownOptionList}>
-                  {adminOptions.map((item) => (
+                  {userOptions.map((item) => (
                     <button
                       key={item}
                       type="button"
                       className={`${styles.dropdownOption} ${
-                        selectedAdmin === item ? styles.dropdownOptionActive : ""
+                        selectedUser === item ? styles.dropdownOptionActive : ""
                       }`}
                       onClick={() => {
-                        setSelectedAdmin(item);
+                        setSelectedUser(item);
                         setOpenFilter(false);
                       }}
                     >
@@ -249,24 +303,39 @@ export default function LogAktivitasPage() {
           <thead>
             <tr>
               <th>No</th>
-              <th>Nama Admin</th>
+              <th>Nama User</th>
+              <th>Role</th>
               <th>Nama Aktivitas</th>
               <th>Waktu Aktivitas</th>
             </tr>
           </thead>
+
           <tbody>
-            {filteredRows.length > 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={5} className={styles.emptyState}>
+                  Memuat log aktivitas...
+                </td>
+              </tr>
+            ) : errorMsg ? (
+              <tr>
+                <td colSpan={5} className={styles.emptyState}>
+                  {errorMsg}
+                </td>
+              </tr>
+            ) : filteredRows.length > 0 ? (
               filteredRows.map((row, index) => (
-                <tr key={`${row.no}-${row.adminName}-${index}`}>
+                <tr key={row.log_id}>
                   <td>{index + 1}</td>
-                  <td>{row.adminName}</td>
-                  <td>{row.activityName}</td>
-                  <td>{row.activityTime}</td>
+                  <td>{row.nama_user}</td>
+                  <td>{row.role}</td>
+                  <td>{row.nama_aktivitas}</td>
+                  <td>{row.waktu_aktivitas}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={4} className={styles.emptyState}>
+                <td colSpan={5} className={styles.emptyState}>
                   Data log aktivitas tidak ditemukan.
                 </td>
               </tr>
