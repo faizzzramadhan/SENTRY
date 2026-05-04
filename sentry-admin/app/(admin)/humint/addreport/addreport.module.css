@@ -18,6 +18,15 @@
   margin-bottom: 25px;
 }
 
+.titleSection h1 {
+  margin: 0;
+}
+
+.titleSection p {
+  margin: 6px 0 0;
+  color: #aaa;
+}
+
 .btnBack {
   background: #1a1a1e;
   border: 1px solid #333;
@@ -68,6 +77,12 @@
   padding-left: 10px;
 }
 
+.cardTitle {
+  margin: 0;
+  font-size: 1rem;
+  color: #f5f5f5;
+}
+
 /* ================= LABEL ================= */
 .fieldLabel {
   font-size: 0.75rem;
@@ -99,6 +114,14 @@
   font-size: 0.9rem;
 }
 
+.inputGroup label {
+  color: #aaa;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
 .textAreaFull {
   flex-grow: 1;
   min-height: 120px;
@@ -107,16 +130,26 @@
 
 .rowFields {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 20px;
 }
 
 /* ================= MAP + MEDIA SECTION ================= */
+.bottomSection {
+  margin-top: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.mapHeader h3 {
+  margin-bottom: 14px;
+}
+
 .mapContentGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   gap: 20px;
-  align-items: stretch; /* FIX */
+  align-items: stretch;
 }
 
 /* MAP */
@@ -125,6 +158,8 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .searchInside {
@@ -132,16 +167,31 @@
   padding: 12px;
   border-radius: 10px;
   border: 1px solid #333;
+  position: relative;
+  z-index: 2;
 }
 
 .mapFrame {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 420px; /* FIX */
+  min-height: 420px;
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid #333;
+  isolation: isolate;
+  z-index: 1;
+}
+
+.mapFrame :global(.leaflet-container) {
+  z-index: 1 !important;
+}
+
+.mapFrame :global(.leaflet-pane),
+.mapFrame :global(.leaflet-top),
+.mapFrame :global(.leaflet-bottom),
+.mapFrame :global(.leaflet-control) {
+  z-index: 2 !important;
 }
 
 /* COORD */
@@ -158,9 +208,11 @@
   display: flex;
   justify-content: space-around;
   padding: 8px;
+  z-index: 5;
 }
 
 .coordItem small {
+  display: block;
   font-size: 9px;
   color: #aaa;
 }
@@ -181,40 +233,139 @@
   display: flex;
   flex-direction: column;
   gap: 15px;
-  height: 100%; /* FIX */
+  height: 100%;
 }
 
-/* WRAPPER */
 .uploadVertical {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  flex-grow: 1; /* FIX */
+  flex-grow: 1;
 }
 
 /* UPLOAD BOX */
 .uploadBox {
-  flex: 1; /* FIX UTAMA */
+  flex: 1;
   min-height: 180px;
+  width: 100%;
 
-  border: 2px dashed #222;
-  background: #0f0f11;
+  border: 1px dashed #3a3a3f;
+  background: #111114;
   border-radius: 14px;
 
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+
+  cursor: pointer;
+  text-align: center;
+  color: #f3f3f3;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.uploadBox:hover {
+  background: #17171b;
+  border-color: #555;
+  transform: translateY(-1px);
 }
 
 .boxContent {
   text-align: center;
   pointer-events: none;
+  padding: 16px;
+}
+
+.boxContent p {
+  margin: 8px 0 0;
+  color: #b8b8b8;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.uploadTitle {
+  color: #d8d8d8;
 }
 
 .boxIcon {
   font-size: 28px;
   margin-bottom: 8px;
+  display: block;
+}
+
+.emptyUploadText {
+  display: block;
+  margin-top: 10px;
+  color: #9a9a9a;
+  font-size: 12px;
+}
+
+.previewKejadian {
+  position: relative;
+  width: 140px;
+  height: 98px;
+  margin: 12px auto 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #333;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+}
+
+.previewKejadian img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.previewKerusakanWrap {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  pointer-events: auto;
+}
+
+.previewKerusakanItem {
+  position: relative;
+  width: 92px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #333;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.previewKerusakanItem img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.btnRemovePreview {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(12, 12, 14, 0.88);
+  color: white;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 24px;
+  z-index: 3;
+}
+
+.previewKerusakanItem .btnRemovePreview {
+  top: 5px;
+  right: 5px;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 /* INPUT FILE */
@@ -225,9 +376,17 @@
   cursor: pointer;
 }
 
+.uploadBox .boxContent {
+  z-index: 3;
+}
+
+.uploadBox input[type="file"] {
+  z-index: 2;
+}
+
 /* BUTTON */
 .btnConfirm {
-  margin-top: auto; /* FIX BIAR NEMPEL BAWAH */
+  margin-top: auto;
   width: 100%;
   background: #fff;
   color: #000;
@@ -238,26 +397,11 @@
   cursor: pointer;
 }
 
-/* ================= RESPONSIVE ================= */
-@media (max-width: 1200px) {
-  .topGrid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .mapContentGrid {
-    grid-template-columns: 1fr;
-  }
+.btnConfirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-@media (max-width: 768px) {
-  .topGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .rowFields {
-    grid-template-columns: 1fr;
-  }
-}
 /* ================= KORBAN ================= */
 .korbanTable {
   background: #111;
@@ -316,10 +460,11 @@
   color: #ccc;
   border-top: 1px solid #222;
 }
-/* Class baru untuk membuat card atau field melebar penuh */
+
+/* ================= ACTION ================= */
 .fullWidthCard {
   width: 100%;
-  grid-column: span 2; /* Jika kamu pakai grid 2 kolom, dia akan ambil semua kolom */
+  grid-column: span 2;
   margin-top: 20px;
 }
 
@@ -327,42 +472,472 @@
   width: 100%;
   min-height: 150px;
   padding: 12px;
-  background: #1a1a1a; /* Sesuaikan dengan tone gelap dashboard kamu */
+  background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 8px;
   color: #fff;
   font-family: inherit;
-  resize: vertical; /* Biar user bisa tarik tinggi-rendahnya saja */
+  resize: vertical;
 }
 
-/* Memastikan container di dalamnya juga rapi */
 .actionGroup {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-/* Pastikan container input menggunakan flex-direction column */
+
 .inputGroupVertical {
   display: flex;
-  flex-direction: column; /* Ini yang membuat atas-bawah */
-  gap: 8px;              /* Jarak antara label dan select */
-  width: 100%;           /* Agar selebaran mungkin */
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
   margin-bottom: 15px;
 }
 
 .selectField {
   width: 100%;
   padding: 12px;
-  background-color: #1a1a1e; /* Sesuaikan dengan tema gelap Anda */
+  background-color: #1a1a1e;
   border: 1px solid #333;
   border-radius: 8px;
   color: white;
   outline: none;
 }
 
-/* Menghilangkan pengaruh rowFields jika terpaksa menggunakannya */
-.rowFields {
+.inputGroup input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+.inputGroup input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 1;
+  cursor: pointer;
+}
+
+/* ================= MODAL UPLOAD ================= */
+.uploadModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 5, 7, 0.78);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 180ms ease;
+}
+
+.uploadModalCard {
+  position: relative;
+  z-index: 100000;
+  width: 100%;
+  max-width: 430px;
+  border-radius: 24px;
+  border: 1px solid #333;
+  background: #141417;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.58);
+  padding: 22px;
+  color: #f8fafc;
+  animation: popIn 200ms ease;
+}
+
+.uploadModalHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.uploadModalHeader h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.uploadModalHeader p {
+  margin: 8px 0 0;
+  color: #aaa;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.btnCloseModal {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #333;
+  background: #1a1a1e;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.uploadChoiceGrid {
   display: grid;
-  grid-template-columns: 1fr; /* Paksa jadi 1 kolom saja */
-  gap: 20px;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.uploadChoiceButton {
+  min-height: 118px;
+  border-radius: 18px;
+  border: 1px solid #333;
+  background: #1a1a1e;
+  color: #f8fafc;
+  cursor: pointer;
+  padding: 16px;
+  text-align: left;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.uploadChoiceButton:hover {
+  background: #202024;
+  border-color: #555;
+  transform: translateY(-1px);
+}
+
+.uploadChoiceIcon {
+  font-size: 26px;
+  margin-bottom: 12px;
+}
+
+.uploadChoiceButton strong {
+  display: block;
+  font-size: 15px;
+}
+
+.uploadChoiceButton span {
+  display: block;
+  margin-top: 6px;
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* ================= TOAST ================= */
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 100001;
+  max-width: 360px;
+  width: calc(100% - 48px);
+  border-radius: 18px;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.42);
+  color: #fff;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: toastSlide 260ms ease;
+}
+
+.toastSuccess {
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: linear-gradient(135deg, rgba(22, 101, 52, 0.96), rgba(15, 23, 42, 0.98));
+}
+
+.toastError {
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.96), rgba(15, 23, 42, 0.98));
+}
+
+.toastIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
+  font-weight: 800;
+}
+
+.toast strong {
+  display: block;
+  font-size: 14px;
+}
+
+.toast span {
+  display: block;
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* ================= ANIMATION ================= */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastSlide {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 1200px) {
+  .topGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mapContentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 16px;
+  }
+
+  .header {
+    align-items: flex-start;
+    gap: 14px;
+    flex-direction: column;
+  }
+
+  .topGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .rowFields {
+    grid-template-columns: 1fr;
+  }
+
+  .korbanHead,
+  .korbanRow {
+    grid-template-columns: 1fr repeat(3, 0.9fr);
+  }
+
+  .uploadChoiceGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ================= FIX UPLOAD CAMERA - FINAL ================= */
+.hiddenInput {
+  display: none;
+}
+
+.uploadCardCustom {
+  width: 100%;
+  text-align: center;
+  border: 1px dashed #3a3a3f;
+  background: #111114;
+  padding: 18px;
+  cursor: default;
+}
+
+.uploadCardCustom:hover {
+  background: #17171b;
+  border-color: #555;
+  transform: translateY(-1px);
+}
+
+.uploadCardLabel {
+  color: #d4d4d8;
+}
+
+.uploadActionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+  pointer-events: auto;
+}
+
+.uploadActionBtn {
+  border: 1px solid #333;
+  background: #1a1a1e;
+  color: #fff;
+  border-radius: 12px;
+  padding: 11px 10px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.uploadActionBtn:hover {
+  background: #202024;
+  border-color: #555;
+}
+
+.previewMain {
+  position: relative;
+  width: 140px;
+  height: 98px;
+  margin: 12px auto 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+}
+
+.previewMain img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.previewDamageWrap {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  pointer-events: auto;
+}
+
+.previewDamageItem {
+  position: relative;
+  width: 92px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.previewDamageItem img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.removePreviewBtn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(15, 23, 42, 0.88);
+  color: white;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.removePreviewSmallBtn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(15, 23, 42, 0.88);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.emptyPhotoText {
+  display: block;
+  margin-top: 10px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .uploadActionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ================= LOCATION SEARCH DROPDOWN FIX ================= */
+.searchBox {
+  position: relative;
+  width: 100%;
+}
+
+.searchBox input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1a1a1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 10px;
+  color: white;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.searchBox input:focus {
+  border-color: #666;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #141417;
+  border: 1px solid #333;
+  border-radius: 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  z-index: 9999;
+}
+
+.item {
+  padding: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #242428;
+  color: #f5f5f5;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item:hover {
+  background: #1f1f24;
+}
+
+.item div {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f1f1f1;
+}
+
+.item small {
+  display: block;
+  margin-top: 5px;
+  color: #aaa;
+  line-height: 1.4;
+  font-size: 0.75rem;
 }

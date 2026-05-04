@@ -9,18 +9,86 @@ const User = models.user;
 
 const auth = require("../middlewares/auth");
 const requireRole = require("../middlewares/requireRole");
+const { createLogAktivitas } = require("../utils/activityLogger");
+
 const SECRET_KEY = process.env.JWT_SECRET || "sentry";
 
 function normalizeRole(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeText(value) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim();
+  return text.length ? text : null;
+}
+
 function isAdmin(user) {
-  return normalizeRole(user?.usr_role) === "admin";
+  return normalizeRole(user?.usr_role || user?.role) === "admin";
 }
 
 function canAccessUser(user, usrId) {
-  return isAdmin(user) || Number(user?.usr_id) === Number(usrId);
+  return isAdmin(user) || Number(user?.usr_id || user?.id) === Number(usrId);
+}
+
+function toPlain(user) {
+  if (!user) return null;
+  if (typeof user.get === "function") return user.get({ plain: true });
+  if (typeof user.toJSON === "function") return user.toJSON();
+  return user;
+}
+
+function publicUser(user) {
+  const plain = toPlain(user);
+  if (!plain) return null;
+
+  return {
+    usr_id: plain.usr_id,
+    usr_nama_lengkap: plain.usr_nama_lengkap,
+    usr_email: plain.usr_email,
+    usr_no_hp: plain.usr_no_hp,
+    usr_role: plain.usr_role,
+    created_by: plain.created_by,
+    creation_date: plain.creation_date,
+    last_updated_by: plain.last_updated_by,
+    last_update_date: plain.last_update_date,
+  };
+}
+
+function actorFromUser(user) {
+  const plain = toPlain(user) || {};
+
+  return {
+    usr_id: plain.usr_id || plain.id,
+    usr_nama_lengkap:
+      plain.usr_nama_lengkap ||
+      plain.nama_lengkap ||
+      plain.nama_user ||
+      plain.name,
+    usr_role: plain.usr_role || plain.role,
+  };
+}
+
+function actorFromReq(req) {
+  return actorFromUser(req?.user || {});
+}
+
+function describeUserTarget(user) {
+  const plain = toPlain(user);
+  if (!plain) return "user tidak diketahui";
+  return `${plain.usr_nama_lengkap} (${plain.usr_email})`;
+}
+
+function buildChangeList(before, after, passwordChanged) {
+  const changes = [];
+
+  if (before.usr_nama_lengkap !== after.usr_nama_lengkap) changes.push("nama");
+  if (before.usr_email !== after.usr_email) changes.push("email");
+  if (before.usr_no_hp !== after.usr_no_hp) changes.push("nomor HP");
+  if (before.usr_role !== after.usr_role) changes.push("role");
+  if (passwordChanged) changes.push("password");
+
+  return changes;
 }
 
 // LOGIN
@@ -31,7 +99,7 @@ router.post("/auth", async (req, res) => {
     if (!usr_email || !usr_password) {
       return res.status(400).json({
         logged: false,
-        message: "email dan password wajib diisi",
+        message: "Email dan password wajib diisi",
       });
     }
 
@@ -51,19 +119,43 @@ router.post("/auth", async (req, res) => {
       });
     }
 
+    const plainUser = toPlain(result);
+
     const payload = {
-      usr_id: result.usr_id,
-      usr_nama_lengkap: result.usr_nama_lengkap,
-      usr_email: result.usr_email,
-      usr_role: result.usr_role,
+      usr_id: plainUser.usr_id,
+      usr_nama_lengkap: plainUser.usr_nama_lengkap,
+      usr_email: plainUser.usr_email,
+      usr_role: plainUser.usr_role,
     };
 
     const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "7d" });
 
+    await createLogAktivitas({
+      actor: payload,
+      namaAktivitas: `Login ke sistem SENTRY sebagai ${payload.usr_role}`,
+    });
+
     return res.json({
       logged: true,
+      message: "Login berhasil",
       user: payload,
       token,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+// LOGOUT
+router.post("/logout", auth, async (req, res) => {
+  try {
+    await createLogAktivitas({
+      actor: actorFromReq(req),
+      namaAktivitas: "Logout dari sistem SENTRY",
+    });
+
+    return res.json({
+      message: "Logout berhasil dicatat",
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -151,6 +243,11 @@ router.get("/:usr_id", auth, async (req, res) => {
       return res.status(404).json({ message: "User tidak ditemukan" });
     }
 
+    await createLogAktivitas({
+      actor: actorFromReq(req),
+      namaAktivitas: `Melihat detail akun ${describeUserTarget(user)}`,
+    });
+
     return res.json({ user });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -184,8 +281,10 @@ router.post("/", auth, requireRole("admin"), async (req, res) => {
       return res.status(409).json({ message: "Email sudah terdaftar" });
     }
 
-    const actor = req.user?.usr_nama_lengkap || "system";
+    const actor = actorFromReq(req);
+    const actorName = actor.usr_nama_lengkap || "system";
     const hashed = await bcrypt.hash(usr_password, 10);
+    const now = new Date();
 
     const created = await User.create({
       usr_nama_lengkap,
@@ -193,25 +292,20 @@ router.post("/", auth, requireRole("admin"), async (req, res) => {
       usr_no_hp,
       usr_password: hashed,
       usr_role: normalizedRole,
-      created_by: actor,
-      last_updated_by: actor,
-      creation_date: new Date(),
-      last_update_date: new Date(),
+      created_by: actorName,
+      last_updated_by: actorName,
+      creation_date: now,
+      last_update_date: now,
+    });
+
+    await createLogAktivitas({
+      actor,
+      namaAktivitas: `Menambahkan akun ${normalizedRole}: ${describeUserTarget(created)}`,
     });
 
     return res.status(201).json({
       message: "Data berhasil ditambahkan",
-      user: {
-        usr_id: created.usr_id,
-        usr_nama_lengkap: created.usr_nama_lengkap,
-        usr_email: created.usr_email,
-        usr_no_hp: created.usr_no_hp,
-        usr_role: created.usr_role,
-        created_by: created.created_by,
-        creation_date: created.creation_date,
-        last_updated_by: created.last_updated_by,
-        last_update_date: created.last_update_date,
-      },
+      user: publicUser(created),
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -233,7 +327,9 @@ router.put("/:usr_id", auth, async (req, res) => {
       return res.status(404).json({ message: "User tidak ditemukan" });
     }
 
-    const actor = req.user?.usr_nama_lengkap || "system";
+    const before = publicUser(existing);
+    const actor = actorFromReq(req);
+    const actorName = actor.usr_nama_lengkap || "system";
     const nextEmail = usr_email ?? existing.usr_email;
 
     const emailUsed = await User.findOne({
@@ -251,7 +347,7 @@ router.put("/:usr_id", auth, async (req, res) => {
       usr_nama_lengkap: usr_nama_lengkap ?? existing.usr_nama_lengkap,
       usr_email: nextEmail,
       usr_no_hp: usr_no_hp ?? existing.usr_no_hp,
-      last_updated_by: actor,
+      last_updated_by: actorName,
       last_update_date: new Date(),
     };
 
@@ -263,7 +359,9 @@ router.put("/:usr_id", auth, async (req, res) => {
       data.usr_role = nextRole;
     }
 
-    if (usr_password && usr_password.trim() !== "") {
+    const passwordChanged = Boolean(usr_password && usr_password.trim() !== "");
+
+    if (passwordChanged) {
       data.usr_password = await bcrypt.hash(usr_password, 10);
     }
 
@@ -272,6 +370,16 @@ router.put("/:usr_id", auth, async (req, res) => {
     const updated = await User.findOne({
       where: { usr_id },
       attributes: { exclude: ["usr_password"] },
+    });
+
+    const after = publicUser(updated);
+    const changes = buildChangeList(before, after, passwordChanged);
+
+    await createLogAktivitas({
+      actor,
+      namaAktivitas: `Memperbarui akun ${describeUserTarget(updated)}${
+        changes.length ? `, perubahan: ${changes.join(", ")}` : ""
+      }`,
     });
 
     return res.json({
@@ -288,14 +396,25 @@ router.delete("/:usr_id", auth, requireRole("admin"), async (req, res) => {
   try {
     const { usr_id } = req.params;
 
-    if (Number(req.user?.usr_id) === Number(usr_id)) {
+    if (Number(req.user?.usr_id || req.user?.id) === Number(usr_id)) {
       return res.status(400).json({ message: "Tidak bisa menghapus akun sendiri" });
     }
 
-    const deleted = await User.destroy({ where: { usr_id } });
-    if (!deleted) {
+    const existing = await User.findOne({
+      where: { usr_id },
+      attributes: { exclude: ["usr_password"] },
+    });
+
+    if (!existing) {
       return res.status(404).json({ message: "User tidak ditemukan" });
     }
+
+    await User.destroy({ where: { usr_id } });
+
+    await createLogAktivitas({
+      actor: actorFromReq(req),
+      namaAktivitas: `Menghapus akun ${describeUserTarget(existing)}`,
+    });
 
     return res.json({ message: "Data berhasil dihapus" });
   } catch (error) {

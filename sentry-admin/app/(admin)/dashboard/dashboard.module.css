@@ -183,3 +183,27 @@
   background: rgba(255,255,255,0.06);
   font-weight: 800;
 }
+
+.clickableRow {
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.clickableRow:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.clickableRow:focus {
+  outline: 2px solid rgba(191, 161, 90, 0.9);
+  outline-offset: -2px;
+  background: rgba(255,255,255,0.08);
+}
+
+.errorBox {
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 70, 70, 0.16);
+  border: 1px solid rgba(255, 120, 120, 0.35);
+  color: rgba(255,255,255,0.9);
+  font-weight: 700;
+}

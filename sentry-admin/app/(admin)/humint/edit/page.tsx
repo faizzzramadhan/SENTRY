@@ -1,208 +1,1288 @@
 'use client'
 
-import React, { useState } from 'react';
-import styles from './edit.module.css';
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
+import React, { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
+import L from 'leaflet'
+import styles from './edit.module.css'
 
-const MapView = dynamic(() => import('../../../components/MapView'), { 
-  ssr: false,
-  loading: () => <div style={{ height: '250px', background: '#0d0d0d', borderRadius: '12px' }} /> 
-});
+const MapContainer = dynamic(
+  () => import('react-leaflet').then((mod) => mod.MapContainer),
+  { ssr: false }
+)
 
-export default function EditLaporan() {
+const TileLayer = dynamic(
+  () => import('react-leaflet').then((mod) => mod.TileLayer),
+  { ssr: false }
+)
 
-  const [jenisKorban, setJenisKorban] = useState('luka');
+const Marker = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Marker),
+  { ssr: false }
+)
 
-  const [status, setStatus] = useState("Menunggu Verifikasi");
-  const [petugasTRC, setPetugasTRC] = useState("Regu TRC-01 Alpha");
-  const [kerusakan, setKerusakan] = useState("15 Rumah terendam air dan lumpur");
-  const [terdampak, setTerdampak] = useState("45 Jiwa / 15 Kartu Keluarga");
-  const [penyebab, setPenyebab] = useState("Curah hujan ekstrem & drainase tersumbat");
-  const [tindakLanjut, setTindakLanjut] = useState("Tim TRC sudah berada di lokasi melakukan evakuasi.");
-  
-  const [korban, setKorban] = useState({ 
-    anakL: 2, anakP: 1, dewasaL: 4, dewasaP: 3, lansiaL: 1, lansiaP: 1 
-  });
+const Popup = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Popup),
+  { ssr: false }
+)
 
-  const totalKorban = Object.values(korban).reduce((a, b) => a + b, 0);
+const customIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl:
+    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl:
+    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+})
+
+const API_URL = 'http://localhost:5555/api/humint'
+const BASE_URL = 'http://localhost:5555'
+
+type JenisKorbanKey =
+  | 'MENINGGAL'
+  | 'HILANG'
+  | 'LUKA_SAKIT'
+  | 'TERDAMPAK'
+  | 'MENGUNGSI'
+
+type KorbanMatrix = {
+  anakL: number
+  dewasaL: number
+  lansiaL: number
+  anakP: number
+  dewasaP: number
+  lansiaP: number
+}
+
+type KorbanByJenis = Record<JenisKorbanKey, KorbanMatrix>
+
+const emptyKorban: KorbanMatrix = {
+  anakL: 0,
+  dewasaL: 0,
+  lansiaL: 0,
+  anakP: 0,
+  dewasaP: 0,
+  lansiaP: 0,
+}
+
+const createDefaultKorbanByJenis = (): KorbanByJenis => ({
+  MENINGGAL: { ...emptyKorban },
+  HILANG: { ...emptyKorban },
+  LUKA_SAKIT: { ...emptyKorban },
+  TERDAMPAK: { ...emptyKorban },
+  MENGUNGSI: { ...emptyKorban },
+})
+
+const jenisKorbanList: JenisKorbanKey[] = [
+  'MENINGGAL',
+  'HILANG',
+  'LUKA_SAKIT',
+  'TERDAMPAK',
+  'MENGUNGSI',
+]
+
+const jenisKorbanLabel: Record<JenisKorbanKey, string> = {
+  MENINGGAL: 'Meninggal',
+  HILANG: 'Hilang',
+  LUKA_SAKIT: 'Luka/Sakit',
+  TERDAMPAK: 'Terdampak',
+  MENGUNGSI: 'Mengungsi',
+}
+
+
+type LoginStaff = {
+  usr_id?: string | number
+  id?: string | number
+  user_id?: string | number
+  usr_nama_lengkap?: string
+  usr_nama?: string
+  nama_lengkap?: string
+  nama?: string
+  name?: string
+  email?: string
+  usr_email?: string
+}
+
+const safeJsonParse = (value: string | null) => {
+  try {
+    return value ? JSON.parse(value) : null
+  } catch {
+    return null
+  }
+}
+
+const decodeJwtPayload = (token: string): any | null => {
+  try {
+    const payload = token.split('.')[1]
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(atob(base64))
+  } catch {
+    return null
+  }
+}
+
+const getNameFromObject = (data: LoginStaff | null | undefined) => {
+  if (!data) return ''
 
   return (
-    <div className={styles.container}>
+    data.usr_nama_lengkap ||
+    data.nama_lengkap ||
+    data.usr_nama ||
+    data.nama ||
+    data.name ||
+    data.usr_email ||
+    data.email ||
+    ''
+  )
+}
 
-      {/* HEADER */}
-      <header className={styles.header}>
+const getLoggedInStaff = () => {
+  if (typeof window === 'undefined') return { name: '', id: '' }
+
+  const userKeys = ['user', 'staff', 'authUser', 'currentUser', 'loginUser']
+  const tokenKeys = ['token', 'accessToken', 'authToken', 'jwt']
+
+  for (const key of userKeys) {
+    const parsed = safeJsonParse(localStorage.getItem(key))
+    const name = getNameFromObject(parsed)
+
+    if (name) {
+      return {
+        name,
+        id: parsed?.usr_id || parsed?.id || parsed?.user_id || '',
+      }
+    }
+  }
+
+  for (const key of tokenKeys) {
+    const token = localStorage.getItem(key)
+    if (!token) continue
+
+    const payload = decodeJwtPayload(token)
+    const name = getNameFromObject(payload)
+
+    if (name) {
+      return {
+        name,
+        id: payload?.usr_id || payload?.id || payload?.user_id || '',
+      }
+    }
+  }
+
+  return { name: '', id: '' }
+}
+
+export default function EditLaporanPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const laporanId = searchParams.get('id') || ''
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [detail, setDetail] = useState<any>(null)
+  const [loggedStaff, setLoggedStaff] = useState({ name: '', id: '' })
+  const [selectedJenisKorban, setSelectedJenisKorban] =
+    useState<JenisKorbanKey>('LUKA_SAKIT')
+
+  const [notification, setNotification] = useState<{
+    show: boolean
+    type: 'success' | 'error'
+    message: string
+  }>({
+    show: false,
+    type: 'success',
+    message: '',
+  })
+
+  const [korbanByJenis, setKorbanByJenis] =
+    useState<KorbanByJenis>(createDefaultKorbanByJenis)
+
+  const [form, setForm] = useState({
+    kerusakan_verifikasi: '',
+    terdampak_verifikasi: '',
+    penyebab_verifikasi: '',
+    prakiraan_kerugian: '',
+    rekomendasi_tindak_lanjut: '',
+    tindak_lanjut: '',
+    petugas_trc: '',
+    staff_puskodal: '',
+    skor_kredibilitas: 'RENDAH',
+    prioritas: 'PRIORITAS RENDAH',
+    status_laporan: 'IDENTIFIKASI',
+  })
+
+  useEffect(() => {
+    const staff = getLoggedInStaff()
+    setLoggedStaff(staff)
+
+    if (staff.name) {
+      setForm((prev) => ({
+        ...prev,
+        staff_puskodal: staff.name,
+      }))
+    }
+  }, [])
+
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        if (!laporanId) {
+          setLoading(false)
+          return
+        }
+
+        const res = await fetch(`${API_URL}/detail/${laporanId}`, {
+          cache: 'no-store',
+        })
+
+        const result = await res.json()
+
+        if (!res.ok) {
+          throw new Error(result.message || 'Gagal mengambil detail laporan')
+        }
+
+        const data = result.data || null
+        setDetail(data)
+
+        const verifikasi = data?.verifikasi || {}
+        const analisis = data?.analisis || {}
+        const staffLogin = getLoggedInStaff()
+
+        setForm({
+          kerusakan_verifikasi: verifikasi.kerusakan_verifikasi || '',
+          terdampak_verifikasi: verifikasi.terdampak_verifikasi || '',
+          penyebab_verifikasi: verifikasi.penyebab_verifikasi || '',
+          prakiraan_kerugian:
+            verifikasi.prakiraan_kerugian != null
+              ? String(verifikasi.prakiraan_kerugian)
+              : '',
+          rekomendasi_tindak_lanjut:
+            verifikasi.rekomendasi_tindak_lanjut || '',
+          tindak_lanjut: verifikasi.tindak_lanjut || '',
+          petugas_trc: verifikasi.petugas_trc || '',
+          staff_puskodal:
+            staffLogin.name ||
+            verifikasi.last_updated_by ||
+            verifikasi.petugas_nama ||
+            '',
+          skor_kredibilitas: analisis.skor_kredibilitas || 'RENDAH',
+          prioritas: analisis.prioritas || 'PRIORITAS RENDAH',
+          status_laporan: analisis.status_laporan || 'IDENTIFIKASI',
+        })
+
+        if (
+          Array.isArray(data?.detail_korban) &&
+          data.detail_korban.length > 0
+        ) {
+          const nextKorban = createDefaultKorbanByJenis()
+
+          data.detail_korban.forEach((item: any) => {
+            const jenis = item.jenis_korban as JenisKorbanKey
+            const gender = item.jenis_kelamin
+            const umur = item.kelompok_umur
+            const jumlah = Number(item.jumlah || 0)
+
+            if (!nextKorban[jenis]) return
+
+            if (gender === 'LAKI_LAKI' && umur === 'ANAK') {
+              nextKorban[jenis].anakL = jumlah
+            }
+
+            if (gender === 'LAKI_LAKI' && umur === 'DEWASA') {
+              nextKorban[jenis].dewasaL = jumlah
+            }
+
+            if (gender === 'LAKI_LAKI' && umur === 'LANSIA') {
+              nextKorban[jenis].lansiaL = jumlah
+            }
+
+            if (gender === 'PEREMPUAN' && umur === 'ANAK') {
+              nextKorban[jenis].anakP = jumlah
+            }
+
+            if (gender === 'PEREMPUAN' && umur === 'DEWASA') {
+              nextKorban[jenis].dewasaP = jumlah
+            }
+
+            if (gender === 'PEREMPUAN' && umur === 'LANSIA') {
+              nextKorban[jenis].lansiaP = jumlah
+            }
+          })
+
+          setKorbanByJenis(nextKorban)
+        }
+      } catch (error) {
+        console.error('Gagal mengambil data edit:', error)
+        setDetail(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDetail()
+  }, [laporanId])
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value } = e.target
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const activeKorban = korbanByJenis[selectedJenisKorban]
+
+  const handleKorbanChange = (key: keyof KorbanMatrix, value: string) => {
+    const numberValue = Number(value || 0)
+
+    setKorbanByJenis((prev) => ({
+      ...prev,
+      [selectedJenisKorban]: {
+        ...prev[selectedJenisKorban],
+        [key]: numberValue < 0 ? 0 : numberValue,
+      },
+    }))
+  }
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({
+      show: true,
+      type,
+      message,
+    })
+
+    window.setTimeout(() => {
+      setNotification((prev) => ({
+        ...prev,
+        show: false,
+      }))
+    }, 1800)
+  }
+
+  const handleSelectJenisKorban = (jenis: JenisKorbanKey) => {
+    setSelectedJenisKorban(jenis)
+  }
+
+  const getTotalByJenis = (data: KorbanMatrix) => {
+    return (
+      Number(data.anakL || 0) +
+      Number(data.dewasaL || 0) +
+      Number(data.lansiaL || 0) +
+      Number(data.anakP || 0) +
+      Number(data.dewasaP || 0) +
+      Number(data.lansiaP || 0)
+    )
+  }
+
+  const totalKorbanSelected = useMemo(() => {
+    return getTotalByJenis(activeKorban)
+  }, [activeKorban])
+
+  const totalLakiSelected = useMemo(() => {
+    return (
+      Number(activeKorban.anakL || 0) +
+      Number(activeKorban.dewasaL || 0) +
+      Number(activeKorban.lansiaL || 0)
+    )
+  }, [activeKorban])
+
+  const totalPerempuanSelected = useMemo(() => {
+    return (
+      Number(activeKorban.anakP || 0) +
+      Number(activeKorban.dewasaP || 0) +
+      Number(activeKorban.lansiaP || 0)
+    )
+  }, [activeKorban])
+
+  const totalSemuaKorbanFinal = useMemo(() => {
+    return Object.values(korbanByJenis).reduce(
+      (total, item) => total + getTotalByJenis(item),
+      0
+    )
+  }, [korbanByJenis])
+
+  const korbanSummaryList = useMemo(() => {
+    return jenisKorbanList
+      .map((jenis) => {
+        const data = korbanByJenis[jenis]
+        const total = getTotalByJenis(data)
+        const lakiLaki =
+          Number(data.anakL || 0) +
+          Number(data.dewasaL || 0) +
+          Number(data.lansiaL || 0)
+        const perempuan =
+          Number(data.anakP || 0) +
+          Number(data.dewasaP || 0) +
+          Number(data.lansiaP || 0)
+
+        return {
+          jenis,
+          label: jenisKorbanLabel[jenis],
+          total,
+          lakiLaki,
+          perempuan,
+        }
+      })
+      .filter((item) => item.total > 0 || item.jenis === selectedJenisKorban)
+  }, [korbanByJenis, selectedJenisKorban])
+
+  const totalKorbanMasyarakat = useMemo(() => {
+    return Number(detail?.identifikasi?.jumlah_korban_identifikasi || 0)
+  }, [detail])
+
+  const buildDetailKorbanPayload = () => {
+    const rows: {
+      jenis_korban: string
+      jenis_kelamin: string
+      kelompok_umur: string
+      jumlah: number
+    }[] = []
+
+    Object.entries(korbanByJenis).forEach(([jenis, data]) => {
+      rows.push(
+        {
+          jenis_korban: jenis,
+          jenis_kelamin: 'LAKI_LAKI',
+          kelompok_umur: 'ANAK',
+          jumlah: Number(data.anakL || 0),
+        },
+        {
+          jenis_korban: jenis,
+          jenis_kelamin: 'LAKI_LAKI',
+          kelompok_umur: 'DEWASA',
+          jumlah: Number(data.dewasaL || 0),
+        },
+        {
+          jenis_korban: jenis,
+          jenis_kelamin: 'LAKI_LAKI',
+          kelompok_umur: 'LANSIA',
+          jumlah: Number(data.lansiaL || 0),
+        },
+        {
+          jenis_korban: jenis,
+          jenis_kelamin: 'PEREMPUAN',
+          kelompok_umur: 'ANAK',
+          jumlah: Number(data.anakP || 0),
+        },
+        {
+          jenis_korban: jenis,
+          jenis_kelamin: 'PEREMPUAN',
+          kelompok_umur: 'DEWASA',
+          jumlah: Number(data.dewasaP || 0),
+        },
+        {
+          jenis_korban: jenis,
+          jenis_kelamin: 'PEREMPUAN',
+          kelompok_umur: 'LANSIA',
+          jumlah: Number(data.lansiaP || 0),
+        }
+      )
+    })
+
+    return rows.filter((item) => Number(item.jumlah || 0) > 0)
+  }
+
+  const getFileUrl = (filename?: string | null) => {
+    if (!filename) return ''
+    if (filename.startsWith('http')) return filename
+    return `${BASE_URL}/uploads/${filename}`
+  }
+
+  const formatDate = (value?: string) => {
+    if (!value) return '-'
+
+    return new Date(value).toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  const handleSave = async () => {
+    try {
+      if (!laporanId) {
+        showNotification('error', 'ID laporan tidak ditemukan')
+        return
+      }
+
+      setSaving(true)
+
+      const staffLogin = getLoggedInStaff()
+      const staffPuskodal = staffLogin.name || form.staff_puskodal || 'staff'
+
+      const payload = {
+        kerusakan_verifikasi: form.kerusakan_verifikasi,
+        terdampak_verifikasi: form.terdampak_verifikasi,
+        penyebab_verifikasi: form.penyebab_verifikasi,
+        prakiraan_kerugian: form.prakiraan_kerugian,
+        rekomendasi_tindak_lanjut: form.rekomendasi_tindak_lanjut,
+        tindak_lanjut: form.tindak_lanjut,
+        petugas_trc: form.petugas_trc,
+        staff_puskodal: staffPuskodal,
+        usr_id: staffLogin.id || undefined,
+        skor_kredibilitas: form.skor_kredibilitas,
+        prioritas: form.prioritas,
+        status_laporan: form.status_laporan,
+        detail_korban: buildDetailKorbanPayload(),
+        last_updated_by: staffPuskodal,
+      }
+
+      const res = await fetch(`${API_URL}/edit/${laporanId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const result = await res.json()
+
+      if (!res.ok) {
+        throw new Error(result.message || 'Gagal memperbarui laporan')
+      }
+
+      showNotification('success', 'Data berhasil diperbarui')
+
+      window.setTimeout(() => {
+        router.push(`/humint/detail/${laporanId}`)
+      }, 1000)
+    } catch (error: any) {
+      showNotification(
+        'error',
+        error.message || 'Gagal memperbarui data. Silakan coba lagi.'
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const fotoKejadianUrl = getFileUrl(detail?.foto_kejadian)
+  const metadata = detail?.metadata_foto || {}
+  const osint = detail?.osint
+  const identifikasi = detail?.identifikasi || {}
+
+  const isValidGpsValue = (value: any) => {
+    if (value === null || value === undefined || value === '') return false
+
+    const numberValue = Number(value)
+
+    return !Number.isNaN(numberValue)
+  }
+
+  const hasExifGps =
+    isValidGpsValue(metadata.exif_latitude) &&
+    isValidGpsValue(metadata.exif_longitude)
+
+  const hasBrowserGps =
+    isValidGpsValue(metadata.browser_latitude) &&
+    isValidGpsValue(metadata.browser_longitude)
+
+  const finalGpsSource = hasExifGps
+    ? 'exif'
+    : hasBrowserGps
+      ? 'browser'
+      : metadata.gps_source || 'none'
+
+  const gpsSourceLabel =
+    finalGpsSource === 'exif'
+      ? 'EXIF Foto'
+      : finalGpsSource === 'browser'
+        ? 'GPS Browser'
+        : 'Tidak tersedia'
+
+  const distanceText =
+    metadata.selisih_jarak !== null && metadata.selisih_jarak !== undefined
+      ? `${Number(metadata.selisih_jarak).toFixed(2)} meter`
+      : 'Tidak tersedia'
+
+  const metadataKeterangan = (() => {
+    if (hasExifGps) {
+      return metadata.is_valid_location
+        ? `Foto memiliki metadata GPS EXIF dan titik foto sesuai dengan lokasi laporan. Selisih jarak: ${distanceText}.`
+        : `Foto memiliki metadata GPS EXIF, tetapi titik foto berjarak ${distanceText} dari lokasi laporan sehingga perlu pengecekan manual oleh staff.`
+    }
+
+    if (hasBrowserGps) {
+      return metadata.is_valid_location
+        ? `Foto tidak memiliki metadata GPS EXIF. Sistem menggunakan GPS browser sebagai fallback dan titiknya sesuai dengan lokasi laporan. Selisih jarak: ${distanceText}.`
+        : `Foto tidak memiliki metadata GPS EXIF. Sistem menggunakan GPS browser sebagai fallback, tetapi titiknya berjarak ${distanceText} dari lokasi laporan sehingga perlu pengecekan manual oleh staff.`
+    }
+
+    return 'Foto tidak memiliki metadata GPS EXIF dan GPS browser tidak tersedia.'
+  })()
+
+  const fotoKerusakanList = detail?.foto_kerusakan
+    ? String(detail.foto_kerusakan)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : []
+
+  const latitude = detail?.latitude ? Number(detail.latitude) : null
+  const longitude = detail?.longitude ? Number(detail.longitude) : null
+
+  const hasCoordinate =
+    latitude !== null &&
+    longitude !== null &&
+    !Number.isNaN(latitude) &&
+    !Number.isNaN(longitude)
+
+  if (loading) {
+    return (
+      <main className={styles.container}>
+        <div className={styles.header}>
+          <h1>Memuat Edit Laporan...</h1>
+        </div>
+      </main>
+    )
+  }
+
+  if (!detail) {
+    return (
+      <main className={styles.container}>
+        <div className={styles.header}>
+          <h1>Data laporan tidak ditemukan</h1>
+
+          <div className={styles.actions}>
+            <button className={styles.btnBack} onClick={() => router.back()}>
+              Kembali
+            </button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  return (
+    <main className={styles.container}>
+      {notification.show && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(15, 23, 42, 0.18)',
+            backdropFilter: 'blur(2px)',
+          }}
+        >
+          <div
+            style={{
+              width: 'min(420px, calc(100% - 32px))',
+              background: '#ffffff',
+              borderRadius: '22px',
+              padding: '26px 24px',
+              textAlign: 'center',
+              boxShadow: '0 24px 60px rgba(15, 23, 42, 0.22)',
+              transition: 'all 0.25s ease',
+            }}
+          >
+            <div
+              style={{
+                width: '58px',
+                height: '58px',
+                borderRadius: '50%',
+                margin: '0 auto 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '30px',
+                fontWeight: 900,
+                color: '#ffffff',
+                background:
+                  notification.type === 'success' ? '#16a34a' : '#dc2626',
+              }}
+            >
+              {notification.type === 'success' ? '✓' : '!'}
+            </div>
+
+            <div
+              style={{
+                fontSize: '20px',
+                fontWeight: 900,
+                color: '#111827',
+                marginBottom: '8px',
+              }}
+            >
+              {notification.type === 'success' ? 'Berhasil' : 'Gagal'}
+            </div>
+
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#4b5563',
+                lineHeight: 1.5,
+              }}
+            >
+              {notification.message}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className={styles.header}>
         <h1>
-          UPDATE ASSESSMENT 
-          <span className={styles.reportId}>[LAP-0021]</span>
+          Edit Verifikasi Laporan
+          <span className={styles.reportId}>#{detail.laporan_id}</span>
         </h1>
 
         <div className={styles.actions}>
-          <Link href="/humint/detail">
-            <button className={styles.btnBack}>Batal</button>
-          </Link>
-          <button className={styles.btnSave}>Simpan Perubahan</button>
+          <button className={styles.btnBack} onClick={() => router.back()}>
+            Kembali
+          </button>
         </div>
-      </header>
+      </div>
 
-      <main className={styles.mainGrid}>
-
-        <div className={styles.column}>
-
-          {/* CARD 1 */}
+      <section className={styles.mainGrid}>
+        <div>
           <div className={styles.card}>
-            <div className={styles.cardTitle}>Informasi Pelapor (View Only)</div>
+            <div className={styles.cardTitle}>Data Laporan Masyarakat</div>
 
-            <span className={styles.viewLabel}>Nama / Telepon</span>
-            <div className={styles.viewValue}>Arif Samsudin (081234567890)</div>
+            <span className={styles.viewLabel}>Nama Pelapor</span>
+            <div className={styles.viewValue}>{detail.nama_pelapor || '-'}</div>
+
+            <span className={styles.viewLabel}>No HP</span>
+            <div className={styles.viewValue}>{detail.no_hp || '-'}</div>
 
             <span className={styles.viewLabel}>Alamat Pelapor</span>
-            <div className={styles.viewValue}>Jl. MT Haryono No. 10, Dinoyo, Malang</div>
+            <div className={styles.viewValue}>
+              {detail.alamat_pelapor || '-'}
+            </div>
+
+            <span className={styles.viewLabel}>Jenis Laporan</span>
+            <div className={styles.viewValue}>
+              {detail.jenis_laporan || '-'}
+            </div>
+
+            <span className={styles.viewLabel}>Jenis Bencana</span>
+            <div className={styles.viewValue}>
+              {detail.jenis_bencana || '-'}
+            </div>
+
+            <span className={styles.viewLabel}>Waktu Kejadian</span>
+            <div className={styles.viewValue}>
+              {formatDate(detail.waktu_kejadian)}
+            </div>
+
+            <span className={styles.viewLabel}>Jenis Lokasi</span>
+            <div className={styles.viewValue}>
+              {detail.jenis_lokasi || '-'}
+            </div>
+
+            <span className={styles.viewLabel}>Kronologi</span>
+            <div className={styles.viewValue}>{detail.kronologi || '-'}</div>
           </div>
 
-          {/* CARD 2 */}
           <div className={styles.card}>
-            <div className={styles.cardTitle}>Status & Petugas (Aktif)</div>
+            <div className={styles.cardTitle}>Data Assessment Masyarakat</div>
+
+            <span className={styles.viewLabel}>Jumlah Korban Dilaporkan</span>
+            <div className={styles.viewValue}>
+              {totalKorbanMasyarakat} Orang
+            </div>
+
+            <span className={styles.viewLabel}>Kerusakan Dilaporkan</span>
+            <div className={styles.viewValue}>
+              {identifikasi.kerusakan_identifikasi || '-'}
+            </div>
+
+            <span className={styles.viewLabel}>Terdampak Dilaporkan</span>
+            <div className={styles.viewValue}>
+              {identifikasi.terdampak_identifikasi || '-'}
+            </div>
+
+            <span className={styles.viewLabel}>Penyebab Dilaporkan</span>
+            <div className={styles.viewValue}>
+              {identifikasi.penyebab_identifikasi || '-'}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Input Verifikasi Staff</div>
 
             <div className={styles.inputGroup}>
-              <label>Ubah Status Laporan</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option>Menunggu Verifikasi</option>
-                <option>Terverifikasi</option>
-                <option>Selesai</option>
-              </select>
+              <label>Kerusakan Verifikasi</label>
+              <textarea
+                name="kerusakan_verifikasi"
+                value={form.kerusakan_verifikasi}
+                onChange={handleChange}
+                rows={4}
+                placeholder="Masukkan hasil verifikasi kerusakan"
+              />
             </div>
 
             <div className={styles.inputGroup}>
-              <label>Input Petugas TRC</label>
+              <label>Terdampak Verifikasi</label>
+              <textarea
+                name="terdampak_verifikasi"
+                value={form.terdampak_verifikasi}
+                onChange={handleChange}
+                rows={3}
+                placeholder="Masukkan data terdampak hasil verifikasi"
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Penyebab Verifikasi</label>
               <input
-                type="text"
-                value={petugasTRC}
-                onChange={(e) => setPetugasTRC(e.target.value)}
+                name="penyebab_verifikasi"
+                value={form.penyebab_verifikasi}
+                onChange={handleChange}
+                placeholder="Masukkan penyebab hasil verifikasi"
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Prakiraan Kerugian</label>
+              <input
+                type="number"
+                name="prakiraan_kerugian"
+                value={form.prakiraan_kerugian}
+                onChange={handleChange}
+                placeholder="Contoh: 5000000"
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Rekomendasi Tindak Lanjut</label>
+              <textarea
+                name="rekomendasi_tindak_lanjut"
+                value={form.rekomendasi_tindak_lanjut}
+                onChange={handleChange}
+                rows={4}
+                placeholder="Masukkan rekomendasi tindak lanjut"
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Tindak Lanjut</label>
+              <textarea
+                name="tindak_lanjut"
+                value={form.tindak_lanjut}
+                onChange={handleChange}
+                rows={4}
+                placeholder="Masukkan tindak lanjut"
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Petugas TRC</label>
+              <input
+                name="petugas_trc"
+                value={form.petugas_trc}
+                onChange={handleChange}
+                placeholder="Masukkan nama petugas yang terjun ke lapangan"
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Staff Puskodal</label>
+              <input
+                name="staff_puskodal"
+                value={form.staff_puskodal || loggedStaff.name}
+                readOnly
+                placeholder="Nama staff otomatis dari akun login"
               />
             </div>
           </div>
 
-          {/* CARD 3 - DATA KORBAN */}
           <div className={styles.card}>
-            <div className={styles.cardTitle}>Data Korban (Aktif)</div>
+            <div className={styles.cardTitle}>Update Status & Analisis</div>
 
             <div className={styles.inputGroup}>
-              <label>Jenis Korban</label>
+              <label>Skor Kredibilitas</label>
               <select
-                value={jenisKorban}
-                onChange={(e)=>setJenisKorban(e.target.value)}
+                name="skor_kredibilitas"
+                value={form.skor_kredibilitas}
+                onChange={handleChange}
               >
-                <option value="luka">Luka/Sakit</option>
-                <option value="meninggal">Meninggal</option>
-                <option value="mengungsi">Mengungsi</option>
-                <option value="hilang">Hilang</option>
+                <option value="RENDAH">RENDAH</option>
+                <option value="TINGGI">TINGGI</option>
               </select>
             </div>
 
-            <div className={styles.korbanTable}>
-
-              <div className={styles.korbanHead}>
-                <div>Gender</div>
-                <div>Anak <span>(0–17)</span></div>
-                <div>Dewasa <span>(18–59)</span></div>
-                <div>Lansia <span>(≥60)</span></div>
-              </div>
-
-              <div className={styles.korbanRow}>
-                <div>Laki-laki</div>
-                <input type="number" value={korban.anakL} onChange={(e)=>setKorban({...korban, anakL: e.target.value === '' ? 0 : +e.target.value})}/>
-                <input type="number" value={korban.dewasaL} onChange={(e)=>setKorban({...korban, dewasaL: e.target.value === '' ? 0 : +e.target.value})}/>
-                <input type="number" value={korban.lansiaL} onChange={(e)=>setKorban({...korban, lansiaL: e.target.value === '' ? 0 : +e.target.value})}/>
-              </div>
-
-              <div className={styles.korbanRow}>
-                <div>Perempuan</div>
-                <input type="number" value={korban.anakP} onChange={(e)=>setKorban({...korban, anakP: e.target.value === '' ? 0 : +e.target.value})}/>
-                <input type="number" value={korban.dewasaP} onChange={(e)=>setKorban({...korban, dewasaP: e.target.value === '' ? 0 : +e.target.value})}/>
-                <input type="number" value={korban.lansiaP} onChange={(e)=>setKorban({...korban, lansiaP: e.target.value === '' ? 0 : +e.target.value})}/>
-              </div>
-
-              <div className={styles.totalText}>
-                Total: <strong>{totalKorban} Orang</strong>
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-
-        {/* KOLOM 2: KEJADIAN & ASSESSMENT */}
-        <div className={styles.column}>
-          <div className={styles.card}>
-            <div className={styles.cardTitle}>Detail Kejadian (View Only)</div>
-            <span className={styles.viewLabel}>Banjir - Malang</span>
-            <div className={styles.viewValue}>Waktu: 12 Feb 2026 - 14:00</div>
-            <span className={styles.viewLabel}>Kronologi Awal Masyarakat</span>
-            <div className={styles.viewValue}>Hujan deras sejak dini hari menyebabkan luapan air setinggi 1,5 meter...</div>
-          </div>
-
-          <div className={styles.card}>
-            <div className={styles.cardTitle}>Assessment Dampak (Aktif)</div>
             <div className={styles.inputGroup}>
-              <label>Rincian Kerusakan</label>
-              <textarea value={kerusakan} onChange={(e) => setKerusakan(e.target.value)} rows={2} />
+              <label>Prioritas</label>
+              <select
+                name="prioritas"
+                value={form.prioritas}
+                onChange={handleChange}
+              >
+                <option value="PRIORITAS RENDAH">PRIORITAS RENDAH</option>
+                <option value="PRIORITAS TINGGI">PRIORITAS TINGGI</option>
+              </select>
             </div>
+
             <div className={styles.inputGroup}>
-              <label>Warga/Objek Terdampak</label>
-              <input type="text" value={terdampak} onChange={(e) => setTerdampak(e.target.value)} />
-            </div>
-            <div className={styles.inputGroup}>
-              <label>Faktor Penyebab</label>
-              <input type="text" value={penyebab} onChange={(e) => setPenyebab(e.target.value)} />
-            </div>
-            <div className={styles.inputGroup}>
-              <label>Tindak Lanjut (Real Action)</label>
-              <textarea value={tindakLanjut} onChange={(e) => setTindakLanjut(e.target.value)} rows={3} />
+              <label>Status Laporan</label>
+              <select
+                name="status_laporan"
+                value={form.status_laporan}
+                onChange={handleChange}
+              >
+                <option value="IDENTIFIKASI">IDENTIFIKASI</option>
+                <option value="TERVERIFIKASI">TERVERIFIKASI</option>
+                <option value="DITANGANI">DITANGANI</option>
+                <option value="SELESAI">SELESAI</option>
+              </select>
             </div>
           </div>
         </div>
 
-        {/* KOLOM 3: LOKASI & OSINT */}
-        <div className={styles.column}>
-          <div className={styles.card} style={{opacity: 0.8}}>
-            <div className={styles.cardTitle}>Peta & Foto (Read Only)</div>
-            <div className={styles.mapContainer} style={{filter: 'grayscale(50%)'}}><MapView /></div>
-            <div className={styles.imgFrame} style={{marginTop: '15px'}}>
-              <img src="https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28" alt="Flood" />
+        <div>
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Dokumentasi Laporan</div>
+
+            <span className={styles.viewLabel}>Foto Kejadian</span>
+            <div className={styles.imgFrame}>
+              {fotoKejadianUrl ? (
+                <img src={fotoKejadianUrl} alt="Foto kejadian" />
+              ) : (
+                <div className={styles.viewValue}>Foto tidak tersedia</div>
+              )}
             </div>
+
+            {fotoKerusakanList.length > 0 && (
+              <>
+                <span className={styles.viewLabel}>Foto Kerusakan</span>
+
+                {fotoKerusakanList.map((foto: string, index: number) => (
+                  <div className={styles.imgFrame} key={index}>
+                    <img
+                      src={getFileUrl(foto)}
+                      alt={`Foto kerusakan ${index + 1}`}
+                    />
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Metadata EXIF</div>
+
             <table className={styles.exifTable}>
               <tbody>
-                <tr><td>Latitude</td><td>-7.942432</td></tr>
-                <tr><td>Validasi</td><td className={styles.statusSuccess}>Cocok GPS</td></tr>
+                <tr>
+                  <td>Sumber GPS Foto</td>
+                  <td>{gpsSourceLabel}</td>
+                </tr>
+
+                <tr>
+                  <td>EXIF Latitude</td>
+                  <td>{hasExifGps ? metadata.exif_latitude : 'Tidak tersedia'}</td>
+                </tr>
+
+                <tr>
+                  <td>EXIF Longitude</td>
+                  <td>{hasExifGps ? metadata.exif_longitude : 'Tidak tersedia'}</td>
+                </tr>
+
+                <tr>
+                  <td>Browser GPS Latitude</td>
+                  <td>{hasBrowserGps ? metadata.browser_latitude : 'Tidak tersedia'}</td>
+                </tr>
+
+                <tr>
+                  <td>Browser GPS Longitude</td>
+                  <td>{hasBrowserGps ? metadata.browser_longitude : 'Tidak tersedia'}</td>
+                </tr>
+
+                <tr>
+                  <td>Selisih Jarak</td>
+                  <td>{distanceText}</td>
+                </tr>
+
+                <tr>
+                  <td>Validasi Lokasi</td>
+                  <td>
+                    {metadata.is_valid_location == null
+                      ? 'Tidak tersedia'
+                      : metadata.is_valid_location
+                        ? 'Sesuai GPS'
+                        : 'Tidak sesuai GPS'}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>Keterangan</td>
+                  <td>{metadataKeterangan}</td>
+                </tr>
               </tbody>
             </table>
           </div>
 
-          <div className={styles.card} style={{opacity: 0.85}}>
-            <div className={styles.cardTitle}>Data Pendukung (OSINT)</div>
-            <div className={styles.osintTable}>
-              <div className={styles.osintRow}>
-                <div className={styles.osintLabel}>Sumber</div>
-                <div className={styles.osintValue}>X (Twitter)</div>
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Data Pendukung OSINT</div>
+
+            {osint ? (
+              <div className={styles.osintTable}>
+                <div className={styles.osintRow}>
+                  <div className={styles.osintLabel}>Reference ID</div>
+                  <div className={styles.osintValue}>
+                    {osint.osint_reference_id || '-'}
+                  </div>
+                </div>
+
+                <div className={styles.osintRow}>
+                  <div className={styles.osintLabel}>Last Analyzed</div>
+                  <div className={styles.osintValue}>
+                    {formatDate(osint.last_analyzed_at)}
+                  </div>
+                </div>
+
+                <div className={styles.osintRow}>
+                  <div className={styles.osintLabel}>Status</div>
+                  <div className={styles.osintValue}>
+                    {osint.status_sync || '-'}
+                  </div>
+                </div>
               </div>
-              <div className={styles.osintRow}>
-                <div className={styles.osintLabel}>Waktu Unggah</div>
-                <div className={styles.osintValue}>12 Feb 2026 – 13:32</div>
+            ) : (
+              <div className={styles.viewValue}>
+                Tidak ada data OSINT terkait
               </div>
-              <div className={styles.osintRow}>
-                <div className={styles.osintLabel}>Isi Konten</div>
-                <div className={styles.osintValue}>"Banjir Soehat makin tinggi guys, hati-hati yang lewat sini!"</div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.bottomWideGrid}>
+        <div className={styles.locationWideCard}>
+          <div className={styles.cardTitle}>Lokasi Kejadian</div>
+
+          <div className={styles.locationGrid}>
+            <div className={styles.mapContainer}>
+              {hasCoordinate ? (
+                <MapContainer
+                  center={[latitude as number, longitude as number]}
+                  zoom={15}
+                  scrollWheelZoom={false}
+                  style={{ width: '100%', height: '320px' }}
+                >
+                  <TileLayer
+                    attribution="&copy; OpenStreetMap contributors"
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+
+                  <Marker
+                    position={[latitude as number, longitude as number]}
+                    icon={customIcon}
+                  >
+                    <Popup>
+                      <strong>Lokasi Kejadian</strong>
+                      <br />
+                      {detail.alamat_lengkap_kejadian || '-'}
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              ) : (
+                <div className={styles.viewValue}>Lokasi tidak tersedia</div>
+              )}
+            </div>
+
+            <div className={styles.locationInfo}>
+              <span className={styles.viewLabel}>Kecamatan</span>
+              <div className={styles.viewValue}>{detail.kecamatan || '-'}</div>
+
+              <span className={styles.viewLabel}>Kelurahan</span>
+              <div className={styles.viewValue}>{detail.kelurahan || '-'}</div>
+
+              <span className={styles.viewLabel}>Alamat Lengkap</span>
+              <div className={styles.viewValue}>
+                {detail.alamat_lengkap_kejadian || '-'}
               </div>
-              <div className={styles.osintRow} style={{ borderBottom: 'none' }}>
-                <div className={styles.osintLabel}>Status Sync</div>
-                <div className={styles.osintValue} style={{ color: '#22c55e' }}>✓ Terverifikasi</div>
+
+              <span className={styles.viewLabel}>Koordinat</span>
+              <div className={styles.viewValue}>
+                {detail.latitude || '-'}, {detail.longitude || '-'}
               </div>
             </div>
           </div>
         </div>
 
-      </main>
-    </div>
-  );
+        <div className={styles.korbanFullCard}>
+          <h3 className={styles.korbanTitle}>Data Korban</h3>
+
+          <label className={styles.korbanSelectLabel}>
+            Pilih jenis korban yang ingin diisi
+          </label>
+
+          <select
+            className={styles.korbanSelect}
+            value={selectedJenisKorban}
+            onChange={(e) =>
+              handleSelectJenisKorban(e.target.value as JenisKorbanKey)
+            }
+          >
+            {jenisKorbanList.map((jenis) => (
+              <option key={jenis} value={jenis}>
+                {jenisKorbanLabel[jenis]}
+              </option>
+            ))}
+          </select>
+
+          <div className={styles.korbanTableBox}>
+            <table className={styles.korbanMatrix}>
+              <thead>
+                <tr>
+                  <th>Gender</th>
+                  <th>
+                    Anak
+                    <br />
+                    (0-17 Tahun)
+                  </th>
+                  <th>
+                    Dewasa
+                    <br />
+                    (18-59 Tahun)
+                  </th>
+                  <th>
+                    Lansia
+                    <br />
+                    (≥ 60 Tahun)
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr>
+                  <td>Laki-laki</td>
+
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={activeKorban.anakL}
+                      onChange={(e) =>
+                        handleKorbanChange('anakL', e.target.value)
+                      }
+                    />
+                  </td>
+
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={activeKorban.dewasaL}
+                      onChange={(e) =>
+                        handleKorbanChange('dewasaL', e.target.value)
+                      }
+                    />
+                  </td>
+
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={activeKorban.lansiaL}
+                      onChange={(e) =>
+                        handleKorbanChange('lansiaL', e.target.value)
+                      }
+                    />
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>Perempuan</td>
+
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={activeKorban.anakP}
+                      onChange={(e) =>
+                        handleKorbanChange('anakP', e.target.value)
+                      }
+                    />
+                  </td>
+
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={activeKorban.dewasaP}
+                      onChange={(e) =>
+                        handleKorbanChange('dewasaP', e.target.value)
+                      }
+                    />
+                  </td>
+
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={activeKorban.lansiaP}
+                      onChange={(e) =>
+                        handleKorbanChange('lansiaP', e.target.value)
+                      }
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className={styles.korbanTotal}>
+              Total: {totalKorbanSelected} Orang
+            </div>
+          </div>
+
+          <h3 className={styles.korbanSummaryTitleMain}>Ringkasan Korban</h3>
+
+         <div className={styles.korbanCardGrid}>
+  {korbanSummaryList.map((item) => {
+    const isActive = item.jenis === selectedJenisKorban;
+
+    return (
+      <button
+        key={item.jenis}
+        type="button"
+        onClick={() => handleSelectJenisKorban(item.jenis)}
+        className={`${styles.korbanCardDark} ${
+          isActive ? styles.korbanCardDarkActive : ""
+        }`}
+      >
+        <div className={styles.korbanCardTitleDark}>{item.label}</div>
+
+        <div className={styles.korbanCardNumberDark}>
+          {item.total}
+          <span className={styles.korbanCardUnitDark}>orang</span>
+        </div>
+
+        <div className={styles.korbanCardDetailDark}>
+          Laki-laki: {item.lakiLaki} · Perempuan: {item.perempuan}
+        </div>
+      </button>
+    );
+  })}
+</div>
+
+<div className={styles.totalText}>
+  Total seluruh korban final: <strong>{totalSemuaKorbanFinal}</strong> orang
+</div>
+</div>
+</section>
+
+<div className={styles.saveFooter}>
+  <button className={styles.btnSave} onClick={handleSave} disabled={saving}>
+    {saving ? "Menyimpan..." : "Simpan Laporan"}
+  </button>
+</div>
+</main>
+);
 }
