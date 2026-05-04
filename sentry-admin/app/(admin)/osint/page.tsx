@@ -1,8 +1,11 @@
 "use client";
 
 import styles from "./osint.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
+const API_BASE_URL =
+  (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5555").replace(/\/$/, "");
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -14,221 +17,178 @@ function decodeJwtPayload(token: string): any | null {
   }
 }
 
-type SourceType = "X" | "Facebook" | "BMKG";
+type SourceType = "X" | "BMKG" | "X_BMKG";
 type SourceFilterType = "Semua" | SourceType;
 type HumintFilterType = "Semua" | "Tidak Ada" | "Ada Data HUMINT";
 
-type BaseRow = {
+type OsintScoreApi = {
+  osint_data_score_id?: number;
+  osint_id?: number;
+  keyword_score?: number;
+  location_score?: number;
+  time_score?: number;
+  engagement_score?: number;
+  total_score?: number;
+  max_score?: number;
+  score_percentage?: string | number;
+  score_level?: "TIDAK_VALID" | "RENDAH" | "SEDANG" | "TINGGI";
+  score_status?: "VALID" | "NEED_REVIEW" | "LOW_CONFIDENCE" | "REJECTED";
+};
+
+type OsintApiRow = {
+  osint_id: number;
+  osint_source: SourceType;
+  osint_event_type?: string | null;
+  osint_area_text?: string | null;
+  osint_account_name?: string | null;
+  osint_account_username?: string | null;
+  osint_content?: string | null;
+  osint_post_time?: string | null;
+  osint_event_time?: string | null;
+  osint_link_url?: string | null;
+  osint_like_count?: number | null;
+  osint_share_count?: number | null;
+  osint_reply_count?: number | null;
+  osint_view_count?: number | null;
+  osint_bmkg_source_type?: string | null;
+  osint_weather_desc?: string | null;
+  osint_warning_event?: string | null;
+  osint_match_status?: string | null;
+  osint_verification_status?: string | null;
+  osint_priority_level?: "RENDAH" | "SEDANG" | "TINGGI" | "KRITIS" | null;
+  creation_date?: string | null;
+  last_update_date?: string | null;
+  osint_score?: OsintScoreApi | null;
+};
+
+type OsintListResponse = {
+  count: number;
+  limit: number;
+  offset: number;
+  summary?: {
+    total_data_osint?: number;
+    indikasi_darurat?: number;
+    konten_kadaluarsa?: number;
+    perlu_verifikasi?: number;
+    terkait_humint?: number;
+  };
+  osint_data: OsintApiRow[];
+};
+
+type OsintRow = {
+  id: number;
   source: SourceType;
   snippet: string;
   location: string;
-  humintLabel: "Tidak Ada" | "LINK TO HUMINT";
-  engagementType: "social" | "bmkg";
-  likes?: number;
-  comments?: number;
-  shares?: number;
-};
-
-type OsintRow = BaseRow & {
-  id: number;
   postedAt: string;
   postedAtLabel: string;
+  humintLabel: "Tidak Ada" | "LINK TO HUMINT";
+  engagementType: "social" | "bmkg";
+  likes: number;
+  comments: number;
+  shares: number;
+  priority: string;
+  verificationStatus: string;
+  scoreLabel: string;
 };
 
-const baseRows: BaseRow[] = [
-  {
-    source: "X",
-    snippet: "Banjir",
-    location: "Sawojajar",
-    humintLabel: "Tidak Ada",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "Facebook",
-    snippet: "Longsor",
-    location: "Rampal Celaket",
-    humintLabel: "Tidak Ada",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "Facebook",
-    snippet: "Gempa",
-    location: "Klojen",
-    humintLabel: "LINK TO HUMINT",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "Facebook",
-    snippet: "BMKG",
-    location: "Jodipan",
-    humintLabel: "LINK TO HUMINT",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "X",
-    snippet: "Rampal Celaket",
-    location: "Rampal Celaket",
-    humintLabel: "LINK TO HUMINT",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "BMKG",
-    snippet: "Oro Oro Dowo",
-    location: "Oro Oro Dowo",
-    humintLabel: "LINK TO HUMINT",
-    engagementType: "bmkg",
-  },
-  {
-    source: "Facebook",
-    snippet: "Samaan",
-    location: "Samaan",
-    humintLabel: "Tidak Ada",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "X",
-    snippet: "Wonokoyo",
-    location: "Wonokoyo",
-    humintLabel: "Tidak Ada",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "BMKG",
-    snippet: "Buring",
-    location: "Buring",
-    humintLabel: "Tidak Ada",
-    engagementType: "bmkg",
-  },
-  {
-    source: "Facebook",
-    snippet: "Tasikmadu",
-    location: "Tasikmadu",
-    humintLabel: "Tidak Ada",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "X",
-    snippet: "Jodipan",
-    location: "Jodipan",
-    humintLabel: "Tidak Ada",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "Facebook",
-    snippet: "Balearjosari",
-    location: "Balearjosari",
-    humintLabel: "LINK TO HUMINT",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "X",
-    snippet: "Polo Wijen",
-    location: "Polo Wijen",
-    humintLabel: "LINK TO HUMINT",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "Facebook",
-    snippet: "Kauman",
-    location: "Kauman",
-    humintLabel: "Tidak Ada",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-  {
-    source: "X",
-    snippet: "Kiduldalem",
-    location: "Kiduldalem",
-    humintLabel: "Tidak Ada",
-    engagementType: "social",
-    likes: 10,
-    comments: 12,
-    shares: 20,
-  },
-];
+function formatDateIndo(value?: string | null) {
+  if (!value) return "-";
 
-const summaryCards = [
-  { title: "TOTAL DATA OSINT", value: 123 },
-  { title: "INDIKASI DARURAT", value: 5 },
-  { title: "KONTEN KADALUARSA", value: 2 },
-  { title: "PERLU VERIFIKASI", value: 14 },
-  { title: "TERKAIT HUMINT", value: 7 },
-];
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
 
-function formatDateIndo(date: Date) {
-  const months = [
-    "Januari",
-    "Februari",
-    "Maret",
-    "April",
-    "Mei",
-    "Juni",
-    "Juli",
-    "Agustus",
-    "September",
-    "Oktober",
-    "November",
-    "Desember",
-  ];
+  const formatter = new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = months[date.getMonth()];
-  const year = date.getFullYear();
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-  const second = String(date.getSeconds()).padStart(2, "0");
-
-  return `${day} ${month} ${year} ${hour}:${minute}:${second}`;
+  return formatter.format(date).replace(/\./g, ":");
 }
 
-const osintRows: OsintRow[] = Array.from({ length: 3 }).flatMap((_, batchIndex) =>
-  baseRows.map((row, rowIndex) => {
-    const date = new Date(2026, 0, 20 - batchIndex, 12, 10, 0);
-    date.setMinutes(date.getMinutes() + rowIndex);
+function truncateText(value?: string | null, maxLength = 80) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
 
-    return {
-      ...row,
-      id: batchIndex * baseRows.length + rowIndex + 1,
-      postedAt: date.toISOString(),
-      postedAtLabel: formatDateIndo(date),
-    };
-  })
-);
+  if (!text) return "-";
+  if (text.length <= maxLength) return text;
+
+  return `${text.slice(0, maxLength)}...`;
+}
+
+function getToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("token");
+}
+
+async function fetchJson<T>(url: string, token: string): Promise<T> {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!contentType.includes("application/json")) {
+    const text = await response.text();
+    throw new Error(`Response bukan JSON. Status ${response.status}. ${text.slice(0, 120)}`);
+  }
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || "Request gagal");
+  }
+
+  return data;
+}
+
+function mapApiRow(row: OsintApiRow): OsintRow {
+  const postedAt =
+    row.osint_post_time ||
+    row.osint_event_time ||
+    row.last_update_date ||
+    row.creation_date ||
+    "";
+
+  const snippetSource =
+    row.osint_content ||
+    row.osint_warning_event ||
+    row.osint_weather_desc ||
+    row.osint_event_type ||
+    row.osint_bmkg_source_type ||
+    "-";
+
+  const isBmkgOnly = row.osint_source === "BMKG";
+
+  const score = row.osint_score;
+  const scoreLabel = score
+    ? `${score.total_score ?? 0}/${score.max_score ?? 100} (${score.score_level || "-"})`
+    : "-";
+
+  return {
+    id: row.osint_id,
+    source: row.osint_source,
+    snippet: truncateText(snippetSource, 85),
+    location: row.osint_area_text || "-",
+    postedAt,
+    postedAtLabel: formatDateIndo(postedAt),
+    humintLabel: "Tidak Ada",
+    engagementType: isBmkgOnly ? "bmkg" : "social",
+    likes: Number(row.osint_like_count || 0),
+    comments: Number(row.osint_reply_count || 0),
+    shares: Number(row.osint_share_count || 0),
+    priority: row.osint_priority_level || "-",
+    verificationStatus: row.osint_verification_status || "-",
+    scoreLabel,
+  };
+}
 
 function SearchIcon() {
   return (
@@ -323,18 +283,9 @@ function ChevronRightIcon() {
 }
 
 function getVisiblePages(currentPage: number, totalPages: number) {
-  if (totalPages <= 4) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
-  }
-
-  if (currentPage <= 2) {
-    return [1, 2, 3, "..."];
-  }
-
-  if (currentPage >= totalPages - 1) {
-    return ["...", totalPages - 2, totalPages - 1, totalPages];
-  }
-
+  if (totalPages <= 4) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  if (currentPage <= 2) return [1, 2, 3, "..."];
+  if (currentPage >= totalPages - 1) return ["...", totalPages - 2, totalPages - 1, totalPages];
   return [currentPage - 1, currentPage, currentPage + 1, "..."];
 }
 
@@ -352,8 +303,15 @@ export default function MonitoringOsintPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [openFilter, setOpenFilter] = useState(false);
 
+  const [rows, setRows] = useState<OsintRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [summary, setSummary] = useState<OsintListResponse["summary"] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = getToken();
+
     if (!token) {
       window.location.href = "/login";
       return;
@@ -366,64 +324,71 @@ export default function MonitoringOsintPage() {
       return;
     }
 
-    const name =
-      payload?.usr_nama_lengkap ||
-      payload?.usr_email ||
-      "User";
-
-    setUserName(name);
+    setUserName(payload?.usr_nama_lengkap || payload?.usr_email || "User");
   }, []);
 
-  const filteredRows = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+  const fetchRows = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
 
-    const result = osintRows.filter((row) => {
-      const matchKeyword =
-        keyword === ""
-          ? true
-          : [row.source, row.snippet, row.location, row.humintLabel, row.postedAtLabel]
-              .join(" ")
-              .toLowerCase()
-              .includes(keyword);
+    try {
+      setLoading(true);
+      setErrorMessage("");
 
-      const matchSource =
-        sourceFilter === "Semua" ? true : row.source === sourceFilter;
+      const params = new URLSearchParams();
+      params.set("limit", String(rowsPerPage));
+      params.set("offset", String((currentPage - 1) * rowsPerPage));
+      params.set("sort", sortOrder);
 
-      const matchHumint =
-        humintFilter === "Semua"
-          ? true
-          : humintFilter === "Tidak Ada"
-          ? row.humintLabel === "Tidak Ada"
-          : row.humintLabel !== "Tidak Ada";
+      if (search.trim()) params.set("search", search.trim());
+      if (sourceFilter !== "Semua") params.set("source", sourceFilter);
 
-      return matchKeyword && matchSource && matchHumint;
-    });
+      const data = await fetchJson<OsintListResponse>(
+        `${API_BASE_URL}/osint/data?${params.toString()}`,
+        token
+      );
 
-    result.sort((a, b) => {
-      const timeA = new Date(a.postedAt).getTime();
-      const timeB = new Date(b.postedAt).getTime();
-      return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
-    });
+      const mappedRows = data.osint_data.map(mapApiRow);
 
-    return result;
-  }, [search, sourceFilter, humintFilter, sortOrder]);
+      const filteredByHumint = mappedRows.filter((row) => {
+        if (humintFilter === "Semua") return true;
+        if (humintFilter === "Tidak Ada") return row.humintLabel === "Tidak Ada";
+        return row.humintLabel !== "Tidak Ada";
+      });
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+      setRows(filteredByHumint);
+      setTotalCount(data.count || 0);
+      setSummary(data.summary || null);
+    } catch (error: any) {
+      setErrorMessage(error?.message || "Gagal mengambil data OSINT");
+      setRows([]);
+      setTotalCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [rowsPerPage, currentPage, sortOrder, search, sourceFilter, humintFilter]);
+
+  useEffect(() => {
+    fetchRows();
+  }, [fetchRows]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [search, sourceFilter, humintFilter, sortOrder, rowsPerPage]);
 
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
-
-  const paginatedRows = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return filteredRows.slice(start, start + rowsPerPage);
-  }, [filteredRows, currentPage, rowsPerPage]);
-
+  const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage));
   const visiblePages = getVisiblePages(currentPage, totalPages);
+
+  const summaryCards = useMemo(
+    () => [
+      { title: "TOTAL DATA OSINT", value: summary?.total_data_osint ?? totalCount },
+      { title: "INDIKASI DARURAT", value: summary?.indikasi_darurat ?? 0 },
+      { title: "KONTEN KADALUARSA", value: summary?.konten_kadaluarsa ?? 0 },
+      { title: "PERLU VERIFIKASI", value: summary?.perlu_verifikasi ?? 0 },
+      { title: "TERKAIT HUMINT", value: summary?.terkait_humint ?? 0 },
+    ],
+    [summary, totalCount]
+  );
 
   return (
     <div className={styles.page}>
@@ -498,7 +463,7 @@ export default function MonitoringOsintPage() {
                 <div className={styles.filterSection}>
                   <div className={styles.dropdownTitle}>Sumber data</div>
                   <div className={styles.optionGroup}>
-                    {(["X", "Facebook", "BMKG"] as SourceType[]).map((value) => (
+                    {(["X", "BMKG", "X_BMKG"] as SourceType[]).map((value) => (
                       <button
                         key={value}
                         type="button"
@@ -510,6 +475,7 @@ export default function MonitoringOsintPage() {
                         {value}
                       </button>
                     ))}
+
                     <button
                       type="button"
                       className={`${styles.dropdownOption} ${
@@ -523,35 +489,22 @@ export default function MonitoringOsintPage() {
                 </div>
 
                 <div className={styles.filterSection}>
-                  <div className={styles.dropdownTitle}>Jenis data</div>
+                  <div className={styles.dropdownTitle}>Data HUMINT</div>
                   <div className={styles.optionGroup}>
-                    <button
-                      type="button"
-                      className={`${styles.dropdownOption} ${
-                        humintFilter === "Tidak Ada" ? styles.dropdownOptionActive : ""
-                      }`}
-                      onClick={() => setHumintFilter("Tidak Ada")}
-                    >
-                      Tidak Ada
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.dropdownOption} ${
-                        humintFilter === "Ada Data HUMINT" ? styles.dropdownOptionActive : ""
-                      }`}
-                      onClick={() => setHumintFilter("Ada Data HUMINT")}
-                    >
-                      Ada Data HUMINT
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.dropdownOption} ${
-                        humintFilter === "Semua" ? styles.dropdownOptionActive : ""
-                      }`}
-                      onClick={() => setHumintFilter("Semua")}
-                    >
-                      Semua
-                    </button>
+                    {(["Tidak Ada", "Ada Data HUMINT", "Semua"] as HumintFilterType[]).map(
+                      (value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`${styles.dropdownOption} ${
+                            humintFilter === value ? styles.dropdownOptionActive : ""
+                          }`}
+                          onClick={() => setHumintFilter(value)}
+                        >
+                          {value}
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
 
@@ -588,7 +541,7 @@ export default function MonitoringOsintPage() {
             }
           >
             <SortIcon />
-            <span>{sortOrder === "newest" ? "Sort" : "Terlama"}</span>
+            <span>{sortOrder === "newest" ? "Terbaru" : "Terlama"}</span>
           </button>
         </div>
       </div>
@@ -601,22 +554,38 @@ export default function MonitoringOsintPage() {
               <th>Sumber Data</th>
               <th>Konten/Snippet</th>
               <th>Lokasi Kejadian</th>
-              <th>Waktu Postingan</th>
+              <th>Waktu</th>
+              <th>Prioritas</th>
+              <th>Score</th>
               <th>Data HUMINT</th>
-              <th>Engangement</th>
+              <th>Engagement</th>
               <th>Aksi</th>
             </tr>
           </thead>
 
           <tbody>
-            {paginatedRows.length > 0 ? (
-              paginatedRows.map((row, index) => (
+            {loading ? (
+              <tr>
+                <td colSpan={10} className={styles.emptyState}>
+                  Memuat data OSINT...
+                </td>
+              </tr>
+            ) : errorMessage ? (
+              <tr>
+                <td colSpan={10} className={styles.emptyState}>
+                  {errorMessage}
+                </td>
+              </tr>
+            ) : rows.length > 0 ? (
+              rows.map((row, index) => (
                 <tr key={row.id}>
                   <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
                   <td>{row.source}</td>
                   <td>{row.snippet}</td>
                   <td>{row.location}</td>
                   <td>{row.postedAtLabel}</td>
+                  <td>{row.priority}</td>
+                  <td>{row.scoreLabel}</td>
                   <td>
                     {row.humintLabel === "LINK TO HUMINT" ? (
                       <button type="button" className={styles.humintLink}>
@@ -645,7 +614,12 @@ export default function MonitoringOsintPage() {
                       >
                         <EyeIcon />
                       </button>
-                      <button type="button" className={styles.actionButton}>
+                      <button
+                        type="button"
+                        className={styles.actionButton}
+                        aria-label="Edit OSINT"
+                        onClick={() => router.push(`/osint/detail/${row.id}`)}
+                      >
                         <PencilIcon />
                       </button>
                     </div>
@@ -654,7 +628,7 @@ export default function MonitoringOsintPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={8} className={styles.emptyState}>
+                <td colSpan={10} className={styles.emptyState}>
                   Data OSINT tidak ditemukan.
                 </td>
               </tr>
@@ -669,7 +643,7 @@ export default function MonitoringOsintPage() {
             type="button"
             className={styles.pageArrow}
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
+            disabled={currentPage === 1 || loading}
           >
             <ChevronLeftIcon />
           </button>
@@ -688,6 +662,7 @@ export default function MonitoringOsintPage() {
                     currentPage === item ? styles.pageNumberActive : ""
                   }`}
                   onClick={() => setCurrentPage(Number(item))}
+                  disabled={loading}
                 >
                   {item}
                 </button>
@@ -699,7 +674,7 @@ export default function MonitoringOsintPage() {
             type="button"
             className={styles.pageArrow}
             onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || loading}
           >
             <ChevronRightIcon />
           </button>

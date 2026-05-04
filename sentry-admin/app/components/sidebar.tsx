@@ -95,6 +95,17 @@ function IconManageStaff() {
   );
 }
 
+function IconMaster() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <path d="M3 12h18" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 3c3 3.2 3 14.8 0 18" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 3c-3 3.2-3 14.8 0 18" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
 function IconUser() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -162,6 +173,7 @@ export default function Sidebar({ open, onClose }: Props) {
     { label: "Laporan HUMINT", href: "/humint", icon: <IconStack /> },
     { label: "Monitoring OSINT", href: "/osint", icon: <IconGlobe /> },
     { label: "Monitoring Spasial", href: "/geoint", icon: <IconMap /> },
+    { label: "Pengaturan Master", href: "/master-data", icon: <IconMaster /> },
   ];
 
   const adminNav: NavItem[] = [
@@ -177,7 +189,7 @@ export default function Sidebar({ open, onClose }: Props) {
   useEffect(() => {
     if (!userRole) return;
 
-    const staffOnlyPaths = ["/dashboard", "/humint", "/osint", "/geoint"];
+    const staffOnlyPaths = ["/dashboard", "/humint", "/osint", "/geoint", "/master-data"];
     const adminOnlyPaths = ["/manage-staff", "/log"];
 
     if (userRole === "staff" && adminOnlyPaths.includes(pathname)) {
