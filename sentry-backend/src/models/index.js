@@ -23,7 +23,6 @@ if (config.use_env_variable) {
   );
 }
 
-/* ================= LOAD SEMUA MODEL ================= */
 fs
   .readdirSync(__dirname)
   .filter(file => {
@@ -42,18 +41,15 @@ fs
     db[model.name] = model;
   });
 
-/* ================= RELASI ================= */
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
-/* ================= EXPORT ================= */
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
-/* ================= DEBUG (WAJIB BUAT CEK) ================= */
 console.log("=================================");
 console.log("MODEL TERBACA DI SEQUELIZE:");
 console.log(Object.keys(db));

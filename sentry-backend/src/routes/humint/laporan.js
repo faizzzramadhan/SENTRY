@@ -191,6 +191,7 @@ router.post(
       await identifikasi.create(
         {
           id_laporan: laporanBaru.laporan_id,
+          jenis_korban: body.jenis_korban || body.jenisKorban || "TIDAK_ADA",
           jumlah_korban_identifikasi:
             body.jumlah_korban_identifikasi || body.total_korban || 0,
           kerusakan_identifikasi: body.kerusakan_identifikasi || null,
@@ -209,6 +210,10 @@ router.post(
           id_laporan: laporanBaru.laporan_id,
           skor_kredibilitas: body.skor_kredibilitas || "RENDAH",
           prioritas: body.prioritas || "PRIORITAS RENDAH",
+          prioritas_sistem: body.prioritas_sistem || body.prioritas || "PRIORITAS RENDAH",
+          prioritas_manual: body.prioritas_manual || null,
+          is_prioritas_manual: Boolean(body.is_prioritas_manual),
+          alasan_prioritas_manual: body.alasan_prioritas_manual || null,
           status_laporan: body.status_laporan || "IDENTIFIKASI",
           created_by: actor,
           creation_date: now,
@@ -284,7 +289,7 @@ router.post(
         laporanLongitude: body.longitude,
         exifLatitude: exifData.exif_latitude,
         exifLongitude: exifData.exif_longitude,
-        batasMeter: 500,
+        batasMeter: 10,
       });
 
       await metadata_foto.create(
@@ -368,6 +373,21 @@ router.get("/list", async (req, res) => {
 
 router.get("/dashboard", async (req, res) => {
   try {
+    const statusDalamPenanganan = [
+      "PENANGANAN",
+      "DITANGANI",
+      "ASSESSMENT",
+      "TINDAK_LANJUT",
+      "SELESAI",
+    ];
+
+    const statusButuhVerifikasi = [
+      "IDENTIFIKASI",
+      "VERIFIKASI",
+      "MENUNGGU_VERIFIKASI",
+      "TERVERIFIKASI",
+    ];
+
     const laporanTerbaru = await sequelize.query(
       `
       SELECT
@@ -395,13 +415,31 @@ router.get("/dashboard", async (req, res) => {
       }
     );
 
-    const semuaLaporan = await sequelize.query(
+    const laporanBulanIniRows = await sequelize.query(
       `
       SELECT
         l.laporan_id,
         l.creation_date,
         l.waktu_laporan,
         l.waktu_kejadian,
+        a.status_laporan,
+        a.prioritas
+      FROM laporan l
+      LEFT JOIN analisis_sistem a ON a.id_laporan = l.laporan_id
+      WHERE
+        COALESCE(l.waktu_laporan, l.creation_date, l.waktu_kejadian) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        AND COALESCE(l.waktu_laporan, l.creation_date, l.waktu_kejadian) < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+      ORDER BY l.laporan_id ASC
+      `,
+      {
+        type: sequelize.QueryTypes.SELECT,
+      }
+    );
+
+    const semuaLaporan = await sequelize.query(
+      `
+      SELECT
+        l.laporan_id,
         a.status_laporan,
         a.prioritas
       FROM laporan l
@@ -413,18 +451,33 @@ router.get("/dashboard", async (req, res) => {
       }
     );
 
-    const laporanBulanIni = semuaLaporan.length;
+    const osintSourceRows = await sequelize.query(
+      `
+      SELECT
+        UPPER(COALESCE(osint_source, 'LAINNYA')) AS source,
+        COUNT(*) AS total
+      FROM osint_data
+      WHERE
+        COALESCE(osint_created_at, creation_date, last_update_date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        AND COALESCE(osint_created_at, creation_date, last_update_date) < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+      GROUP BY UPPER(COALESCE(osint_source, 'LAINNYA'))
+      `,
+      {
+        type: sequelize.QueryTypes.SELECT,
+      }
+    ).catch((error) => {
+      console.error("Gagal mengambil sumber data OSINT:", error.message);
+      return [];
+    });
+
+    const laporanBulanIni = laporanBulanIniRows.length;
 
     const laporanDalamPenanganan = semuaLaporan.filter((item) =>
-      ["PENANGANAN", "DITANGANI", "ASSESSMENT", "TINDAK_LANJUT", "SELESAI"].includes(
-        item.status_laporan || ""
-      )
+      statusDalamPenanganan.includes(item.status_laporan || "")
     ).length;
 
     const laporanButuhVerifikasi = semuaLaporan.filter((item) =>
-      ["IDENTIFIKASI", "VERIFIKASI", "MENUNGGU_VERIFIKASI", "TERVERIFIKASI"].includes(
-        item.status_laporan || ""
-      )
+      statusButuhVerifikasi.includes(item.status_laporan || "")
     ).length;
 
     const trend = [
@@ -434,9 +487,9 @@ router.get("/dashboard", async (req, res) => {
       { name: "Minggu 4", baru: 0, ditangani: 0 },
     ];
 
-    semuaLaporan.forEach((item) => {
+    laporanBulanIniRows.forEach((item) => {
       const tanggal =
-        item.creation_date || item.waktu_laporan || item.waktu_kejadian;
+        item.waktu_laporan || item.creation_date || item.waktu_kejadian;
 
       if (!tanggal) {
         trend[0].baru += 1;
@@ -459,14 +512,44 @@ router.get("/dashboard", async (req, res) => {
 
       trend[weekIndex].baru += 1;
 
-      if (
-        ["PENANGANAN", "DITANGANI", "ASSESSMENT", "TINDAK_LANJUT", "SELESAI"].includes(
-          item.status_laporan || ""
-        )
-      ) {
+      if (statusDalamPenanganan.includes(item.status_laporan || "")) {
         trend[weekIndex].ditangani += 1;
       }
     });
+
+    const sourceLabelMap = {
+      INSTAGRAM: "Instagram",
+      IG: "Instagram",
+      X: "X",
+      TWITTER: "X",
+      BMKG: "BMKG",
+      TIKTOK: "TikTok",
+      HUMINT: "HUMINT",
+      LAINNYA: "Lainnya",
+    };
+
+    const sourceAccumulator = {
+      Instagram: 0,
+      X: 0,
+      BMKG: 0,
+      TikTok: 0,
+      HUMINT: laporanBulanIni,
+    };
+
+    osintSourceRows.forEach((item) => {
+      const sourceKey = String(item.source || "LAINNYA").trim().toUpperCase();
+      const label = sourceLabelMap[sourceKey] || sourceKey;
+      const total = Number(item.total || 0);
+
+      sourceAccumulator[label] = (sourceAccumulator[label] || 0) + total;
+    });
+
+    const sumber_data = Object.entries(sourceAccumulator)
+      .map(([label, value]) => ({
+        label,
+        value,
+      }))
+      .filter((item) => item.value > 0 || item.label === "HUMINT");
 
     const table = laporanTerbaru.map((item, index) => {
       const waktu = item.waktu_kejadian
@@ -501,6 +584,7 @@ router.get("/dashboard", async (req, res) => {
           laporan_butuh_verifikasi: laporanButuhVerifikasi,
         },
         trend,
+        sumber_data,
         table,
       },
     });

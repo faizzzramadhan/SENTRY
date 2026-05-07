@@ -13,6 +13,19 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
     },
 
+    jenis_korban: {
+      type: DataTypes.ENUM(
+        "TIDAK_ADA",
+        "TERDAMPAK",
+        "MENINGGAL",
+        "HILANG",
+        "MENGUNGSI",
+        "LUKA_SAKIT"
+      ),
+      allowNull: true,
+      defaultValue: "TIDAK_ADA",
+    },
+
     jumlah_korban_identifikasi: {
       type: DataTypes.INTEGER,
       allowNull: true,

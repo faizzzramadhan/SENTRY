@@ -6,7 +6,22 @@ import { useRouter } from 'next/navigation'
 import styles from './confirm.module.css'
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/humint'
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/api/humint'
+
+const DRAFT_STORAGE_KEY = 'draft_laporan_admin'
+
+const jenisKorbanLabel: Record<string, string> = {
+  LUKA_SAKIT: 'Luka/Sakit',
+  MENINGGAL: 'Meninggal',
+  HILANG: 'Hilang',
+  TERDAMPAK: 'Terdampak',
+  MENGUNGSI: 'Mengungsi',
+}
+
+function getLabelJenisKorban(value?: string) {
+  if (!value) return '-'
+  return jenisKorbanLabel[value] || value
+}
 
 export default function ConfirmReportPage() {
   const router = useRouter()
@@ -14,7 +29,7 @@ export default function ConfirmReportPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('draft_laporan_admin')
+    const saved = sessionStorage.getItem(DRAFT_STORAGE_KEY)
 
     if (!saved) {
       alert('Data laporan belum ada. Silakan isi form terlebih dahulu.')
@@ -28,14 +43,16 @@ export default function ConfirmReportPage() {
   const base64ToFile = async (base64: string, filename: string) => {
     const res = await fetch(base64)
     const blob = await res.blob()
-    return new File([blob], filename, { type: blob.type })
+    return new File([blob], filename, { type: blob.type || 'image/jpeg' })
   }
 
   const getBrowserGpsLat = () => {
+    if (!draft?.is_camera_capture && draft?.foto_kejadian_source !== 'WEB_CAMERA') return ''
     return draft?.browser_gps_lat ?? draft?.browser_latitude ?? ''
   }
 
   const getBrowserGpsLng = () => {
+    if (!draft?.is_camera_capture && draft?.foto_kejadian_source !== 'WEB_CAMERA') return ''
     return draft?.browser_gps_lng ?? draft?.browser_longitude ?? ''
   }
 
@@ -54,34 +71,33 @@ export default function ConfirmReportPage() {
 
       formData.append('latitude', String(draft.lat ?? ''))
       formData.append('longitude', String(draft.lng ?? ''))
+      formData.append('jenis_korban', draft.jenisKorban || 'TIDAK_ADA')
+      formData.append('jumlah_korban_identifikasi', String(draft.totalSemuaKorban || 0))
+      formData.append('total_korban', String(draft.totalSemuaKorban || 0))
+      formData.append('korban', JSON.stringify(draft.korbanPayload || []))
+      formData.append('detail_korban', JSON.stringify(draft.korbanPayload || []))
+      formData.append('created_by', draft.created_by || 'staff')
+      formData.append('foto_kejadian_source', draft.foto_kejadian_source || 'FILE_UPLOAD')
+      formData.append('is_camera_capture', String(Boolean(draft.is_camera_capture)))
 
       const browserLat = getBrowserGpsLat()
       const browserLng = getBrowserGpsLng()
 
-      formData.append('browser_latitude', browserLat !== '' ? String(browserLat) : '')
-      formData.append('browser_longitude', browserLng !== '' ? String(browserLng) : '')
-
-      formData.append('browser_gps_lat', browserLat !== '' ? String(browserLat) : '')
-      formData.append('browser_gps_lng', browserLng !== '' ? String(browserLng) : '')
-
-      formData.append('total_korban', String(draft.totalSemuaKorban || 0))
-      formData.append('korban', JSON.stringify(draft.korbanPayload || []))
-      formData.append('created_by', draft.created_by || 'staff')
+      if (draft.is_camera_capture || draft.foto_kejadian_source === 'WEB_CAMERA') {
+        formData.append('browser_latitude', browserLat !== '' ? String(browserLat) : '')
+        formData.append('browser_longitude', browserLng !== '' ? String(browserLng) : '')
+        formData.append('browser_gps_lat', browserLat !== '' ? String(browserLat) : '')
+        formData.append('browser_gps_lng', browserLng !== '' ? String(browserLng) : '')
+      }
 
       if (draft.fotoKejadianBase64) {
-        const file = await base64ToFile(
-          draft.fotoKejadianBase64,
-          'foto-kejadian.jpg'
-        )
+        const file = await base64ToFile(draft.fotoKejadianBase64, 'foto-kejadian.jpg')
         formData.append('foto_kejadian', file)
       }
 
       if (draft.fotoKerusakanBase64?.length > 0) {
-        for (let i = 0; i < draft.fotoKerusakanBase64.length; i++) {
-          const file = await base64ToFile(
-            draft.fotoKerusakanBase64[i],
-            `foto-kerusakan-${i + 1}.jpg`
-          )
+        for (let i = 0; i < draft.fotoKerusakanBase64.length; i += 1) {
+          const file = await base64ToFile(draft.fotoKerusakanBase64[i], `foto-kerusakan-${i + 1}.jpg`)
           formData.append('foto_kerusakan', file)
         }
       }
@@ -97,8 +113,7 @@ export default function ConfirmReportPage() {
         throw new Error(data.message || 'Gagal mengirim laporan')
       }
 
-      sessionStorage.removeItem('draft_laporan_admin')
-
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY)
       alert('Laporan berhasil dikirim')
       router.push('/humint')
     } catch (error: any) {
@@ -116,10 +131,11 @@ export default function ConfirmReportPage() {
     )
   }
 
-  const form = draft.form
+  const form = draft.form || {}
   const browserLat = getBrowserGpsLat()
   const browserLng = getBrowserGpsLng()
   const hasBrowserGps = browserLat !== '' && browserLng !== ''
+  const isCameraCapture = draft.is_camera_capture || draft.foto_kejadian_source === 'WEB_CAMERA'
 
   return (
     <div className={styles.container}>
@@ -216,15 +232,16 @@ export default function ConfirmReportPage() {
           </div>
           <div className={styles.infoRow}>
             <span className={styles.label}>Koordinat Lokasi Kejadian</span>
-            <span className={styles.value}>
-              {draft.lat ?? '-'}, {draft.lng ?? '-'}
-            </span>
+            <span className={styles.value}>{draft.lat ?? '-'}, {draft.lng ?? '-'}</span>
           </div>
-
           <div className={styles.infoRow}>
-            <span className={styles.label}>Metadata EXIF - Fallback GPS Browser</span>
+            <span className={styles.label}>Sumber Foto Kejadian</span>
+            <span className={styles.value}>{isCameraCapture ? 'Kamera Web' : 'Upload File'}</span>
+          </div>
+          <div className={styles.infoRow}>
+            <span className={styles.label}>Fallback GPS Browser</span>
             <span className={styles.value} style={{ color: hasBrowserGps ? '#facc15' : undefined }}>
-              {hasBrowserGps ? `${browserLat}, ${browserLng}` : '-'}
+              {isCameraCapture && hasBrowserGps ? `${browserLat}, ${browserLng}` : '-'}
             </span>
           </div>
         </div>
@@ -265,14 +282,11 @@ export default function ConfirmReportPage() {
             ) : (
               draft.korbanPayload.map((item: any, index: number) => (
                 <div key={index} className={styles.statLine}>
-                  <span>
-                    {item.jenis_korban} - {item.jenis_kelamin} - {item.kelompok_umur}
-                  </span>
+                  <span>{getLabelJenisKorban(item.jenis_korban)} - {item.jenis_kelamin} - {item.kelompok_umur}</span>
                   <strong>{item.jumlah}</strong>
                 </div>
               ))
             )}
-
             <div className={styles.totalLine}>
               <span>Total Korban</span>
               <strong>{draft.totalSemuaKorban || 0} Orang</strong>
@@ -297,7 +311,6 @@ export default function ConfirmReportPage() {
                 <p>-</p>
               )}
             </div>
-
             <div>
               <p className={styles.label}>Foto Kerusakan</p>
               {draft.fotoKerusakanBase64?.length > 0 ? (
@@ -316,22 +329,12 @@ export default function ConfirmReportPage() {
 
       <div className={styles.warningCard}>
         <div className={styles.warningHeader}>PERIKSA DATA SEBELUM DIKIRIM</div>
-        <p>
-          Setelah tombol Kirim Laporan ditekan, data akan disimpan ke database dan
-          tampil di Dashboard HUMINT.
-        </p>
+        <p>Setelah tombol Kirim Laporan ditekan, data akan disimpan ke database dan tampil di Dashboard HUMINT.</p>
       </div>
 
       <div className={styles.footerActions}>
-        <Link href="/humint/addreport" className={styles.btnSecondary}>
-          Edit Data
-        </Link>
-
-        <button
-          className={styles.btnPrimary}
-          onClick={handleKirimLaporan}
-          disabled={loading}
-        >
+        <Link href="/humint/addreport" className={styles.btnSecondary}>Edit Data</Link>
+        <button className={styles.btnPrimary} onClick={handleKirimLaporan} disabled={loading}>
           {loading ? 'Mengirim...' : 'Kirim Laporan'}
         </button>
       </div>

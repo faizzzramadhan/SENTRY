@@ -32,6 +32,11 @@ type DashboardRow = {
   prioritas: string;
 };
 
+type SumberDataItem = {
+  label: string;
+  value: number;
+};
+
 type DashboardData = {
   kpi: {
     laporan_bulan_ini: number;
@@ -39,6 +44,7 @@ type DashboardData = {
     laporan_butuh_verifikasi: number;
   };
   trend: TrendItem[];
+  sumber_data: SumberDataItem[];
   table: DashboardRow[];
 };
 
@@ -54,15 +60,11 @@ const defaultDashboardData: DashboardData = {
     { name: "Minggu 3", baru: 0, ditangani: 0 },
     { name: "Minggu 4", baru: 0, ditangani: 0 },
   ],
+  sumber_data: [
+    { label: "HUMINT", value: 0 },
+  ],
   table: [],
 };
-
-const sumberData = [
-  { label: "Instagram", value: 12 },
-  { label: "X", value: 8 },
-  { label: "BMKG", value: 20 },
-  { label: "HUMINT", value: 24 },
-];
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -92,9 +94,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
+  const sumberData = useMemo(() => {
+    return Array.isArray(dashboardData.sumber_data) &&
+      dashboardData.sumber_data.length > 0
+      ? dashboardData.sumber_data
+      : defaultDashboardData.sumber_data;
+  }, [dashboardData.sumber_data]);
+
   const maxSumber = useMemo(() => {
-    return Math.max(...sumberData.map((item) => item.value));
-  }, []);
+    return Math.max(1, ...sumberData.map((item) => item.value));
+  }, [sumberData]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -144,6 +153,14 @@ export default function DashboardPage() {
             Array.isArray(result?.data?.trend) && result.data.trend.length > 0
               ? result.data.trend
               : defaultDashboardData.trend,
+          sumber_data:
+            Array.isArray(result?.data?.sumber_data) &&
+            result.data.sumber_data.length > 0
+              ? result.data.sumber_data.map((item: SumberDataItem) => ({
+                  label: item.label || "-",
+                  value: Number(item.value) || 0,
+                }))
+              : defaultDashboardData.sumber_data,
           table: Array.isArray(result?.data?.table) ? result.data.table : [],
         });
       } catch (error: any) {

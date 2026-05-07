@@ -44,6 +44,31 @@ function normalizeInteger(value) {
   return number;
 }
 
+function normalizeBoolean(value) {
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0) return false;
+
+  const text = String(value || "").trim().toLowerCase();
+
+  return text === "true" || text === "1" || text === "ya" || text === "yes";
+}
+
+function normalizePrioritas(value) {
+  const text = normalizeText(value);
+
+  if (!text) return null;
+
+  const upper = text.toUpperCase();
+
+  const allowed = [
+    "PRIORITAS RENDAH",
+    "PRIORITAS SEDANG",
+    "PRIORITAS TINGGI",
+  ];
+
+  return allowed.includes(upper) ? upper : null;
+}
+
 router.put("/edit/:id", async (req, res) => {
   const t = await sequelize.transaction();
 
@@ -115,9 +140,36 @@ router.put("/edit/:id", async (req, res) => {
       transaction: t,
     });
 
+    const analisisAdaPlain = analisisAda
+      ? analisisAda.get({ plain: true })
+      : null;
+
+    const isPrioritasManual = normalizeBoolean(body.is_prioritas_manual);
+    const prioritasSistem =
+      normalizePrioritas(body.prioritas_sistem) ||
+      analisisAdaPlain?.prioritas_sistem ||
+      normalizePrioritas(body.prioritas) ||
+      "PRIORITAS RENDAH";
+
+    const prioritasManual = isPrioritasManual
+      ? normalizePrioritas(body.prioritas_manual) ||
+        normalizePrioritas(body.prioritas) ||
+        prioritasSistem
+      : null;
+
+    const prioritasFinal = isPrioritasManual
+      ? prioritasManual
+      : prioritasSistem;
+
     const analisisPayload = {
       skor_kredibilitas: normalizeText(body.skor_kredibilitas) || "RENDAH",
-      prioritas: normalizeText(body.prioritas) || "PRIORITAS RENDAH",
+      prioritas: prioritasFinal,
+      prioritas_sistem: prioritasSistem,
+      prioritas_manual: prioritasManual,
+      is_prioritas_manual: isPrioritasManual,
+      alasan_prioritas_manual: isPrioritasManual
+        ? normalizeText(body.alasan_prioritas_manual)
+        : null,
       status_laporan: normalizeText(body.status_laporan) || "IDENTIFIKASI",
       last_updated_by: actor,
       last_update_date: now,
@@ -174,7 +226,7 @@ router.put("/edit/:id", async (req, res) => {
     try {
       hasilRecalculate = await recalculateHumintById(id);
     } catch (recalculateError) {
-      console.error("Recalculate DSS setelah edit gagal:", recalculateError.message);
+      console.error("Recalculate rule-based setelah edit gagal:", recalculateError.message);
     }
 
     return res.json({
@@ -182,7 +234,7 @@ router.put("/edit/:id", async (req, res) => {
       laporan_id: Number(id),
       staff_puskodal: actor,
       prakiraan_kerugian: verifikasiPayload.prakiraan_kerugian,
-      dss: hasilRecalculate?.dss || null,
+      rule_based: hasilRecalculate?.rule_based || null,
     });
   } catch (error) {
     await t.rollback();

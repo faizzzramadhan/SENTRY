@@ -10,11 +10,9 @@ const requireRole = require("../../middlewares/requireRole");
 
 const {
   syncOsintData,
-  recalculateOsintScore,
 } = require("../../services/osint/osintDataIntegrator");
 
 const OsintData = models.osint_data;
-const OsintDataScore = models.osint_data_score;
 
 function buildListWhere(query) {
   const {
@@ -64,24 +62,6 @@ function mergeWhere(baseWhere, extraWhere) {
   return {
     [Op.and]: [baseWhere, extraWhere],
   };
-}
-
-async function getScoreMap(osintIds) {
-  if (!osintIds.length) return {};
-
-  const scores = await OsintDataScore.findAll({
-    where: {
-      osint_id: {
-        [Op.in]: osintIds,
-      },
-    },
-    raw: true,
-  });
-
-  return scores.reduce((acc, item) => {
-    acc[item.osint_id] = item;
-    return acc;
-  }, {});
 }
 
 async function buildSummary(baseWhere) {
@@ -211,13 +191,7 @@ router.get("/", auth, requireRole("staff", "admin"), async (req, res) => {
       order,
     });
 
-    const plainRows = rows.rows.map((row) => row.get({ plain: true }));
-    const scoreMap = await getScoreMap(plainRows.map((row) => row.osint_id));
-
-    const osintData = plainRows.map((row) => ({
-      ...row,
-      osint_score: scoreMap[row.osint_id] || null,
-    }));
+    const osintData = rows.rows.map((row) => row.get({ plain: true }));
 
     const summary = await buildSummary(where);
 
@@ -250,15 +224,8 @@ router.get("/:id", auth, requireRole("staff", "admin"), async (req, res) => {
       });
     }
 
-    const score = await OsintDataScore.findOne({
-      where: {
-        osint_id: req.params.id,
-      },
-    });
-
     return res.json({
       osint_data: osintData,
-      osint_score: score,
     });
   } catch (error) {
     return res.status(500).json({
@@ -335,35 +302,5 @@ router.put("/:id/verify", auth, requireRole("staff", "admin"), async (req, res) 
     });
   }
 });
-
-router.post(
-  "/:id/recalculate-score",
-  auth,
-  requireRole("staff", "admin"),
-  async (req, res) => {
-    try {
-      const result = await recalculateOsintScore(req.params.id);
-
-      if (!result) {
-        return res.status(404).json({
-          message: "Data OSINT tidak ditemukan",
-        });
-      }
-
-      return res.json({
-        message: "Recalculate score OSINT berhasil",
-        osint_data: result.osint_data,
-        osint_score: result.osint_score,
-      });
-    } catch (error) {
-      console.error("[osint-recalculate-score] error:", error);
-
-      return res.status(500).json({
-        message: "Gagal recalculate score OSINT",
-        error: error.message,
-      });
-    }
-  }
-);
 
 module.exports = router;

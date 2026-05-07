@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./humint.module.css";
 import Link from "next/link";
 
@@ -71,6 +71,9 @@ export default function HumintPage() {
   const [sortMode, setSortMode] = useState<
     "latest" | "priority" | "status" | "name"
   >("latest");
+
+  const latestReportIdRef = useRef<number | null>(null);
+  const hasLoadedInitialDataRef = useRef(false);
 
   const [namaUser, setNamaUser] = useState("User");
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -150,9 +153,50 @@ export default function HumintPage() {
     }
   };
 
-  const fetchHumint = async () => {
+  const notifyNewReport = (latestReport: HumintRow) => {
+    const message = `Laporan baru masuk dari ${
+      latestReport.nama_pelapor || "pelapor"
+    } dengan ID ${latestReport.laporan_id}.`;
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!("Notification" in window)) {
+      globalThis.alert(message);
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      new Notification("Laporan HUMINT Baru", {
+        body: message,
+      });
+      return;
+    }
+
+    if (Notification.permission === "default") {
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+          new Notification("Laporan HUMINT Baru", {
+            body: message,
+          });
+        } else {
+          globalThis.alert(message);
+        }
+      });
+      return;
+    }
+
+    globalThis.alert(message);
+  };
+
+  const fetchHumint = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
+
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       const res = await fetch(`${API_URL}/list`, {
         cache: "no-store",
@@ -164,19 +208,58 @@ export default function HumintPage() {
         throw new Error(result.message || "Gagal mengambil data HUMINT");
       }
 
-      setData(result.data || []);
-      setCurrentPage(1);
+      const nextData: HumintRow[] = result.data || [];
+      const latestReport = nextData.reduce<HumintRow | null>((latest, item) => {
+        if (!latest) return item;
+        return Number(item.laporan_id || 0) > Number(latest.laporan_id || 0)
+          ? item
+          : latest;
+      }, null);
+
+      const latestId = latestReport ? Number(latestReport.laporan_id || 0) : null;
+
+      if (
+        hasLoadedInitialDataRef.current &&
+        latestId !== null &&
+        latestReportIdRef.current !== null &&
+        latestId > latestReportIdRef.current &&
+        latestReport
+      ) {
+        notifyNewReport(latestReport);
+      }
+
+      latestReportIdRef.current = latestId;
+      hasLoadedInitialDataRef.current = true;
+
+      setData(nextData);
+
+      if (!silent) {
+        setCurrentPage(1);
+      }
     } catch (error) {
       console.error(error);
-      setData([]);
+
+      if (!silent) {
+        setData([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     setNamaUser(getLoggedInUserName());
     fetchHumint();
+
+    const intervalId = window.setInterval(() => {
+      fetchHumint({ silent: true });
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   const filteredAndSortedData = useMemo(() => {
@@ -321,7 +404,7 @@ export default function HumintPage() {
             Download
           </button>
 
-          <button type="button" onClick={fetchHumint}>
+          <button type="button" onClick={() => fetchHumint()}>
             Refresh
           </button>
 
