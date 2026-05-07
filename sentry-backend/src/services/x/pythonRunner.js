@@ -35,6 +35,10 @@ function runPythonWorker({
       windowsHide: true,
       env: {
         ...process.env,
+
+        // Penting untuk Windows agar Python selalu memakai UTF-8.
+        PYTHONUTF8: "1",
+        PYTHONIOENCODING: "utf-8",
       },
     });
 
@@ -61,11 +65,11 @@ function runPythonWorker({
     }, timeoutMs + 5000);
 
     child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+      stdout += chunk.toString("utf8");
     });
 
     child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+      stderr += chunk.toString("utf8");
     });
 
     child.on("error", (error) => {

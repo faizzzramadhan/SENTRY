@@ -130,6 +130,34 @@
   gap: 14px;
   align-items: start;
 }
+.postContentBmkg {
+  display: block;
+}
+
+.postContentBmkg .postTextWrap {
+  width: 100%;
+}
+
+.bmkgPostMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.bmkgPostMeta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(124, 184, 255, 0.12);
+  border: 1px solid rgba(124, 184, 255, 0.34);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-weight: 700;
+}
 
 .postImageWrap {
   width: 100%;
@@ -393,4 +421,106 @@
   .pageTitle {
     font-size: 40px;
   }
+}
+
+.humintCodeActive {
+  background: #76f16f;
+  color: #162313;
+}
+
+.humintCodeEmpty {
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.humintDetailButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  margin: -6px 0 14px auto;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 184, 255, 0.45);
+  background: rgba(124, 184, 255, 0.12);
+  color: #7cb8ff;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.referenceList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.referenceCard {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.referenceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.referenceHeader span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(118, 241, 111, 0.14);
+  border: 1px solid rgba(118, 241, 111, 0.34);
+  color: #b8ffb4;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.referenceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.referenceMeta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(124, 184, 255, 0.1);
+  border: 1px solid rgba(124, 184, 255, 0.26);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.referenceReason,
+.referenceSnippet {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.55;
+  font-size: 15px;
+}
+
+.referenceSnippet {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.referenceFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
 }

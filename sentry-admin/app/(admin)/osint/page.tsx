@@ -35,6 +35,30 @@ type OsintScoreApi = {
   score_status?: "VALID" | "NEED_REVIEW" | "LOW_CONFIDENCE" | "REJECTED";
 };
 
+type LaporanApi = {
+  laporan_id?: number;
+  nama_pelapor?: string | null;
+  kronologi?: string | null;
+  waktu_kejadian?: string | null;
+  alamat_lengkap_kejadian?: string | null;
+};
+
+type OsintReferenceApi = {
+  osint_reference_id: number;
+  laporan_id: number;
+  osint_id: number;
+  reference_status?: "MATCHED" | "REVIEW" | "REJECTED" | string;
+  reference_source?: string | null;
+  reference_method?: string | null;
+  matched_keywords?: string | null;
+  keyword_match_status?: string | null;
+  event_match_status?: string | null;
+  location_match_status?: string | null;
+  time_match_status?: string | null;
+  reference_reason?: string | null;
+  laporan?: LaporanApi | null;
+};
+
 type OsintApiRow = {
   osint_id: number;
   osint_source: SourceType;
@@ -59,6 +83,11 @@ type OsintApiRow = {
   creation_date?: string | null;
   last_update_date?: string | null;
   osint_score?: OsintScoreApi | null;
+
+  osint_reference_count?: number;
+  humint_related?: boolean;
+  humint_label?: string;
+  osint_references?: OsintReferenceApi[];
 };
 
 type OsintListResponse = {
@@ -82,7 +111,10 @@ type OsintRow = {
   location: string;
   postedAt: string;
   postedAtLabel: string;
-  humintLabel: "Tidak Ada" | "LINK TO HUMINT";
+  humintLabel: "Tidak Ada" | "Ada Data HUMINT";
+  humintReferenceCount: number;
+  humintReferences: OsintReferenceApi[];
+  primaryLaporanId: number | null;
   engagementType: "social" | "bmkg";
   likes: number;
   comments: number;
@@ -172,6 +204,18 @@ function mapApiRow(row: OsintApiRow): OsintRow {
     ? `${score.total_score ?? 0}/${score.max_score ?? 100} (${score.score_level || "-"})`
     : "-";
 
+  const references = Array.isArray(row.osint_references)
+    ? row.osint_references
+    : [];
+
+  const referenceCount = Number(row.osint_reference_count || references.length || 0);
+  const humintRelated = Boolean(row.humint_related || referenceCount > 0);
+
+  const primaryReference = references[0] || null;
+  const primaryLaporanId = primaryReference?.laporan_id
+    ? Number(primaryReference.laporan_id)
+    : null;
+
   return {
     id: row.osint_id,
     source: row.osint_source,
@@ -179,7 +223,10 @@ function mapApiRow(row: OsintApiRow): OsintRow {
     location: row.osint_area_text || "-",
     postedAt,
     postedAtLabel: formatDateIndo(postedAt),
-    humintLabel: "Tidak Ada",
+    humintLabel: humintRelated ? "Ada Data HUMINT" : "Tidak Ada",
+    humintReferenceCount: referenceCount,
+    humintReferences: references,
+    primaryLaporanId,
     engagementType: isBmkgOnly ? "bmkg" : "social",
     likes: Number(row.osint_like_count || 0),
     comments: Number(row.osint_reply_count || 0),
@@ -343,6 +390,14 @@ export default function MonitoringOsintPage() {
       if (search.trim()) params.set("search", search.trim());
       if (sourceFilter !== "Semua") params.set("source", sourceFilter);
 
+      if (humintFilter === "Ada Data HUMINT") {
+        params.set("humint_related", "true");
+      }
+
+      if (humintFilter === "Tidak Ada") {
+        params.set("humint_related", "false");
+      }
+
       const data = await fetchJson<OsintListResponse>(
         `${API_BASE_URL}/osint/data?${params.toString()}`,
         token
@@ -350,15 +405,11 @@ export default function MonitoringOsintPage() {
 
       const mappedRows = data.osint_data.map(mapApiRow);
 
-      const filteredByHumint = mappedRows.filter((row) => {
-        if (humintFilter === "Semua") return true;
-        if (humintFilter === "Tidak Ada") return row.humintLabel === "Tidak Ada";
-        return row.humintLabel !== "Tidak Ada";
-      });
-
-      setRows(filteredByHumint);
+      setRows(mappedRows);
       setTotalCount(data.count || 0);
       setSummary(data.summary || null);
+
+
     } catch (error: any) {
       setErrorMessage(error?.message || "Gagal mengambil data OSINT");
       setRows([]);
@@ -587,12 +638,26 @@ export default function MonitoringOsintPage() {
                   <td>{row.priority}</td>
                   <td>{row.scoreLabel}</td>
                   <td>
-                    {row.humintLabel === "LINK TO HUMINT" ? (
-                      <button type="button" className={styles.humintLink}>
-                        {row.humintLabel}
+                    {row.humintLabel === "Ada Data HUMINT" ? (
+                      <button
+                        type="button"
+                        className={styles.humintLink}
+                        title={
+                          row.humintReferences[0]?.reference_reason ||
+                          "Lihat data HUMINT yang berkorelasi"
+                        }
+                        onClick={() => {
+                          if (row.primaryLaporanId) {
+                            router.push(`/humint/detail/${row.primaryLaporanId}`);
+                          }
+                        }}
+                      >
+                        {row.humintReferenceCount > 1
+                          ? `Ada (${row.humintReferenceCount})`
+                          : "Ada Data HUMINT"}
                       </button>
                     ) : (
-                      <span className={styles.noHumint}>{row.humintLabel}</span>
+                      <span className={styles.noHumint}>Tidak Ada</span>
                     )}
                   </td>
                   <td>

@@ -10,9 +10,57 @@ import time
 from pathlib import Path
 
 
+def configure_utf8_output():
+    """
+    Fix untuk Windows:
+    mencegah error 'charmap codec can't encode characters'
+    saat tweet mengandung emoji/simbol/karakter Unicode.
+    """
+    os.environ.setdefault("PYTHONUTF8", "1")
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+configure_utf8_output()
+
+
 def emit(payload, exit_code=0):
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    sys.stdout.flush()
+    """
+    Emit JSON satu baris agar bisa diparse oleh pythonRunner.js.
+
+    ensure_ascii=True sengaja dipakai agar output stdout hanya karakter ASCII.
+    Ini membuat output aman di Windows walaupun isi tweet mengandung emoji.
+    """
+    try:
+        line = json.dumps(payload, ensure_ascii=True, default=str) + "\n"
+    except Exception as exc:
+        line = json.dumps(
+            {
+                "ok": False,
+                "message": f"Gagal serialize JSON worker: {str(exc)}",
+                "records": [],
+            },
+            ensure_ascii=True,
+            default=str,
+        ) + "\n"
+
+    try:
+        if hasattr(sys.stdout, "buffer"):
+            sys.stdout.buffer.write(line.encode("utf-8", errors="replace"))
+            sys.stdout.buffer.flush()
+        else:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+    except Exception:
+        pass
+
     raise SystemExit(exit_code)
 
 
@@ -45,8 +93,8 @@ def load_dotenv_file():
                         continue
 
                     if (
-                        (value.startswith('"') and value.endswith('"')) or
-                        (value.startswith("'") and value.endswith("'"))
+                        (value.startswith('"') and value.endswith('"'))
+                        or (value.startswith("'") and value.endswith("'"))
                     ):
                         value = value[1:-1]
 
@@ -399,7 +447,7 @@ def main():
 
     if output_file.exists():
         try:
-            with open(output_file, "r", encoding="utf-8-sig", newline="") as f:
+            with open(output_file, "r", encoding="utf-8-sig", errors="replace", newline="") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     records.append(normalize_row(row))

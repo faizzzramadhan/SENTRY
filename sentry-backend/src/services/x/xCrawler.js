@@ -14,9 +14,42 @@ const X_CRAWLER_MAX_RUNTIME_MS = Number(
   process.env.X_CRAWLER_MAX_RUNTIME_MS || 900000
 );
 
-function normalizeText(value) {
+/**
+ * Ratio default 0.75 artinya:
+ * keyword "Banjir Soekarno Hatta Kota Malang" punya 5 token.
+ * Minimal 4 token harus muncul agar dianggap match.
+ */
+const X_KEYWORD_TOKEN_MATCH_RATIO = Number(
+  process.env.X_KEYWORD_TOKEN_MATCH_RATIO || 0.75
+);
+
+const X_KEYWORD_MIN_TOKEN_MATCH = Number(
+  process.env.X_KEYWORD_MIN_TOKEN_MATCH || 3
+);
+
+const X_KEYWORD_MIN_TOKEN_LENGTH = Number(
+  process.env.X_KEYWORD_MIN_TOKEN_LENGTH || 3
+);
+
+function decodeBasicHtmlEntities(value) {
   return String(value || "")
+    .replace(/&amp;/gi, " ")
+    .replace(/&lt;/gi, " ")
+    .replace(/&gt;/gi, " ")
+    .replace(/&quot;/gi, " ")
+    .replace(/&#39;/gi, " ")
+    .replace(/&nbsp;/gi, " ");
+}
+
+function normalizeText(value) {
+  return decodeBasicHtmlEntities(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/www\.\S+/g, " ")
+    .replace(/[@#]/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -39,34 +72,151 @@ function uniqStrings(values) {
   return result;
 }
 
+function uniqueArray(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function getTextTokens(value) {
+  return uniqueArray(
+    normalizeText(value)
+      .split(" ")
+      .map((token) => token.trim())
+      .filter((token) => token.length >= X_KEYWORD_MIN_TOKEN_LENGTH)
+  );
+}
+
+function getKeywordTokens(keyword) {
+  return getTextTokens(keyword);
+}
+
+function buildWordSet(text) {
+  return new Set(getTextTokens(text));
+}
+
 function extractStatusIdFromLink(linkUrl) {
   const text = String(linkUrl || "");
   const match = text.match(/\/status\/(\d+)/i);
   return match ? match[1] : null;
 }
 
+function buildSafeXLink(username, postId, linkUrl) {
+  const existing = String(linkUrl || "").trim();
+
+  if (existing && !existing.includes("/undefined/status/")) {
+    return existing;
+  }
+
+  if (!postId) return existing || null;
+
+  const cleanUsername = String(username || "")
+    .replace(/^@/, "")
+    .trim();
+
+  if (cleanUsername && cleanUsername !== "undefined" && cleanUsername !== "null") {
+    return `https://x.com/${cleanUsername}/status/${postId}`;
+  }
+
+  return `https://x.com/i/web/status/${postId}`;
+}
+
 function buildKeywordSeeds(keywordRows) {
   return uniqStrings(keywordRows.map((row) => row.keyword));
 }
 
+function buildKeywordSourceText(mapped) {
+  return [
+    mapped.osint_account_name,
+    mapped.osint_account_username,
+    mapped.osint_location_text,
+    mapped.osint_hashtags,
+    mapped.raw_text,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function isKeywordMatched(sourceText, keyword) {
+  const normalizedSource = normalizeText(sourceText);
+  const normalizedKeyword = normalizeText(keyword);
+
+  if (!normalizedSource || !normalizedKeyword) {
+    return false;
+  }
+
+  /**
+   * 1. Exact phrase tetap dipertahankan.
+   * Contoh:
+   * source mengandung "galunggung kota malang"
+   */
+  if (normalizedSource.includes(normalizedKeyword)) {
+    return true;
+  }
+
+  const keywordTokens = getKeywordTokens(keyword);
+
+  if (!keywordTokens.length) {
+    return false;
+  }
+
+  const sourceWordSet = buildWordSet(sourceText);
+
+  /**
+   * 2. Keyword satu kata.
+   * Harus match sebagai token/kata, bukan substring bebas.
+   */
+  if (keywordTokens.length === 1) {
+    return sourceWordSet.has(keywordTokens[0]);
+  }
+
+  const matchedTokenCount = keywordTokens.filter((token) =>
+    sourceWordSet.has(token)
+  ).length;
+
+  /**
+   * 3. Keyword dua kata.
+   * Harus dua-duanya muncul.
+   * Contoh:
+   * "banjir bandang"
+   */
+  if (keywordTokens.length === 2) {
+    return matchedTokenCount === 2;
+  }
+
+  /**
+   * 4. Keyword tiga kata atau lebih.
+   * Tidak harus urut, tetapi mayoritas token harus muncul.
+   *
+   * Contoh:
+   * keyword: "Banjir Bandang Kota Malang"
+   * text: "Kota Malang ... kejadian banjir bandang"
+   * hasil: match
+   */
+  const requiredByRatio = Math.ceil(
+    keywordTokens.length * X_KEYWORD_TOKEN_MATCH_RATIO
+  );
+
+  const requiredTokenCount = Math.max(
+    Math.min(X_KEYWORD_MIN_TOKEN_MATCH, keywordTokens.length),
+    requiredByRatio
+  );
+
+  return matchedTokenCount >= requiredTokenCount;
+}
+
 function findMatchedKeywords(mapped, keywordTerms) {
-  const sourceText = normalizeText(
-    [
-      mapped.osint_account_name,
-      mapped.osint_account_username,
-      mapped.osint_location_text,
-      mapped.osint_hashtags,
-      mapped.raw_text,
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
+  const sourceText = buildKeywordSourceText(mapped);
 
-  if (!sourceText) return [];
+  if (!normalizeText(sourceText)) return [];
 
-  return keywordTerms.filter((keyword) =>
-    sourceText.includes(normalizeText(keyword))
-  );
+  const matched = [];
+
+  for (const keyword of keywordTerms) {
+    if (isKeywordMatched(sourceText, keyword)) {
+      matched.push(keyword);
+    }
+  }
+
+  return uniqStrings(matched);
 }
 
 function parsePostDate(value) {
@@ -91,6 +241,13 @@ function isWithinLastDays(dateValue, days) {
 
 function mapWorkerRecordToOsintRow(record) {
   const fallbackPostId = extractStatusIdFromLink(record.link_url);
+  const postId = record.x_post_id || fallbackPostId || null;
+
+  const linkUrl = buildSafeXLink(
+    record.account_username,
+    postId,
+    record.link_url
+  );
 
   return {
     osint_account_name: record.account_name || null,
@@ -99,8 +256,8 @@ function mapWorkerRecordToOsintRow(record) {
     osint_latitude: null,
     osint_longitude: null,
     osint_post_time: record.post_time ? parsePostDate(record.post_time) : null,
-    osint_x_post_id: record.x_post_id || fallbackPostId || null,
-    osint_link_url: record.link_url || null,
+    osint_x_post_id: postId,
+    osint_link_url: linkUrl,
     osint_like_count: Number(record.like_count || 0),
     osint_share_count: Number(record.share_count || 0),
     osint_favourite_count:
@@ -409,6 +566,9 @@ async function runXCrawler({
             passed_keyword_filter: passedKeywordFilter,
             matched_keywords: matchedKeywords,
             filter_source: "data_keyword",
+            keyword_match_mode: "flexible_token",
+            keyword_token_match_ratio: X_KEYWORD_TOKEN_MATCH_RATIO,
+            keyword_min_token_match: X_KEYWORD_MIN_TOKEN_MATCH,
           },
           normalizedInsertMode
         );
@@ -431,6 +591,7 @@ async function runXCrawler({
     ok: savedCount > 0 || updatedCount > 0 || inspectedCount > 0,
     mode: manual ? "manual" : "scheduler",
     filter_source: "data_keyword_only",
+    keyword_match_mode: "flexible_token",
     insert_mode: normalizedInsertMode,
     stopped_by_runtime_limit: stoppedByRuntimeLimit,
     max_runtime_ms: X_CRAWLER_MAX_RUNTIME_MS,
@@ -460,4 +621,7 @@ async function runXCrawler({
 module.exports = {
   runXCrawler,
   cleanupExpiredOsintData,
+  normalizeText,
+  isKeywordMatched,
+  findMatchedKeywords,
 };

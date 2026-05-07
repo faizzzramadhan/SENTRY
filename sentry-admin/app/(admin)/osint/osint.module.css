@@ -289,17 +289,45 @@
 }
 
 .humintLink {
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.92);
-  text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 184, 255, 0.36);
+  background: rgba(124, 184, 255, 0.14);
+  color: #9dccff;
   cursor: pointer;
-  font-size: 13px;
-  padding: 0;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: 0.2s ease;
+}
+
+.humintLink:hover {
+  background: rgba(124, 184, 255, 0.24);
+  border-color: rgba(124, 184, 255, 0.55);
+}
+
+.humintLink:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .noHumint {
-  color: rgba(255, 255, 255, 0.9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .engagementText {

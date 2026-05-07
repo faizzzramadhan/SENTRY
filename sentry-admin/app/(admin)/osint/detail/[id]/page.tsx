@@ -26,6 +26,38 @@ function decodeJwtPayload(token: string): any | null {
 
 type PriorityLevel = "RENDAH" | "SEDANG" | "TINGGI" | "KRITIS";
 
+
+type LaporanReferenceApi = {
+  laporan_id?: number | null;
+  nama_pelapor?: string | null;
+  kronologi?: string | null;
+  waktu_kejadian?: string | null;
+  waktu_laporan?: string | null;
+  alamat_lengkap_kejadian?: string | null;
+};
+
+type OsintReferenceApi = {
+  osint_reference_id?: number | null;
+  laporan_id?: number | null;
+  osint_id?: number | null;
+  reference_status?: string | null;
+  reference_source?: string | null;
+  reference_method?: string | null;
+  matched_keywords?: string | null;
+  keyword_match_status?: string | null;
+  event_match_status?: string | null;
+  location_match_status?: string | null;
+  time_match_status?: string | null;
+  reference_reason?: string | null;
+  laporan_event_time?: string | null;
+  osint_event_time?: string | null;
+  time_diff_minutes?: number | null;
+  distance_km?: string | number | null;
+  laporan_area_text?: string | null;
+  osint_area_text?: string | null;
+  laporan?: LaporanReferenceApi | null;
+};
+
 type OsintApiData = {
   osint_id: number;
   osint_source: "X" | "BMKG" | "X_BMKG";
@@ -68,6 +100,10 @@ type OsintApiData = {
   osint_verification_status?: string | null;
   osint_priority_level?: PriorityLevel | null;
   osint_raw_json?: string | null;
+  osint_reference_count?: number | null;
+  humint_related?: boolean | null;
+  humint_label?: string | null;
+  osint_references?: OsintReferenceApi[] | null;
 };
 
 type OsintScore = {
@@ -101,7 +137,8 @@ type DetailView = {
   source: string;
   accountHandle: string;
   postedAt: string;
-  imageUrl: string;
+  imageUrl: string | null;
+  isBmkgOnly: boolean;
   captionTitle: string;
   captionBody: string;
   likes: number;
@@ -123,6 +160,10 @@ type DetailView = {
   longitude: number;
   hasCoordinate: boolean;
   humintCode: string;
+  humintRelated: boolean;
+  humintCount: number;
+  humintReferences: OsintReferenceApi[];
+  primaryHumintId: number | null;
   postDateValid: boolean;
   engagementValid: boolean;
   bmkgStatus: string;
@@ -232,7 +273,13 @@ function getKeywords(score: OsintScore | null, data: OsintApiData) {
   return [data.osint_event_type || data.osint_weather_desc || data.osint_warning_event || "OSINT"];
 }
 
+function isBmkgOnlySource(data: OsintApiData) {
+  return data.osint_source === "BMKG";
+}
+
 function getImageUrl(data: OsintApiData) {
+  if (isBmkgOnlySource(data)) return null;
+
   if (data.osint_media_url) return data.osint_media_url;
 
   return "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=1200&q=80";
@@ -250,11 +297,44 @@ function buildBmkgStatus(data: OsintApiData) {
   return "Data resmi BMKG dan terverifikasi otomatis.";
 }
 
+
+function getHumintReferences(data: OsintApiData) {
+  return Array.isArray(data.osint_references) ? data.osint_references : [];
+}
+
+function getHumintReferenceCount(data: OsintApiData) {
+  const references = getHumintReferences(data);
+  return Number(data.osint_reference_count || references.length || 0);
+}
+
+function getPrimaryHumintId(data: OsintApiData) {
+  const references = getHumintReferences(data);
+  const firstReference = references[0] || null;
+  return Number(firstReference?.laporan_id || firstReference?.laporan?.laporan_id || 0) || null;
+}
+
+function getHumintLabel(data: OsintApiData) {
+  const count = getHumintReferenceCount(data);
+
+  if (data.humint_label) return data.humint_label;
+  if (data.humint_related || count > 0) return count > 1 ? `Ada Data HUMINT (${count})` : "Ada Data HUMINT";
+
+  return "Tidak Ada";
+}
+
+function formatReferenceTime(value?: string | null) {
+  return formatDateIndo(value);
+}
+
 function mapDetail(data: OsintApiData, score: OsintScore | null): DetailView {
   const rawJson = parseRawJson(data.osint_raw_json);
   const latitude = parseNumber(data.osint_latitude, DEFAULT_LATITUDE);
   const longitude = parseNumber(data.osint_longitude, DEFAULT_LONGITUDE);
   const hasCoordinate = Boolean(data.osint_latitude && data.osint_longitude);
+  const isBmkgOnly = isBmkgOnlySource(data);
+  const humintReferences = getHumintReferences(data);
+  const humintCount = getHumintReferenceCount(data);
+  const humintRelated = Boolean(data.humint_related || humintCount > 0);
 
   const sourceUrl =
     data.osint_link_url ||
@@ -335,7 +415,11 @@ function mapDetail(data: OsintApiData, score: OsintScore | null): DetailView {
     latitude,
     longitude,
     hasCoordinate,
-    humintCode: "Tidak Ada",
+    humintCode: getHumintLabel(data),
+    humintRelated,
+    humintCount,
+    humintReferences,
+    primaryHumintId: getPrimaryHumintId(data),
     postDateValid: Number(score?.time_score || 0) >= 10,
     engagementValid: Number(score?.engagement_score || 0) >= 10,
     bmkgStatus: buildBmkgStatus(data),
@@ -355,6 +439,7 @@ function mapDetail(data: OsintApiData, score: OsintScore | null): DetailView {
         ? String(data.osint_match_score)
         : "0",
     matchReason: data.osint_match_reason || "-",
+    isBmkgOnly,
   };
 }
 
@@ -547,29 +632,48 @@ export default function DetailOsintPage() {
               <div className={styles.postedAt}>{detail.postedAt}</div>
             </div>
 
-            <div className={styles.postContent}>
-              <div className={styles.postImageWrap}>
-                <img src={detail.imageUrl} alt="Postingan OSINT" className={styles.postImage} />
-              </div>
+            <div
+              className={
+                detail.isBmkgOnly ? styles.postContentBmkg : styles.postContent
+              }
+            >
+              {!detail.isBmkgOnly && detail.imageUrl && (
+                <div className={styles.postImageWrap}>
+                  <img
+                    src={detail.imageUrl}
+                    alt="Postingan OSINT"
+                    className={styles.postImage}
+                  />
+                </div>
+              )}
 
               <div className={styles.postTextWrap}>
                 <div className={styles.postHash}>{detail.captionTitle}</div>
                 <p className={styles.postBody}>{detail.captionBody}</p>
 
-                <div className={styles.metricRow}>
-                  <span className={styles.metricItem}>
-                    <HeartIcon />
-                    {detail.likes}
-                  </span>
-                  <span className={styles.metricItem}>
-                    <CommentIcon />
-                    {detail.comments}
-                  </span>
-                  <span className={styles.metricItem}>
-                    <ShareIcon />
-                    {detail.shares}
-                  </span>
-                </div>
+                {detail.isBmkgOnly ? (
+                  <div className={styles.bmkgPostMeta}>
+                    <span>Sumber: BMKG</span>
+                    <span>{detail.bmkgWeather}</span>
+                    <span>{detail.bmkgTemp}</span>
+                    <span>{detail.bmkgHumidity}</span>
+                  </div>
+                ) : (
+                  <div className={styles.metricRow}>
+                    <span className={styles.metricItem}>
+                      <HeartIcon />
+                      {detail.likes}
+                    </span>
+                    <span className={styles.metricItem}>
+                      <CommentIcon />
+                      {detail.comments}
+                    </span>
+                    <span className={styles.metricItem}>
+                      <ShareIcon />
+                      {detail.shares}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -624,8 +728,24 @@ export default function DetailOsintPage() {
               <div>
                 <div className={styles.humintRow}>
                   <span>Data HUMINT</span>
-                  <span className={styles.humintCode}>{detail.humintCode}</span>
+                  <span
+                    className={`${styles.humintCode} ${
+                      detail.humintRelated ? styles.humintCodeActive : styles.humintCodeEmpty
+                    }`}
+                  >
+                    {detail.humintRelated ? detail.humintCode : "Tidak Ada"}
+                  </span>
                 </div>
+
+                {detail.humintRelated && detail.primaryHumintId && (
+                  <button
+                    type="button"
+                    className={styles.humintDetailButton}
+                    onClick={() => router.push(`/humint/detail/${detail.primaryHumintId}`)}
+                  >
+                    Lihat Detail HUMINT →
+                  </button>
+                )}
 
                 <div className={styles.checkList}>
                   <div className={styles.checkItem}>
@@ -650,6 +770,82 @@ export default function DetailOsintPage() {
               </div>
             </div>
           </section>
+
+          {detail.humintRelated && (
+            <section className={styles.card}>
+              <div className={styles.cardHeader}>
+                <h2 className={styles.cardTitle}>DATA HUMINT TERKAIT</h2>
+                <span className={`${styles.statusBadge} ${styles.statusPriority}`}>
+                  {detail.humintCount} DATA
+                </span>
+              </div>
+
+              {detail.humintReferences.length > 0 ? (
+                <div className={styles.referenceList}>
+                  {detail.humintReferences.map((reference, index) => {
+                    const laporanId =
+                      Number(reference.laporan_id || reference.laporan?.laporan_id || 0) ||
+                      null;
+
+                    return (
+                      <div
+                        key={`${reference.osint_reference_id || laporanId || index}`}
+                        className={styles.referenceCard}
+                      >
+                        <div className={styles.referenceHeader}>
+                          <strong>HUMINT #{laporanId || "-"}</strong>
+                          <span>{reference.reference_status || "-"}</span>
+                        </div>
+
+                        <div className={styles.referenceMeta}>
+                          <span>Keyword: {reference.matched_keywords || "-"}</span>
+                          <span>Lokasi: {reference.location_match_status || "-"}</span>
+                          <span>Waktu: {reference.time_match_status || "-"}</span>
+                        </div>
+
+                        <p className={styles.referenceReason}>
+                          {reference.reference_reason || "Alasan korelasi belum tersedia."}
+                        </p>
+
+                        {reference.laporan?.kronologi && (
+                          <p className={styles.referenceSnippet}>
+                            {reference.laporan.kronologi}
+                          </p>
+                        )}
+
+                        <div className={styles.referenceFooter}>
+                          <span>
+                            Waktu HUMINT:{" "}
+                            {formatReferenceTime(
+                              reference.laporan_event_time ||
+                                reference.laporan?.waktu_kejadian ||
+                                reference.laporan?.waktu_laporan ||
+                                null
+                            )}
+                          </span>
+
+                          {laporanId && (
+                            <button
+                              type="button"
+                              className={styles.relatedButton}
+                              onClick={() => router.push(`/humint/detail/${laporanId}`)}
+                            >
+                              Buka HUMINT →
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={styles.locationSubtext}>
+                  Data ini ditandai terkait HUMINT, tetapi detail referensi HUMINT belum
+                  dikirim dari backend.
+                </div>
+              )}
+            </section>
+          )}
 
           <div className={styles.verifyWrap}>
             <button
