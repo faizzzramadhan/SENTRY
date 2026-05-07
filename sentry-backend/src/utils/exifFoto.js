@@ -3,7 +3,15 @@ const exifr = require("exifr");
 const geolib = require("geolib");
 
 /**
- * Ambil koordinat dari EXIF atau fallback ke GPS browser
+ * Ambil koordinat dari EXIF foto.
+ *
+ * Catatan rule terbaru:
+ * - Upload file biasa hanya memakai metadata EXIF.
+ * - GPS browser hanya boleh dipakai sebagai fallback kalau foto benar-benar
+ *   diambil langsung dari kamera web.
+ * - Supaya tidak mengganggu pemanggilan lama, parameter kedua tetap ada,
+ *   tetapi fallback browser hanya aktif jika browserGps.isCameraCapture === true
+ *   atau browserGps.source === "WEB_CAMERA".
  */
 async function extractExifLocation(filePath, browserGps = {}) {
   const browserLat =
@@ -18,20 +26,28 @@ async function extractExifLocation(filePath, browserGps = {}) {
     !Number.isNaN(browserLat) &&
     !Number.isNaN(browserLng);
 
+  const allowBrowserFallback =
+    browserGps.isCameraCapture === true ||
+    browserGps.is_camera_capture === true ||
+    browserGps.source === "WEB_CAMERA" ||
+    browserGps.foto_kejadian_source === "WEB_CAMERA";
+
   try {
     console.log("========== DEBUG EXIF ==========");
     console.log("filePath:", filePath);
     console.log("browserGps:", browserGps);
+    console.log("allowBrowserFallback:", allowBrowserFallback);
 
     const exists = fs.existsSync(filePath);
 
-    // FILE TIDAK ADA
     if (!exists) {
-      if (hasBrowserGps) {
-        console.log("FILE TIDAK ADA → pakai browser GPS");
+      if (hasBrowserGps && allowBrowserFallback) {
+        console.log("FILE TIDAK ADA DAN FOTO DARI WEB CAMERA -> pakai browser GPS");
         return {
-          exif_latitude: browserLat,
-          exif_longitude: browserLng,
+          exif_latitude: null,
+          exif_longitude: null,
+          browser_latitude: browserLat,
+          browser_longitude: browserLng,
           source: "browser",
         };
       }
@@ -39,11 +55,12 @@ async function extractExifLocation(filePath, browserGps = {}) {
       return {
         exif_latitude: null,
         exif_longitude: null,
+        browser_latitude: null,
+        browser_longitude: null,
         source: "none",
       };
     }
 
-    // 🔥 BACA EXIF
     const exif = await exifr.parse(filePath, {
       gps: true,
       mergeOutput: true,
@@ -51,16 +68,17 @@ async function extractExifLocation(filePath, browserGps = {}) {
 
     console.log("HASIL EXIF:", exif);
 
-    // TIDAK ADA GPS DI EXIF
     if (!exif || !exif.latitude || !exif.longitude) {
       console.log("EXIF TIDAK ADA GPS");
 
-      if (hasBrowserGps) {
-        console.log("FALLBACK → browser GPS");
+      if (hasBrowserGps && allowBrowserFallback) {
+        console.log("FALLBACK WEB CAMERA -> browser GPS");
 
         return {
-          exif_latitude: browserLat,
-          exif_longitude: browserLng,
+          exif_latitude: null,
+          exif_longitude: null,
+          browser_latitude: browserLat,
+          browser_longitude: browserLng,
           source: "browser",
         };
       }
@@ -68,28 +86,32 @@ async function extractExifLocation(filePath, browserGps = {}) {
       return {
         exif_latitude: null,
         exif_longitude: null,
+        browser_latitude: null,
+        browser_longitude: null,
         source: "none",
       };
     }
 
-    // EXIF ADA
     console.log("GPS DARI EXIF:", exif.latitude, exif.longitude);
 
     return {
       exif_latitude: Number(exif.latitude),
       exif_longitude: Number(exif.longitude),
+      browser_latitude: null,
+      browser_longitude: null,
       source: "exif",
     };
   } catch (error) {
     console.error("ERROR EXIF:", error);
 
-    // ERROR → fallback ke browser
-    if (hasBrowserGps) {
-      console.log("ERROR → fallback browser GPS");
+    if (hasBrowserGps && allowBrowserFallback) {
+      console.log("ERROR EXIF DAN FOTO DARI WEB CAMERA -> fallback browser GPS");
 
       return {
-        exif_latitude: browserLat,
-        exif_longitude: browserLng,
+        exif_latitude: null,
+        exif_longitude: null,
+        browser_latitude: browserLat,
+        browser_longitude: browserLng,
         source: "browser",
       };
     }
@@ -97,20 +119,23 @@ async function extractExifLocation(filePath, browserGps = {}) {
     return {
       exif_latitude: null,
       exif_longitude: null,
+      browser_latitude: null,
+      browser_longitude: null,
       source: "none",
     };
   }
 }
 
 /**
- * Hitung validasi lokasi (jarak antara lokasi laporan vs foto)
+ * Hitung validasi lokasi foto terhadap titik laporan.
+ * Batas default dibuat 10 meter sesuai rule kredibilitas terbaru.
  */
 function hitungValidasiLokasi({
   laporanLatitude,
   laporanLongitude,
   exifLatitude,
   exifLongitude,
-  batasMeter = 500,
+  batasMeter = 10,
 }) {
   if (
     laporanLatitude == null ||

@@ -7,10 +7,12 @@ module.exports = (sequelize, DataTypes) => {
       laporan.hasOne(models.identifikasi, { foreignKey: "id_laporan" });
       laporan.hasOne(models.verifikasi_staff, { foreignKey: "laporan_id" });
       laporan.hasOne(models.analisis_sistem, { foreignKey: "id_laporan" });
-      laporan.hasOne(models.dss_scoring, { foreignKey: "laporan_id" });
-      laporan.hasMany(models.status_update, { foreignKey: "id_laporan" });
       laporan.hasMany(models.detail_korban, { foreignKey: "laporan_id" });
       laporan.hasOne(models.metadata_foto, { foreignKey: "laporan_id" });
+
+      if (models.osint_reference) {
+        laporan.hasMany(models.osint_reference, { foreignKey: "laporan_id" });
+      }
       laporan.belongsTo(models.jenis_bencana, {
         foreignKey: "id_jenis",
         as: "jenis_bencana"

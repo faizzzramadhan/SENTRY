@@ -25,7 +25,7 @@ const Popup = dynamic(
   { ssr: false }
 )
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/humint'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/api/humint'
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5555'
 
 function normalizeRekomendasiToList(value: any): string[] {
@@ -205,9 +205,9 @@ export default function DetailLaporanPage() {
   const identifikasi = detail.identifikasi || {}
   const verifikasi = detail.verifikasi || {}
   const analisis = detail.analisis || {}
-  const dss = detail.dss || {}
   const metadata = detail.metadata_foto || {}
   const osint = detail.osint
+  const geoint = detail.geoint || {}
   const detailKorban = detail.detail_korban || []
 
   const fotoKejadianUrl = getFileUrl(laporan.foto_kejadian)
@@ -236,39 +236,13 @@ export default function DetailLaporanPage() {
     ? `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
     : ''
 
-  const fallbackRekomendasiDss =
-    Number(dss.total_score || 0) >= 70
-      ? [
-          'Prioritaskan penanganan segera.',
-          'Koordinasikan tindak lanjut dengan petugas lapangan.',
-        ]
-      : Number(dss.total_score || 0) >= 40
-        ? [
-            'Lakukan monitoring lanjutan.',
-            'Verifikasi dampak kejadian di lokasi.',
-          ]
-        : [
-            'Lakukan verifikasi awal terhadap laporan.',
-            'Tentukan tindak lanjut setelah data pendukung mencukupi.',
-          ]
-
-  const rekomendasiDssList = (() => {
-    const dssList = normalizeRekomendasiToList(dss.rekomendasi)
-
-    if (dssList.length > 0) {
-      return dssList
-    }
-
-    const verifikasiList = normalizeRekomendasiToList(
-      verifikasi.rekomendasi_tindak_lanjut
-    )
-
-    if (verifikasiList.length > 0) {
-      return verifikasiList
-    }
-
-    return fallbackRekomendasiDss
-  })()
+  const catatanAlasanList = [
+    analisis.alasan_kredibilitas,
+    analisis.alasan_prioritas_sistem || analisis.alasan_prioritas,
+    analisis.is_prioritas_manual ? analisis.alasan_prioritas_manual : null,
+  ]
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
 
   const isValidGpsValue = (value: any) => {
     if (value === null || value === undefined || value === '') return false
@@ -526,16 +500,75 @@ export default function DetailLaporanPage() {
               </div>
 
               <div className={styles.tableRow}>
-                <div className={styles.tableLabel}>Prioritas</div>
+                <div className={styles.tableLabel}>Prioritas Sistem</div>
+                <div className={styles.tableValue}>
+                  {analisis.prioritas_sistem || analisis.prioritas || '-'}
+                </div>
+              </div>
+
+              <div className={styles.tableRow}>
+                <div className={styles.tableLabel}>Prioritas Final</div>
                 <div className={styles.tableValue}>
                   {analisis.prioritas || '-'}
                 </div>
               </div>
 
               <div className={styles.tableRow}>
+                <div className={styles.tableLabel}>Override Manual</div>
+                <div className={styles.tableValue}>
+                  {analisis.is_prioritas_manual ? 'Aktif' : 'Tidak Aktif'}
+                </div>
+              </div>
+
+              {analisis.is_prioritas_manual && (
+                <>
+                  <div className={styles.tableRow}>
+                    <div className={styles.tableLabel}>Prioritas Manual Staff</div>
+                    <div className={styles.tableValue}>
+                      {analisis.prioritas_manual || '-'}
+                    </div>
+                  </div>
+
+                  <div className={styles.tableRow}>
+                    <div className={styles.tableLabel}>Alasan Override</div>
+                    <div className={styles.tableValue}>
+                      {analisis.alasan_prioritas_manual || '-'}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className={styles.tableRow}>
                 <div className={styles.tableLabel}>Status Laporan</div>
                 <div className={styles.tableValue}>
                   {analisis.status_laporan || '-'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.card}>
+            <h3>Zona Rawan</h3>
+
+            <div className={styles.customTable}>
+              <div className={styles.tableRow}>
+                <div className={styles.tableLabel}>Status Zona</div>
+                <div className={styles.tableValue}>
+                  {geoint.is_zona_rawan ? 'Masuk zona rawan' : 'Tidak masuk zona rawan'}
+                </div>
+              </div>
+
+              <div className={styles.tableRow}>
+                <div className={styles.tableLabel}>Tingkat Risiko</div>
+                <div className={styles.tableValue}>
+                  {geoint.tingkat_resiko || 'TIDAK_RAWAN'}
+                </div>
+              </div>
+
+              <div className={styles.tableRow}>
+                <div className={styles.tableLabel}>Keterangan</div>
+                <div className={styles.tableValue}>
+                  {geoint.keterangan || '-'}
                 </div>
               </div>
             </div>
@@ -830,12 +863,12 @@ export default function DetailLaporanPage() {
           )}
 
           <div className={styles.card}>
-            <h3>Rekomendasi Tindakan</h3>
+            <h3>Catatan Alasan</h3>
 
             <div className={styles.viewValue}>
-              {rekomendasiDssList.length > 0 ? (
+              {catatanAlasanList.length > 0 ? (
                 <ul className={styles.dssListPoin}>
-                  {rekomendasiDssList.map((item, index) => (
+                  {catatanAlasanList.map((item, index) => (
                     <li key={`${item}-${index}`}>{item}</li>
                   ))}
                 </ul>
@@ -851,23 +884,30 @@ export default function DetailLaporanPage() {
             {osint ? (
               <div className={styles.customTable}>
                 <div className={styles.tableRow}>
-                  <div className={styles.tableLabel}>Reference ID</div>
+                  <div className={styles.tableLabel}>Area</div>
                   <div className={styles.tableValue}>
-                    {osint.osint_reference_id || '-'}
+                    {osint.osint_area_text || '-'}
                   </div>
                 </div>
 
                 <div className={styles.tableRow}>
-                  <div className={styles.tableLabel}>Last Analyzed</div>
+                  <div className={styles.tableLabel}>Waktu Verifikasi</div>
                   <div className={styles.tableValue}>
-                    {formatDate(osint.last_analyzed_at)}
+                    {formatDate(osint.verified_at)}
                   </div>
                 </div>
 
                 <div className={styles.tableRow}>
-                  <div className={styles.tableLabel}>Status Sync</div>
+                  <div className={styles.tableLabel}>Sumber</div>
                   <div className={styles.tableValue}>
-                    {osint.status_sync || '-'}
+                    {osint.osint_source || '-'}
+                  </div>
+                </div>
+
+                <div className={styles.tableRow}>
+                  <div className={styles.tableLabel}>Isi Konten</div>
+                  <div className={styles.tableValue}>
+                    {osint.osint_content || '-'}
                   </div>
                 </div>
               </div>

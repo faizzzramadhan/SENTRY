@@ -4,31 +4,15 @@ const db = require("../models");
 
 const {
   laporan,
+  identifikasi,
   detail_korban,
   metadata_foto,
-  humint_analysis_log,
   analisis_sistem,
-  dss_scoring,
-  status_update,
+  tingkat_resiko,
   sequelize,
 } = db;
 
-const {
-  getKategoriValidasiExif,
-  hitungSkorKelengkapanData,
-  hitungSkorDampak,
-  hitungSkorKonsistensiLaporan,
-  getSkorKredibilitasLabel,
-} = require("./humintScoring");
-
-const {
-  calculateDssResult,
-  calculateTotalDssScore,
-  getAnalisisPrioritasFromDss,
-} = require("./dssScoring");
-
-const { calculateOsintPlaceholder } = require("./osintScoring");
-const { calculateGeointPlaceholder } = require("./geointScoring");
+const { calculateRuleBasedAnalysis } = require("./ruleBasedAnalysis");
 
 function toNumberCoordinate(value) {
   if (value === undefined || value === null || value === "") return null;
@@ -73,12 +57,27 @@ function calculateDistanceMeter(lat1, lon1, lat2, lon2) {
   return Number((earthRadiusMeter * c).toFixed(2));
 }
 
+function hasCoordinate(latitude, longitude) {
+  return toNumberCoordinate(latitude) !== null && toNumberCoordinate(longitude) !== null;
+}
+
+function normalizeBooleanFlag(value) {
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0 || value === null || value === undefined) return false;
+
+  const text = String(value).trim().toLowerCase();
+
+  return text === "1" || text === "true" || text === "ya" || text === "yes";
+}
+
 function getGpsSource(metadataPlain) {
-  const adaExifGps = Boolean(
-    metadataPlain?.exif_latitude && metadataPlain?.exif_longitude
+  const adaExifGps = hasCoordinate(
+    metadataPlain?.exif_latitude,
+    metadataPlain?.exif_longitude
   );
-  const adaBrowserGps = Boolean(
-    metadataPlain?.browser_latitude && metadataPlain?.browser_longitude
+  const adaBrowserGps = hasCoordinate(
+    metadataPlain?.browser_latitude,
+    metadataPlain?.browser_longitude
   );
 
   if (adaExifGps) return "exif";
@@ -108,6 +107,110 @@ function getGpsCoordinate(metadataPlain, gpsSource) {
   };
 }
 
+function getKategoriValidasiFoto(distanceMeter, gpsSource) {
+  const distance = Number(distanceMeter);
+
+  if (!Number.isFinite(distance)) {
+    return {
+      kategori: "METADATA GPS TIDAK TERSEDIA",
+      is_valid_location: false,
+      keterangan:
+        "Foto tidak memiliki metadata GPS EXIF atau GPS fallback browser yang dapat dibandingkan dengan titik laporan.",
+    };
+  }
+
+  if (distance <= 10) {
+    return {
+      kategori:
+        gpsSource === "browser"
+          ? "FALLBACK GPS BROWSER VALID <= 10 METER"
+          : "EXIF VALID <= 10 METER",
+      is_valid_location: true,
+      keterangan:
+        gpsSource === "browser"
+          ? "Foto tidak memiliki metadata GPS EXIF, namun koordinat browser berada tidak lebih dari 10 meter dari titik laporan."
+          : "Metadata GPS EXIF foto berada tidak lebih dari 10 meter dari titik laporan.",
+    };
+  }
+
+  return {
+    kategori: "PERLU PENGECEKAN",
+    is_valid_location: false,
+    keterangan:
+      "Lokasi foto atau GPS fallback browser berjarak lebih dari 10 meter dari titik laporan sehingga kredibilitas HUMINT tidak dapat dikategorikan tinggi.",
+  };
+}
+
+async function getTableColumns(tableName, transaction) {
+  try {
+    const rows = await sequelize.query(`SHOW COLUMNS FROM ${tableName}`, {
+      type: sequelize.QueryTypes.SELECT,
+      transaction,
+    });
+
+    return rows.map((row) => row.Field);
+  } catch (error) {
+    console.error(`Gagal membaca struktur tabel ${tableName}:`, error.message);
+    return [];
+  }
+}
+
+async function getLatestOsintReference(laporanId, transaction) {
+  const referenceColumns = await getTableColumns("osint_reference", transaction);
+  const dataColumns = await getTableColumns("osint_data", transaction);
+
+  if (!referenceColumns.includes("laporan_id")) {
+    return null;
+  }
+
+  const osintReferenceFk =
+    ["osint_id", "osint_data_id", "reference_id", "data_osint_id"].find((columnName) =>
+      referenceColumns.includes(columnName)
+    ) || null;
+
+  const osintDataPk =
+    ["osint_id", "osint_data_id", "id"].find((columnName) =>
+      dataColumns.includes(columnName)
+    ) || "osint_id";
+
+  const hasOsintDataTable = dataColumns.length > 0;
+  const hasOsintSource = dataColumns.includes("osint_source");
+  const hasOsintContent = dataColumns.includes("osint_content");
+
+  const osintDataSelect = `
+    ${osintReferenceFk ? `osr.${osintReferenceFk} AS osint_data_reference_id,` : "NULL AS osint_data_reference_id,"}
+    ${hasOsintSource ? "od.osint_source AS osint_source," : "NULL AS osint_source,"}
+    ${hasOsintContent ? "od.osint_content AS osint_content," : "NULL AS osint_content,"}
+    ${hasOsintDataTable && osintReferenceFk ? `od.${osintDataPk} AS osint_data_id` : "NULL AS osint_data_id"}
+  `;
+
+  const osintDataJoin =
+    osintReferenceFk && hasOsintDataTable
+      ? `LEFT JOIN osint_data od ON od.${osintDataPk} = osr.${osintReferenceFk}`
+      : "";
+
+  const rows = await sequelize.query(
+    `
+    SELECT
+      osr.osint_area_text,
+      osr.verified_at,
+      ${osintDataSelect}
+    FROM osint_reference osr
+    ${osintDataJoin}
+    WHERE osr.laporan_id = :laporanId
+    ORDER BY osr.last_update_date DESC, osr.creation_date DESC
+    LIMIT 1
+    `,
+    {
+      replacements: { laporanId },
+      type: sequelize.QueryTypes.SELECT,
+      transaction,
+    }
+  );
+
+  return rows[0] || null;
+}
+
 async function recalculateHumintById(laporanId) {
   const t = await sequelize.transaction();
   let transactionFinished = false;
@@ -127,7 +230,16 @@ async function recalculateHumintById(laporanId) {
     const laporanPlain = dataLaporan.get({ plain: true });
     const now = new Date();
     const actor =
-      laporanPlain.last_updated_by || laporanPlain.created_by || "system-dss";
+      laporanPlain.last_updated_by || laporanPlain.created_by || "system-rule";
+
+    const identifikasiRow = await identifikasi.findOne({
+      where: { id_laporan: laporanId },
+      transaction: t,
+    });
+
+    const identifikasiPlain = identifikasiRow
+      ? identifikasiRow.get({ plain: true })
+      : null;
 
     const korbanRows = await detail_korban.findAll({
       where: { laporan_id: laporanId },
@@ -152,133 +264,71 @@ async function recalculateHumintById(laporanId) {
       gpsCoordinate.longitude
     );
 
-    const hasilExif = getKategoriValidasiExif(selisihJarak, laporanPlain.id_jenis);
+    const hasilValidasiFoto = getKategoriValidasiFoto(selisihJarak, gpsSource);
 
-    if (gpsSource === "browser") {
-      hasilExif.kategori = `FALLBACK GPS BROWSER - ${hasilExif.kategori}`;
-      hasilExif.keterangan = hasilExif.isValidLocation
-        ? "Foto tidak memiliki metadata GPS EXIF. Sistem menggunakan GPS browser sebagai alternatif dan lokasi yang diperoleh sesuai dengan lokasi laporan."
-        : "Foto tidak memiliki metadata GPS EXIF. Sistem menggunakan GPS browser sebagai alternatif, namun lokasi yang diperoleh berbeda dengan lokasi laporan sehingga diperlukan pengecekan lebih lanjut oleh petugas.";
-    }
-
-    if (gpsSource === "none") {
-      hasilExif.keterangan =
-        "Foto tidak memiliki metadata GPS EXIF dan GPS browser tidak tersedia sehingga diperlukan pengecekan manual oleh petugas.";
-    }
-
-    const kelengkapanData = hitungSkorKelengkapanData(
-      laporanPlain,
-      laporanPlain.foto_kejadian
-    );
-    const dampakKorban = hitungSkorDampak(korban);
-    const konsistensiLaporan = hitungSkorKonsistensiLaporan(
-      laporanPlain,
-      laporanPlain.foto_kejadian
-    );
-
-    const humintScore = Math.min(
-      hasilExif.skorExif +
-        kelengkapanData.skor +
-        dampakKorban.skor +
-        konsistensiLaporan.skor,
-      100
-    );
-
-    const skorKredibilitas = getSkorKredibilitasLabel(humintScore);
-
-    const existingDss = await dss_scoring.findOne({
-      where: { laporan_id: laporanId },
+    const tingkatResikoRow = await tingkat_resiko.findOne({
+      where: {
+        jenis_id: laporanPlain.id_jenis,
+        kelurahan_id: laporanPlain.id_kelurahan,
+      },
       transaction: t,
     });
 
-    const statusUpdate = await status_update.findOne({
+    const tingkatResikoPlain = tingkatResikoRow
+      ? tingkatResikoRow.get({ plain: true })
+      : null;
+
+    const osintReferencePlain = await getLatestOsintReference(laporanId, t);
+
+    const metadataForRule = {
+      ...(metadataPlain || {}),
+      gps_source: gpsSource,
+      selisih_jarak: selisihJarak,
+      is_valid_location: hasilValidasiFoto.is_valid_location,
+    };
+
+    const ruleAnalysis = calculateRuleBasedAnalysis({
+      laporan: laporanPlain,
+      identifikasi: identifikasiPlain,
+      detailKorban: korban,
+      metadataFoto: metadataForRule,
+      tingkatResiko: tingkatResikoPlain,
+      osintReference: osintReferencePlain,
+    });
+
+    const existingAnalisis = await analisis_sistem.findOne({
       where: { id_laporan: laporanId },
       transaction: t,
     });
 
-    const statusUpdatePlain = statusUpdate ? statusUpdate.get({ plain: true }) : null;
+    const existingAnalisisPlain = existingAnalisis
+      ? existingAnalisis.get({ plain: true })
+      : null;
 
-    const osintPlaceholder = calculateOsintPlaceholder({
-      laporanId,
-      osintReferenceId: statusUpdatePlain?.osint_reference_id || null,
-      lastAnalyzedAt: statusUpdatePlain?.last_analyzed_at || null,
-    });
-
-    const geointPlaceholder = calculateGeointPlaceholder({
-      laporanId,
-      zonaRawanId: statusUpdatePlain?.zona_rawan_id || null,
-      lastAnalyzedAt: statusUpdatePlain?.last_analyzed_at || null,
-    });
-
-    const osintScore = Number(existingDss?.osint_score || osintPlaceholder.score || 0);
-    const spatialScore = Number(existingDss?.spatial_score || geointPlaceholder.score || 0);
-
-    const totalScore = calculateTotalDssScore({
-      humintScore,
-      osintScore: osintScore > 0 ? osintScore : null,
-      spatialScore: spatialScore > 0 ? spatialScore : null,
-    });
-
-    const dssResult = calculateDssResult({
-      humintScore,
-      osintScore,
-      spatialScore,
-      totalScore,
-      totalKorban: dampakKorban.totalKorban,
-      skorExif: hasilExif.skorExif,
-      gpsSource,
-      jenisLaporan: laporanPlain.jenis_laporan,
-    });
-
-    const prioritasAnalisis = getAnalisisPrioritasFromDss(dssResult);
-
-    const parameterCek = {
-      jenis_analisis: "HUMINT",
-      mode: "RECALCULATE_HUMINT_DSS",
-      id_laporan: Number(laporanId),
-      jenis_laporan: laporanPlain.jenis_laporan,
-      lokasi_laporan: {
-        latitude: laporanPlain.latitude,
-        longitude: laporanPlain.longitude,
-        alamat_lengkap_kejadian: laporanPlain.alamat_lengkap_kejadian,
-      },
-      lokasi_foto: {
-        gps_source: gpsSource,
-        exif_latitude: metadataPlain?.exif_latitude || null,
-        exif_longitude: metadataPlain?.exif_longitude || null,
-        browser_latitude: metadataPlain?.browser_latitude || null,
-        browser_longitude: metadataPlain?.browser_longitude || null,
-        selisih_jarak_meter: selisihJarak,
-        kategori_validasi: hasilExif.kategori,
-        is_valid_location: hasilExif.isValidLocation,
-        skor_exif: hasilExif.skorExif,
-        keterangan: hasilExif.keterangan,
-      },
-      kelengkapan_data: {
-        skor: kelengkapanData.skor,
-        detail: kelengkapanData.detail,
-      },
-      dampak_korban: {
-        skor: dampakKorban.skor,
-        total_korban: dampakKorban.totalKorban,
-        kategori: dampakKorban.kategori,
-        alasan: dampakKorban.alasan,
-      },
-      konsistensi_laporan: {
-        skor: konsistensiLaporan.skor,
-        detail: konsistensiLaporan.detail,
-      },
-      osint: osintPlaceholder,
-      geoint: geointPlaceholder,
-      dss: dssResult,
-    };
+    const isPrioritasManual = normalizeBooleanFlag(
+      existingAnalisisPlain?.is_prioritas_manual
+    );
+    const prioritasManual = isPrioritasManual
+      ? existingAnalisisPlain?.prioritas_manual || null
+      : null;
+    const alasanPrioritasManual = isPrioritasManual
+      ? existingAnalisisPlain?.alasan_prioritas_manual || null
+      : null;
+    const prioritasSistem = ruleAnalysis.prioritas;
+    const prioritasFinal =
+      isPrioritasManual && prioritasManual ? prioritasManual : prioritasSistem;
+    const alasanPrioritasFinal =
+      isPrioritasManual && prioritasManual
+        ? alasanPrioritasManual ||
+          "Prioritas akhir diubah manual oleh staff berdasarkan pertimbangan lapangan."
+        : ruleAnalysis.alasan_prioritas;
 
     if (metadata) {
       await metadata_foto.update(
         {
           gps_source: gpsSource,
           selisih_jarak: selisihJarak,
-          is_valid_location: hasilExif.isValidLocation,
+          is_valid_location: hasilValidasiFoto.is_valid_location,
           last_updated_by: actor,
           last_update_date: now,
         },
@@ -307,52 +357,15 @@ async function recalculateHumintById(laporanId) {
       );
     }
 
-    await humint_analysis_log.create(
-      {
-        id_laporan: laporanId,
-        parameter_cek: JSON.stringify(parameterCek),
-        skor_hasil: humintScore,
-        analyzed_at: now,
-      },
-      { transaction: t }
-    );
-
-    if (existingDss) {
-      await dss_scoring.update(
-        {
-          humint_score: humintScore,
-          osint_score: osintScore,
-          spatial_score: spatialScore,
-          total_score: totalScore,
-        },
-        {
-          where: { laporan_id: laporanId },
-          transaction: t,
-        }
-      );
-    } else {
-      await dss_scoring.create(
-        {
-          laporan_id: laporanId,
-          humint_score: humintScore,
-          osint_score: osintScore,
-          spatial_score: spatialScore,
-          total_score: totalScore,
-        },
-        { transaction: t }
-      );
-    }
-
-    const existingAnalisis = await analisis_sistem.findOne({
-      where: { id_laporan: laporanId },
-      transaction: t,
-    });
-
     if (existingAnalisis) {
       await analisis_sistem.update(
         {
-          skor_kredibilitas: skorKredibilitas,
-          prioritas: prioritasAnalisis,
+          skor_kredibilitas: ruleAnalysis.skor_kredibilitas,
+          prioritas: prioritasFinal,
+          prioritas_sistem: prioritasSistem,
+          prioritas_manual: isPrioritasManual ? prioritasManual : null,
+          is_prioritas_manual: isPrioritasManual,
+          alasan_prioritas_manual: isPrioritasManual ? alasanPrioritasManual : null,
           last_updated_by: actor,
           last_update_date: now,
         },
@@ -365,8 +378,12 @@ async function recalculateHumintById(laporanId) {
       await analisis_sistem.create(
         {
           id_laporan: laporanId,
-          skor_kredibilitas: skorKredibilitas,
-          prioritas: prioritasAnalisis,
+          skor_kredibilitas: ruleAnalysis.skor_kredibilitas,
+          prioritas: prioritasFinal,
+          prioritas_sistem: prioritasSistem,
+          prioritas_manual: null,
+          is_prioritas_manual: false,
+          alasan_prioritas_manual: null,
           status_laporan: "IDENTIFIKASI",
           created_by: actor,
           creation_date: now,
@@ -389,15 +406,31 @@ async function recalculateHumintById(laporanId) {
       browser_longitude: metadataPlain?.browser_longitude || null,
       gps_source: gpsSource,
       selisih_jarak: selisihJarak,
-      kategori_validasi: hasilExif.kategori,
-      is_valid_location: hasilExif.isValidLocation,
-      humint_score: humintScore,
-      skor_kredibilitas: skorKredibilitas,
-      prioritas: prioritasAnalisis,
-      total_korban: dampakKorban.totalKorban,
-      osint: osintPlaceholder,
-      geoint: geointPlaceholder,
-      dss: dssResult,
+      kategori_validasi: hasilValidasiFoto.kategori,
+      is_valid_location: hasilValidasiFoto.is_valid_location,
+      skor_kredibilitas: ruleAnalysis.skor_kredibilitas,
+      prioritas: prioritasFinal,
+      prioritas_sistem: prioritasSistem,
+      prioritas_manual: isPrioritasManual ? prioritasManual : null,
+      is_prioritas_manual: isPrioritasManual,
+      alasan_prioritas_manual: isPrioritasManual ? alasanPrioritasManual : null,
+      alasan_kredibilitas: ruleAnalysis.alasan_kredibilitas,
+      alasan_prioritas: alasanPrioritasFinal,
+      alasan_prioritas_sistem: ruleAnalysis.alasan_prioritas,
+      jenis_korban: ruleAnalysis.jenis_korban,
+      jenis_lokasi: ruleAnalysis.jenis_lokasi,
+      tingkat_resiko: ruleAnalysis.tingkat_resiko,
+      is_zona_rawan: ruleAnalysis.is_zona_rawan,
+      osint: osintReferencePlain,
+      geoint: {
+        resiko_id: tingkatResikoPlain?.resiko_id || null,
+        tingkat_resiko: ruleAnalysis.tingkat_resiko,
+        is_zona_rawan: ruleAnalysis.is_zona_rawan,
+        keterangan: ruleAnalysis.is_zona_rawan
+          ? `Titik laporan masuk zona rawan dengan tingkat risiko ${ruleAnalysis.tingkat_resiko}.`
+          : "Titik laporan tidak memiliki data tingkat risiko pada tabel tingkat_resiko.",
+      },
+      rule_based: ruleAnalysis,
     };
   } catch (error) {
     if (!transactionFinished) {

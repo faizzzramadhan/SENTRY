@@ -5,12 +5,6 @@ const db = require("../../models");
 const { sequelize, detail_korban } = db;
 
 const { recalculateHumintById } = require("../../utils/recalculateHumint");
-const {
-  calculateDssResult,
-  calculateTotalDssScore,
-} = require("../../utils/dssScoring");
-const { calculateOsintPlaceholder } = require("../../utils/osintScoring");
-const { calculateGeointPlaceholder } = require("../../utils/geointScoring");
 
 function isValidCoordinate(value) {
   if (value === undefined || value === null || value === "") return false;
@@ -72,68 +66,6 @@ function formatDistanceText(distanceMeter) {
   return `${Number(distanceMeter).toFixed(2)} meter`;
 }
 
-function getThresholdByJenisId(jenisId) {
-  const id = Number(jenisId);
-
-  const map = {
-    60001: [200, 500, 1500],
-    60002: [100, 300, 700],
-    60003: [200, 500, 1500],
-    60004: [300, 800, 2000],
-    60005: [500, 1500, 3000],
-    60006: [200, 700, 2000],
-    60007: [500, 2000, 5000],
-    60008: [500, 2000, 5000],
-    60009: [300, 1000, 3000],
-  };
-
-  return map[id] || [100, 300, 700];
-}
-
-function getKategoriValidasiGpsByDistance(distanceMeter, jenisId) {
-  const distance = Number(distanceMeter);
-
-  if (!Number.isFinite(distance)) {
-    return {
-      kategori: "METADATA GPS TIDAK TERSEDIA",
-      skorExif: 0,
-      isValidLocation: false,
-    };
-  }
-
-  const [sangatAkurat, akurat, cukup] = getThresholdByJenisId(jenisId);
-
-  if (distance <= sangatAkurat) {
-    return {
-      kategori: "SANGAT AKURAT",
-      skorExif: 50,
-      isValidLocation: true,
-    };
-  }
-
-  if (distance <= akurat) {
-    return {
-      kategori: "AKURAT",
-      skorExif: 40,
-      isValidLocation: true,
-    };
-  }
-
-  if (distance <= cukup) {
-    return {
-      kategori: "CUKUP",
-      skorExif: 25,
-      isValidLocation: true,
-    };
-  }
-
-  return {
-    kategori: "PERLU PENGECEKAN",
-    skorExif: 5,
-    isValidLocation: false,
-  };
-}
-
 function sumTotalKorban(korbanRows) {
   if (!Array.isArray(korbanRows)) return 0;
 
@@ -143,11 +75,106 @@ function sumTotalKorban(korbanRows) {
   }, 0);
 }
 
+async function getTableColumns(tableName) {
+  try {
+    const rows = await sequelize.query(`SHOW COLUMNS FROM ${tableName}`, {
+      type: sequelize.QueryTypes.SELECT,
+    });
+
+    return rows.map((row) => row.Field);
+  } catch (error) {
+    console.error(`Gagal membaca struktur tabel ${tableName}:`, error.message);
+    return [];
+  }
+}
+
+async function getOsintJoinConfig() {
+  const referenceColumns = await getTableColumns("osint_reference");
+  const dataColumns = await getTableColumns("osint_data");
+
+  const osintReferenceFk =
+    ["osint_id", "osint_data_id", "reference_id", "data_osint_id"].find((columnName) =>
+      referenceColumns.includes(columnName)
+    ) || null;
+
+  const osintDataPk =
+    ["osint_id", "osint_data_id", "id"].find((columnName) =>
+      dataColumns.includes(columnName)
+    ) || "osint_id";
+
+  const hasOsintDataTable = dataColumns.length > 0;
+  const hasOsintSource = dataColumns.includes("osint_source");
+  const hasOsintContent = dataColumns.includes("osint_content");
+
+  return {
+    osintReferenceFk,
+    osintDataPk,
+    hasOsintDataTable,
+    osintDataJoin:
+      osintReferenceFk && hasOsintDataTable
+        ? `LEFT JOIN osint_data od ON od.${osintDataPk} = osr.${osintReferenceFk}`
+        : "",
+    osintDataSelect: `
+        ${osintReferenceFk ? `osr.${osintReferenceFk} AS osint_data_reference_id,` : "NULL AS osint_data_reference_id,"}
+        ${hasOsintSource ? "od.osint_source AS osint_source," : "NULL AS osint_source,"}
+        ${hasOsintContent ? "od.osint_content AS osint_content," : "NULL AS osint_content,"}
+        ${hasOsintDataTable && osintReferenceFk ? `od.${osintDataPk} AS osint_data_id` : "NULL AS osint_data_id"}
+    `,
+  };
+}
+
+function buildOsintReferenceObject(item) {
+  const hasReference = Boolean(
+    item.osint_area_text ||
+      item.verified_at ||
+      item.osint_source ||
+      item.osint_content
+  );
+
+  if (!hasReference) return null;
+
+  return {
+    osint_area_text: item.osint_area_text || null,
+    verified_at: item.verified_at || null,
+    osint_source: item.osint_source || null,
+    osint_content: item.osint_content || null,
+    osint_data_id: item.osint_data_id || item.osint_data_reference_id || null,
+  };
+}
+
+function buildGeointObject(item) {
+  const tingkatResiko = item.tingkat_resiko || "TIDAK_RAWAN";
+  const masukZonaRawan = Boolean(item.resiko_id);
+
+  return {
+    resiko_id: item.resiko_id || null,
+    jenis_id: item.resiko_jenis_id || item.id_jenis || null,
+    kelurahan_id: item.resiko_kelurahan_id || item.id_kelurahan || null,
+    tingkat_resiko: masukZonaRawan ? tingkatResiko : "TIDAK_RAWAN",
+    is_zona_rawan: masukZonaRawan,
+    status: masukZonaRawan ? "MASUK_ZONA_RAWAN" : "TIDAK_MASUK_ZONA_RAWAN",
+    keterangan: masukZonaRawan
+      ? `Titik laporan masuk zona rawan dengan tingkat risiko ${tingkatResiko}.`
+      : "Titik laporan tidak memiliki data tingkat risiko pada tabel tingkat_resiko.",
+  };
+}
+
 router.get("/detail/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const hasilRecalculate = await recalculateHumintById(id);
+    let hasilRecalculate = null;
+
+    try {
+      hasilRecalculate = await recalculateHumintById(id);
+    } catch (recalculateError) {
+      console.error(
+        "Recalculate rule-based detail laporan gagal:",
+        recalculateError.message
+      );
+    }
+
+    const osintJoinConfig = await getOsintJoinConfig();
 
     const rows = await sequelize.query(
       `
@@ -176,6 +203,7 @@ router.get("/detail/:id", async (req, res) => {
         dk.nama_kecamatan,
         dl.nama_kelurahan,
 
+        i.jenis_korban,
         i.jumlah_korban_identifikasi,
         i.kerusakan_identifikasi,
         i.terdampak_identifikasi,
@@ -194,13 +222,12 @@ router.get("/detail/:id", async (req, res) => {
 
         a.skor_kredibilitas,
         a.prioritas,
+        a.prioritas_sistem,
+        a.prioritas_manual,
+        a.is_prioritas_manual,
+        a.alasan_prioritas_manual,
         a.status_laporan,
         a.last_updated_by AS analisis_last_updated_by,
-
-        d.humint_score,
-        d.osint_score,
-        d.spatial_score,
-        d.total_score,
 
         mf.exif_latitude,
         mf.exif_longitude,
@@ -210,9 +237,14 @@ router.get("/detail/:id", async (req, res) => {
         mf.selisih_jarak,
         mf.is_valid_location,
 
-        su.osint_reference_id,
-        su.zona_rawan_id,
-        su.last_analyzed_at
+        tr.resiko_id,
+        tr.jenis_id AS resiko_jenis_id,
+        tr.kelurahan_id AS resiko_kelurahan_id,
+        tr.tingkat_resiko,
+
+        osr.osint_area_text,
+        osr.verified_at,
+        ${osintJoinConfig.osintDataSelect}
 
       FROM laporan l
       LEFT JOIN jenis_bencana jb ON jb.jenis_id = l.id_jenis
@@ -223,10 +255,15 @@ router.get("/detail/:id", async (req, res) => {
       LEFT JOIN verifikasi_staff vs ON vs.laporan_id = l.laporan_id
       LEFT JOIN user u ON u.usr_id = vs.usr_id
       LEFT JOIN analisis_sistem a ON a.id_laporan = l.laporan_id
-      LEFT JOIN dss_scoring d ON d.laporan_id = l.laporan_id
       LEFT JOIN metadata_foto mf ON mf.laporan_id = l.laporan_id
-      LEFT JOIN status_update su ON su.id_laporan = l.laporan_id
+      LEFT JOIN tingkat_resiko tr
+        ON tr.jenis_id = l.id_jenis
+       AND tr.kelurahan_id = l.id_kelurahan
+      LEFT JOIN osint_reference osr
+        ON osr.laporan_id = l.laporan_id
+      ${osintJoinConfig.osintDataJoin}
       WHERE l.laporan_id = :id
+      ORDER BY osr.last_update_date DESC, osr.creation_date DESC
       LIMIT 1
       `,
       {
@@ -288,13 +325,15 @@ router.get("/detail/:id", async (req, res) => {
         ? Number(Number(item.selisih_jarak).toFixed(2))
         : calculatedDistance;
 
-    const hasilValidasiGps = getKategoriValidasiGpsByDistance(
-      finalDistance,
-      item.id_jenis
+    const finalIsValidLocation = Boolean(
+      finalDistance !== null &&
+        finalDistance !== undefined &&
+        !Number.isNaN(Number(finalDistance)) &&
+        Number(finalDistance) <= 10
     );
-
-    const finalIsValidLocation = hasilValidasiGps.isValidLocation;
-    const kategoriValidasiFoto = hasilValidasiGps.kategori;
+    const kategoriValidasiFoto = finalIsValidLocation
+      ? "VALID <= 10 METER"
+      : "PERLU PENGECEKAN";
     const distanceText = formatDistanceText(finalDistance);
 
     let statusValidasiFoto = "METADATA GPS TIDAK TERSEDIA";
@@ -327,50 +366,8 @@ router.get("/detail/:id", async (req, res) => {
         "Foto tidak memiliki metadata GPS EXIF. Sistem menggunakan GPS browser sebagai alternatif, namun lokasi yang diperoleh berbeda dengan lokasi laporan sehingga diperlukan pengecekan lebih lanjut oleh petugas.";
     }
 
-    const osintScore = Number(item.osint_score || 0);
-    const spatialScore = Number(item.spatial_score || 0);
-    const humintScore = Number(item.humint_score || 0);
-    const totalKorban = sumTotalKorban(korbanFinal);
-    const totalScore = calculateTotalDssScore({
-      humintScore,
-      osintScore: osintScore > 0 ? osintScore : null,
-      spatialScore: spatialScore > 0 ? spatialScore : null,
-    });
-
-    const dssResult = calculateDssResult({
-      humintScore,
-      osintScore,
-      spatialScore,
-      totalScore,
-      totalKorban,
-      skorExif: hasilValidasiGps.skorExif,
-      gpsSource,
-      jenisLaporan: item.jenis_laporan,
-    });
-
-    const osint = calculateOsintPlaceholder({
-      laporanId: item.laporan_id,
-      osintReferenceId: item.osint_reference_id,
-      lastAnalyzedAt: item.last_analyzed_at,
-    });
-
-    osint.score = osintScore;
-    osint.status = osintScore > 0 || item.osint_reference_id ? "TERSEDIA" : "BELUM_TERSEDIA";
-    osint.status_label = osintScore > 0 || item.osint_reference_id
-      ? "Data OSINT tersedia"
-      : "Data OSINT belum tersedia";
-
-    const geoint = calculateGeointPlaceholder({
-      laporanId: item.laporan_id,
-      zonaRawanId: item.zona_rawan_id,
-      lastAnalyzedAt: item.last_analyzed_at,
-    });
-
-    geoint.score = spatialScore;
-    geoint.status = spatialScore > 0 || item.zona_rawan_id ? "TERSEDIA" : "BELUM_TERSEDIA";
-    geoint.status_label = spatialScore > 0 || item.zona_rawan_id
-      ? "Data GEOINT tersedia"
-      : "Data GEOINT belum tersedia";
+    const osint = buildOsintReferenceObject(item);
+    const geoint = buildGeointObject(item);
 
     return res.json({
       message: "Detail laporan berhasil diambil",
@@ -395,10 +392,12 @@ router.get("/detail/:id", async (req, res) => {
         waktu_laporan: item.waktu_laporan,
 
         identifikasi: {
+          jenis_korban: item.jenis_korban,
           jumlah_korban_identifikasi: item.jumlah_korban_identifikasi,
           kerusakan_identifikasi: item.kerusakan_identifikasi,
           terdampak_identifikasi: item.terdampak_identifikasi,
           penyebab_identifikasi: item.penyebab_identifikasi,
+          total_korban: sumTotalKorban(korbanFinal),
         },
 
         verifikasi: {
@@ -417,11 +416,22 @@ router.get("/detail/:id", async (req, res) => {
           skor_kredibilitas:
             hasilRecalculate?.skor_kredibilitas || item.skor_kredibilitas,
           prioritas: hasilRecalculate?.prioritas || item.prioritas,
+          prioritas_sistem:
+            hasilRecalculate?.prioritas_sistem || item.prioritas_sistem || item.prioritas,
+          prioritas_manual:
+            hasilRecalculate?.prioritas_manual || item.prioritas_manual || null,
+          is_prioritas_manual:
+            hasilRecalculate?.is_prioritas_manual ?? Boolean(item.is_prioritas_manual),
+          alasan_prioritas_manual:
+            hasilRecalculate?.alasan_prioritas_manual || item.alasan_prioritas_manual || null,
+          alasan_kredibilitas: hasilRecalculate?.alasan_kredibilitas || null,
+          alasan_prioritas: hasilRecalculate?.alasan_prioritas || null,
+          alasan_prioritas_sistem: hasilRecalculate?.alasan_prioritas_sistem || null,
           status_laporan: item.status_laporan,
           last_updated_by: item.analisis_last_updated_by,
         },
 
-        dss: hasilRecalculate?.dss || dssResult,
+        rule_based: hasilRecalculate?.rule_based || null,
 
         metadata_foto: {
           exif_latitude: item.exif_latitude,

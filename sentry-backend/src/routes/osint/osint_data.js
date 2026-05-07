@@ -10,7 +10,6 @@ const requireRole = require("../../middlewares/requireRole");
 
 const {
   syncOsintData,
-  recalculateOsintScore,
 } = require("../../services/osint/osintDataIntegrator");
 
 const {
@@ -326,6 +325,7 @@ router.get("/", auth, requireRole("staff", "admin"), async (req, res) => {
         osint_references: references,
       };
     });
+    const osintData = rows.rows.map((row) => row.get({ plain: true }));
 
     const summary = await buildSummary(where);
 
@@ -385,6 +385,8 @@ router.get("/:id", auth, requireRole("staff", "admin"), async (req, res) => {
         osint_references: references,
       },
       osint_score: score || null,
+    return res.json({
+      osint_data: osintData,
     });
   } catch (error) {
     console.error("[osint-data-detail] error:", error);
@@ -470,35 +472,5 @@ router.put("/:id/verify", auth, requireRole("staff", "admin"), async (req, res) 
     });
   }
 });
-
-router.post(
-  "/:id/recalculate-score",
-  auth,
-  requireRole("staff", "admin"),
-  async (req, res) => {
-    try {
-      const result = await recalculateOsintScore(req.params.id);
-
-      if (!result) {
-        return res.status(404).json({
-          message: "Data OSINT tidak ditemukan",
-        });
-      }
-
-      return res.json({
-        message: "Recalculate score OSINT berhasil",
-        osint_data: result.osint_data,
-        osint_score: result.osint_score,
-      });
-    } catch (error) {
-      console.error("[osint-recalculate-score] error:", error);
-
-      return res.status(500).json({
-        message: "Gagal recalculate score OSINT",
-        error: error.message,
-      });
-    }
-  }
-);
 
 module.exports = router;

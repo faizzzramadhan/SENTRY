@@ -7,9 +7,6 @@ const path = require("path");
 const db = require("../../models");
 const { sequelize, detail_korban } = db;
 
-const {
-  calculateDssResult,
-} = require("../../utils/dssScoring");
 const { recalculateHumintById } = require("../../utils/recalculateHumint");
 
 const PAGE = {
@@ -582,11 +579,75 @@ function drawPhotoGrid(doc, state, y, title, imagePaths) {
   return y;
 }
 
+async function getTableColumns(tableName) {
+  try {
+    const rows = await sequelize.query(`SHOW COLUMNS FROM ${tableName}`, {
+      type: sequelize.QueryTypes.SELECT,
+    });
+
+    return rows.map((row) => row.Field);
+  } catch (error) {
+    console.error(`Gagal membaca struktur tabel ${tableName}:`, error.message);
+    return [];
+  }
+}
+
+async function getOsintJoinConfig() {
+  const referenceColumns = await getTableColumns("osint_reference");
+  const dataColumns = await getTableColumns("osint_data");
+
+  const osintReferenceFk =
+    ["osint_id", "osint_data_id", "reference_id", "data_osint_id"].find((columnName) =>
+      referenceColumns.includes(columnName)
+    ) || null;
+
+  const osintDataPk =
+    ["osint_id", "osint_data_id", "id"].find((columnName) =>
+      dataColumns.includes(columnName)
+    ) || "osint_id";
+
+  const hasOsintDataTable = dataColumns.length > 0;
+  const hasOsintSource = dataColumns.includes("osint_source");
+  const hasOsintContent = dataColumns.includes("osint_content");
+
+  return {
+    osintDataJoin:
+      osintReferenceFk && hasOsintDataTable
+        ? `LEFT JOIN osint_data od ON od.${osintDataPk} = osr.${osintReferenceFk}`
+        : "",
+    osintDataSelect: `
+        ${hasOsintSource ? "od.osint_source AS osint_source," : "NULL AS osint_source,"}
+        ${hasOsintContent ? "od.osint_content AS osint_content" : "NULL AS osint_content"}
+    `,
+  };
+}
+
+function getYaTidak(value) {
+  if (value === true || value === 1 || value === "1" || value === "true" || value === "TRUE") {
+    return "Ya";
+  }
+
+  return "Tidak";
+}
+
+function getZonaRawanText(d) {
+  if (!d || !d.resiko_id) return "Tidak masuk zona rawan";
+  return `Masuk zona rawan (${safe(d.tingkat_resiko)})`;
+}
+
 router.get("/download/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    await recalculateHumintById(id);
+    let hasilRecalculate = null;
+
+    try {
+      hasilRecalculate = await recalculateHumintById(id);
+    } catch (recalculateError) {
+      console.error("Recalculate sebelum download PDF gagal:", recalculateError.message);
+    }
+
+    const osintJoinConfig = await getOsintJoinConfig();
 
     const rows = await sequelize.query(
       `
@@ -599,6 +660,7 @@ router.get("/download/:id", async (req, res) => {
         dk.nama_kecamatan,
         dl.nama_kelurahan,
 
+        i.jenis_korban,
         i.jumlah_korban_identifikasi,
         i.kerusakan_identifikasi,
         i.terdampak_identifikasi,
@@ -615,13 +677,19 @@ router.get("/download/:id", async (req, res) => {
 
         a.skor_kredibilitas,
         a.prioritas,
+        a.prioritas_sistem,
+        a.prioritas_manual,
+        a.is_prioritas_manual,
+        a.alasan_prioritas_manual,
         a.status_laporan,
         a.last_updated_by AS analisis_last_updated_by,
 
-        dss.humint_score,
-        dss.osint_score,
-        dss.spatial_score,
-        dss.total_score,
+        tr.resiko_id,
+        tr.tingkat_resiko,
+
+        osr.osint_area_text,
+        osr.verified_at,
+        ${osintJoinConfig.osintDataSelect},
 
         mf.exif_latitude,
         mf.exif_longitude,
@@ -639,9 +707,15 @@ router.get("/download/:id", async (req, res) => {
       LEFT JOIN identifikasi i ON i.id_laporan = l.laporan_id
       LEFT JOIN verifikasi_staff vs ON vs.laporan_id = l.laporan_id
       LEFT JOIN analisis_sistem a ON a.id_laporan = l.laporan_id
-      LEFT JOIN dss_scoring dss ON dss.laporan_id = l.laporan_id
+      LEFT JOIN tingkat_resiko tr
+        ON tr.jenis_id = l.id_jenis
+       AND tr.kelurahan_id = l.id_kelurahan
+      LEFT JOIN osint_reference osr
+        ON osr.laporan_id = l.laporan_id
+      ${osintJoinConfig.osintDataJoin}
       LEFT JOIN metadata_foto mf ON mf.laporan_id = l.laporan_id
       WHERE l.laporan_id = :id
+      ORDER BY osr.last_update_date DESC, osr.creation_date DESC
       LIMIT 1
       `,
       {
@@ -658,27 +732,42 @@ router.get("/download/:id", async (req, res) => {
 
     const d = rows[0];
 
-    const korbanRows = await detail_korban.findAll({
-      where: { laporan_id: d.laporan_id },
-      order: [
-        ["jenis_korban", "ASC"],
-        ["jenis_kelamin", "ASC"],
-        ["kelompok_umur", "ASC"],
-      ],
-    });
+    const korbanRows = await sequelize.query(
+      `
+      SELECT
+        jenis_korban,
+        jenis_kelamin,
+        kelompok_umur,
+        jumlah
+      FROM detail_korban
+      WHERE laporan_id = :laporanId
+      ORDER BY jenis_korban ASC, jenis_kelamin ASC, kelompok_umur ASC
+      `,
+      {
+        replacements: { laporanId: d.laporan_id },
+        type: sequelize.QueryTypes.SELECT,
+      }
+    );
 
     const totalKorban = sumTotalKorban(korbanRows);
 
-    const dssResult = calculateDssResult({
-      humintScore: d.humint_score,
-      osintScore: d.osint_score,
-      spatialScore: d.spatial_score,
-      totalScore: d.total_score,
-      totalKorban,
-      skorExif: d.exif_latitude && d.exif_longitude ? 50 : 0,
-      gpsSource: d.gps_source || "none",
-      jenisLaporan: d.jenis_laporan || "ASSESSMENT",
-    });
+    const zonaRawanText = getZonaRawanText(d);
+    const isPrioritasManual =
+      d.is_prioritas_manual === true ||
+      d.is_prioritas_manual === 1 ||
+      d.is_prioritas_manual === "1" ||
+      d.is_prioritas_manual === "true" ||
+      d.is_prioritas_manual === "TRUE";
+    const prioritasSistem = d.prioritas_sistem || d.prioritas || "-";
+    const prioritasFinal = d.prioritas || prioritasSistem;
+    const alasanKredibilitas = hasilRecalculate?.alasan_kredibilitas || "-";
+    const alasanPrioritas =
+      hasilRecalculate?.alasan_prioritas_sistem ||
+      hasilRecalculate?.alasan_prioritas ||
+      "-";
+    const alasanOverrideManual = isPrioritasManual
+      ? d.alasan_prioritas_manual || "-"
+      : "-";
 
     const nomorSurat = makeNomorSurat(d);
 
@@ -778,16 +867,26 @@ router.get("/download/:id", async (req, res) => {
     y = drawInfoRow(doc, state, "Petugas TRC", d.petugas_trc, x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "Staff Puskodal", getStaffPuskodalName(d), x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "Status Akhir", getStatusText(d.status_laporan), x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "Prioritas", d.prioritas, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Prioritas Final", prioritasFinal, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Prioritas Sistem", prioritasSistem, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Override Prioritas Manual", getYaTidak(isPrioritasManual), x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Prioritas Manual", isPrioritasManual ? d.prioritas_manual : "-", x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Alasan Prioritas Manual", alasanOverrideManual, x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "Skor Kredibilitas", d.skor_kredibilitas, x, y, labelWidth, valueWidth);
 
     y += 12;
 
     y = drawSectionTitle(doc, state, "VI. DATA PENDUKUNG SISTEM", x, y, width);
-    y = drawInfoRow(doc, state, "HUMINT Score", d.humint_score, x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "OSINT Score", d.osint_score, x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "Spatial Score", d.spatial_score, x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "Total Score", d.total_score, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Jenis Korban Identifikasi", d.jenis_korban, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Kredibilitas Sistem", d.skor_kredibilitas, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Prioritas Sistem", prioritasSistem, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Prioritas Final", prioritasFinal, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Status Zona Rawan", zonaRawanText, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Tingkat Risiko", d.resiko_id ? d.tingkat_resiko : "TIDAK_RAWAN", x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Area OSINT", d.osint_area_text, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Waktu Verifikasi OSINT", formatTanggalJam(d.verified_at), x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Sumber OSINT", d.osint_source, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Isi Konten OSINT", d.osint_content, x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "EXIF Latitude", d.exif_latitude, x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "EXIF Longitude", d.exif_longitude, x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "Browser GPS Latitude", d.browser_latitude, x, y, labelWidth, valueWidth);
@@ -798,14 +897,15 @@ router.get("/download/:id", async (req, res) => {
 
     y += 12;
 
-    y = drawSectionTitle(doc, state, "VII. HASIL DSS & REKOMENDASI SISTEM", x, y, width);
-    y = drawInfoRow(doc, state, "Level DSS", dssResult.dss_level, x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "Rentang Skor DSS", dssResult.skor_range, x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "Prioritas DSS", dssResult.prioritas_dss, x, y, labelWidth, valueWidth);
+    y = drawSectionTitle(doc, state, "VII. HASIL ANALISIS SISTEM BERBASIS ATURAN", x, y, width);
+    y = drawInfoRow(doc, state, "Kredibilitas", d.skor_kredibilitas, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Alasan Kredibilitas", alasanKredibilitas, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Prioritas Sistem", prioritasSistem, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Prioritas Final", prioritasFinal, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Alasan Prioritas", alasanPrioritas, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Override Manual", getYaTidak(isPrioritasManual), x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Alasan Override Manual", alasanOverrideManual, x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "Total Korban Terhitung", `${totalKorban} orang`, x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "Catatan Data Pendukung", dssResult.catatan_data_pendukung, x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "Aturan DSS Terpakai", formatRulesAsBullets(dssResult.aturan_terpakai), x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "Rekomendasi Sistem", formatListAsBullets(dssResult.rekomendasi), x, y, labelWidth, valueWidth);
 
     y += 14;
 

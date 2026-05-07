@@ -2,69 +2,71 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  height: 74px;
+  width: 100%;
+  min-height: 74px;
   background: #2f6fff;
   display: flex;
   align-items: center;
 }
 
 .inner {
-  width: min(1280px, 94vw);
+  width: min(1280px, calc(100% - 32px));
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
+  text-decoration: none;
+  flex-shrink: 0;
 }
 
 .logoWrap {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 12px;
-  background: rgba(255,255,255,0.18);
+  background: rgba(255, 255, 255, 0.18);
   display: grid;
   place-items: center;
+  overflow: hidden;
 }
 
 .brandText {
   color: #fff;
   font-weight: 900;
   letter-spacing: 1px;
-  font-size: 22px;
+  font-size: clamp(18px, 2vw, 22px);
 }
 
 .links {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: clamp(14px, 2vw, 28px);
 }
 
 .link {
   position: relative;
-  color: rgba(255,255,255,0.95);
+  color: rgba(255, 255, 255, 0.95);
   text-decoration: none;
   font-weight: 600;
   font-size: 15px;
   padding: 10px 2px;
+  white-space: nowrap;
+  transition: 0.2s ease;
 }
 
 .link:hover {
-  text-decoration: underline;
-}
-
-@media (max-width: 900px) {
-  .links {
-    display: none; /* biar simple dulu (nanti bisa bikin hamburger) */
-  }
+  color: #ffffff;
 }
 
 .active {
   color: #ffffff;
+  font-weight: 900;
 }
 
 .activeMarker {
@@ -76,5 +78,88 @@
   height: 0;
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
-  border-top: 7px solid rgba(255,255,255,0.95);
+  border-top: 7px solid rgba(255, 255, 255, 0.95);
+}
+
+.menuButton {
+  display: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  padding: 10px;
+}
+
+.menuButton span {
+  display: block;
+  width: 100%;
+  height: 3px;
+  background: #ffffff;
+  border-radius: 99px;
+  transition: 0.25s ease;
+}
+
+.menuButton span + span {
+  margin-top: 6px;
+}
+
+.menuButtonActive span:nth-child(1) {
+  transform: translateY(9px) rotate(45deg);
+}
+
+.menuButtonActive span:nth-child(2) {
+  opacity: 0;
+}
+
+.menuButtonActive span:nth-child(3) {
+  transform: translateY(-9px) rotate(-45deg);
+}
+
+@media (max-width: 900px) {
+  .navbar {
+    min-height: 68px;
+  }
+
+  .menuButton {
+    display: block;
+  }
+
+  .links {
+    position: absolute;
+    top: calc(100% + 12px);
+    left: 0;
+    right: 0;
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 18px;
+    background: #2f6fff;
+    box-shadow: 0 18px 35px rgba(15, 23, 42, 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
+    transition: 0.25s ease;
+  }
+
+  .linksOpen {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .link {
+    padding: 13px 14px;
+    border-radius: 12px;
+  }
+
+  .link:hover,
+  .active {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .activeMarker {
+    display: none;
+  }
 }

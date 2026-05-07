@@ -38,7 +38,7 @@ const customIcon = new L.Icon({
   shadowSize: [41, 41],
 })
 
-const API_URL = 'http://localhost:5555/api/humint'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/api/humint'
 const BASE_URL = 'http://localhost:5555'
 
 type JenisKorbanKey =
@@ -205,12 +205,15 @@ export default function EditLaporanPage() {
     terdampak_verifikasi: '',
     penyebab_verifikasi: '',
     prakiraan_kerugian: '',
-    rekomendasi_tindak_lanjut: '',
     tindak_lanjut: '',
     petugas_trc: '',
     staff_puskodal: '',
     skor_kredibilitas: 'RENDAH',
     prioritas: 'PRIORITAS RENDAH',
+    prioritas_sistem: 'PRIORITAS RENDAH',
+    prioritas_manual: '',
+    is_prioritas_manual: false,
+    alasan_prioritas_manual: '',
     status_laporan: 'IDENTIFIKASI',
   })
 
@@ -259,8 +262,6 @@ export default function EditLaporanPage() {
             verifikasi.prakiraan_kerugian != null
               ? String(verifikasi.prakiraan_kerugian)
               : '',
-          rekomendasi_tindak_lanjut:
-            verifikasi.rekomendasi_tindak_lanjut || '',
           tindak_lanjut: verifikasi.tindak_lanjut || '',
           petugas_trc: verifikasi.petugas_trc || '',
           staff_puskodal:
@@ -270,6 +271,13 @@ export default function EditLaporanPage() {
             '',
           skor_kredibilitas: analisis.skor_kredibilitas || 'RENDAH',
           prioritas: analisis.prioritas || 'PRIORITAS RENDAH',
+          prioritas_sistem:
+            analisis.prioritas_sistem ||
+            analisis.prioritas ||
+            'PRIORITAS RENDAH',
+          prioritas_manual: analisis.prioritas_manual || '',
+          is_prioritas_manual: Boolean(analisis.is_prioritas_manual),
+          alasan_prioritas_manual: analisis.alasan_prioritas_manual || '',
           status_laporan: analisis.status_laporan || 'IDENTIFIKASI',
         })
 
@@ -335,6 +343,24 @@ export default function EditLaporanPage() {
     setForm((prev) => ({
       ...prev,
       [name]: value,
+    }))
+  }
+
+  const handlePrioritasManualToggle = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const checked = e.target.checked
+
+    setForm((prev) => ({
+      ...prev,
+      is_prioritas_manual: checked,
+      prioritas_manual: checked
+        ? prev.prioritas_manual || prev.prioritas || prev.prioritas_sistem
+        : '',
+      prioritas: checked
+        ? prev.prioritas_manual || prev.prioritas || prev.prioritas_sistem
+        : prev.prioritas_sistem || prev.prioritas,
+      alasan_prioritas_manual: checked ? prev.alasan_prioritas_manual : '',
     }))
   }
 
@@ -520,18 +546,29 @@ export default function EditLaporanPage() {
       const staffLogin = getLoggedInStaff()
       const staffPuskodal = staffLogin.name || form.staff_puskodal || 'staff'
 
+      const finalPrioritas = form.is_prioritas_manual
+        ? form.prioritas_manual || form.prioritas || form.prioritas_sistem
+        : form.prioritas_sistem || form.prioritas
+
       const payload = {
         kerusakan_verifikasi: form.kerusakan_verifikasi,
         terdampak_verifikasi: form.terdampak_verifikasi,
         penyebab_verifikasi: form.penyebab_verifikasi,
         prakiraan_kerugian: form.prakiraan_kerugian,
-        rekomendasi_tindak_lanjut: form.rekomendasi_tindak_lanjut,
         tindak_lanjut: form.tindak_lanjut,
         petugas_trc: form.petugas_trc,
         staff_puskodal: staffPuskodal,
         usr_id: staffLogin.id || undefined,
         skor_kredibilitas: form.skor_kredibilitas,
-        prioritas: form.prioritas,
+        prioritas: finalPrioritas,
+        prioritas_sistem: form.prioritas_sistem || form.prioritas,
+        prioritas_manual: form.is_prioritas_manual
+          ? form.prioritas_manual || finalPrioritas
+          : null,
+        is_prioritas_manual: form.is_prioritas_manual,
+        alasan_prioritas_manual: form.is_prioritas_manual
+          ? form.alasan_prioritas_manual
+          : null,
         status_laporan: form.status_laporan,
         detail_korban: buildDetailKorbanPayload(),
         last_updated_by: staffPuskodal,
@@ -569,6 +606,7 @@ export default function EditLaporanPage() {
   const fotoKejadianUrl = getFileUrl(detail?.foto_kejadian)
   const metadata = detail?.metadata_foto || {}
   const osint = detail?.osint
+  const geoint = detail?.geoint || {}
   const identifikasi = detail?.identifikasi || {}
 
   const isValidGpsValue = (value: any) => {
@@ -859,17 +897,6 @@ export default function EditLaporanPage() {
             </div>
 
             <div className={styles.inputGroup}>
-              <label>Rekomendasi Tindak Lanjut</label>
-              <textarea
-                name="rekomendasi_tindak_lanjut"
-                value={form.rekomendasi_tindak_lanjut}
-                onChange={handleChange}
-                rows={4}
-                placeholder="Masukkan rekomendasi tindak lanjut"
-              />
-            </div>
-
-            <div className={styles.inputGroup}>
               <label>Tindak Lanjut</label>
               <textarea
                 name="tindak_lanjut"
@@ -902,30 +929,15 @@ export default function EditLaporanPage() {
           </div>
 
           <div className={styles.card}>
-            <div className={styles.cardTitle}>Update Status & Analisis</div>
+            <div className={styles.cardTitle}>Status & Analisis Sistem</div>
 
             <div className={styles.inputGroup}>
-              <label>Skor Kredibilitas</label>
-              <select
-                name="skor_kredibilitas"
-                value={form.skor_kredibilitas}
-                onChange={handleChange}
-              >
-                <option value="RENDAH">RENDAH</option>
-                <option value="TINGGI">TINGGI</option>
-              </select>
-            </div>
-
-            <div className={styles.inputGroup}>
-              <label>Prioritas</label>
-              <select
-                name="prioritas"
-                value={form.prioritas}
-                onChange={handleChange}
-              >
-                <option value="PRIORITAS RENDAH">PRIORITAS RENDAH</option>
-                <option value="PRIORITAS TINGGI">PRIORITAS TINGGI</option>
-              </select>
+              <label>Kredibilitas Sistem</label>
+              <input
+                value={form.skor_kredibilitas || 'RENDAH'}
+                readOnly
+                title="Kredibilitas dihitung otomatis oleh sistem."
+              />
             </div>
 
             <div className={styles.inputGroup}>
@@ -939,8 +951,86 @@ export default function EditLaporanPage() {
                 <option value="TERVERIFIKASI">TERVERIFIKASI</option>
                 <option value="DITANGANI">DITANGANI</option>
                 <option value="SELESAI">SELESAI</option>
+                <option value="FIKTIF">FIKTIF</option>
               </select>
             </div>
+          </div>
+
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Prioritas</div>
+
+            <div className={styles.inputGroup}>
+              <label>Prioritas Sistem</label>
+              <input
+                value={
+                  form.prioritas_sistem ||
+                  form.prioritas ||
+                  'PRIORITAS RENDAH'
+                }
+                readOnly
+                title="Prioritas dihitung otomatis oleh sistem."
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Prioritas Final</label>
+              <input value={form.prioritas || 'PRIORITAS RENDAH'} readOnly />
+            </div>
+          </div>
+
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Override Prioritas Manual</div>
+
+            <div className={styles.inputGroup}>
+              <label>Aktifkan Override</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={form.is_prioritas_manual}
+                  onChange={handlePrioritasManualToggle}
+                />
+                <span>Ubah prioritas secara manual oleh staff</span>
+              </label>
+            </div>
+
+            {form.is_prioritas_manual && (
+              <>
+                <div className={styles.inputGroup}>
+                  <label>Prioritas Manual Staff</label>
+                  <select
+                    name="prioritas_manual"
+                    value={
+                      form.prioritas_manual ||
+                      form.prioritas ||
+                      form.prioritas_sistem
+                    }
+                    onChange={(e) => {
+                      const value = e.target.value
+
+                      setForm((prev) => ({
+                        ...prev,
+                        prioritas_manual: value,
+                        prioritas: value,
+                      }))
+                    }}
+                  >
+                    <option value="PRIORITAS RENDAH">PRIORITAS RENDAH</option>
+                    <option value="PRIORITAS SEDANG">PRIORITAS SEDANG</option>
+                    <option value="PRIORITAS TINGGI">PRIORITAS TINGGI</option>
+                  </select>
+                </div>
+
+                <div className={styles.inputGroup}>
+                  <label>Alasan Override Prioritas</label>
+                  <textarea
+                    name="alasan_prioritas_manual"
+                    value={form.alasan_prioritas_manual}
+                    onChange={handleChange}
+                    placeholder="Masukkan alasan perubahan prioritas"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -1033,23 +1123,30 @@ export default function EditLaporanPage() {
             {osint ? (
               <div className={styles.osintTable}>
                 <div className={styles.osintRow}>
-                  <div className={styles.osintLabel}>Reference ID</div>
+                  <div className={styles.osintLabel}>Area</div>
                   <div className={styles.osintValue}>
-                    {osint.osint_reference_id || '-'}
+                    {osint.osint_area_text || '-'}
                   </div>
                 </div>
 
                 <div className={styles.osintRow}>
-                  <div className={styles.osintLabel}>Last Analyzed</div>
+                  <div className={styles.osintLabel}>Waktu Verifikasi</div>
                   <div className={styles.osintValue}>
-                    {formatDate(osint.last_analyzed_at)}
+                    {formatDate(osint.verified_at)}
                   </div>
                 </div>
 
                 <div className={styles.osintRow}>
-                  <div className={styles.osintLabel}>Status</div>
+                  <div className={styles.osintLabel}>Sumber</div>
                   <div className={styles.osintValue}>
-                    {osint.status_sync || '-'}
+                    {osint.osint_source || '-'}
+                  </div>
+                </div>
+
+                <div className={styles.osintRow}>
+                  <div className={styles.osintLabel}>Isi Konten</div>
+                  <div className={styles.osintValue}>
+                    {osint.osint_content || '-'}
                   </div>
                 </div>
               </div>
