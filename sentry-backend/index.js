@@ -51,10 +51,14 @@ app.use("/jenis-bencana", jenisBencanaRoutes);
 app.use("/nama-bencana", namaBencanaRoutes);
 app.use("/log-aktivitas", logAktivitasRoutes);
 
+// folder upload image
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 /* ================= ROUTES HUMINT ================= */
 app.use("/api/humint", humintLaporanRoutes);
 app.use("/api/humint", detailLaporanRoutes);
 app.use("/api/humint", editLaporanRoutes);
+
 
 /* ================= SERVER ================= */
 app.listen(5555, () => {
