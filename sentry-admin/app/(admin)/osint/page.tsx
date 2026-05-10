@@ -313,6 +313,22 @@ function PencilIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={styles.actionIcon} aria-hidden="true">
+      <path d="M4 7h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M10 3h4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M8 7v12m8-12v12M6 7l1 13a1 1 0 0 0 1 .93h8a1 1 0 0 0 1-.93L18 7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function ChevronLeftIcon() {
   return (
     <svg viewBox="0 0 24 24" className={styles.pageArrowIcon} aria-hidden="true">
@@ -351,10 +367,13 @@ export default function MonitoringOsintPage() {
   const [openFilter, setOpenFilter] = useState(false);
 
   const [rows, setRows] = useState<OsintRow[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [totalCount, setTotalCount] = useState(0);
   const [summary, setSummary] = useState<OsintListResponse["summary"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -425,6 +444,7 @@ export default function MonitoringOsintPage() {
 
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedIds(new Set());
   }, [search, sourceFilter, humintFilter, sortOrder, rowsPerPage]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage));
@@ -440,6 +460,110 @@ export default function MonitoringOsintPage() {
     ],
     [summary, totalCount]
   );
+
+  const currentRowIds = useMemo(() => rows.map((row) => row.id), [rows]);
+
+  const selectedCount = useMemo(
+    () => [...selectedIds].filter((id) => selectedIds.has(id)).length,
+    [selectedIds]
+  );
+
+  const isAllCurrentRowsSelected =
+    currentRowIds.length > 0 && currentRowIds.every((id) => selectedIds.has(id));
+
+  const toggleRowSelection = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+
+      return next;
+    });
+  };
+
+  const toggleSelectAllCurrentRows = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+
+      if (isAllCurrentRowsSelected) {
+        currentRowIds.forEach((id) => next.delete(id));
+      } else {
+        currentRowIds.forEach((id) => next.add(id));
+      }
+
+      return next;
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    const idsToDelete = [...selectedIds];
+
+    if (!idsToDelete.length) return;
+
+    setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (deleteLoading) return;
+    setDeleteModalOpen(false);
+  };
+
+  const confirmDeleteSelected = async () => {
+    const token = getToken();
+
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const idsToDelete = [...selectedIds];
+
+    if (!idsToDelete.length) {
+      setDeleteModalOpen(false);
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+      setLoading(true);
+      setErrorMessage("");
+
+      const res = await fetch(`${API_BASE_URL}/osint/data/bulk`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          ids: idsToDelete,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data?.message || data?.error || "Gagal menghapus data OSINT."
+        );
+      }
+
+      setSelectedIds(new Set());
+      setDeleteModalOpen(false);
+      await fetchRows();
+    } catch (error: any) {
+      setErrorMessage(
+        error?.message || "Terjadi error saat menghapus data OSINT."
+      );
+    } finally {
+      setDeleteLoading(false);
+      setLoading(false);
+    }
+  };
 
   return (
     <div className={styles.page}>
@@ -472,6 +596,16 @@ export default function MonitoringOsintPage() {
         </div>
 
         <div className={styles.toolbar}>
+          {selectedCount > 0 ? (
+            <button
+              type="button"
+              className={`${styles.toolbarButton} ${styles.deleteSelectedButton}`}
+              onClick={handleDeleteSelected}
+            >
+              <TrashIcon />
+              <span>Hapus Terpilih ({selectedCount})</span>
+            </button>
+          ) : null}
           <button
             type="button"
             className={styles.toolbarButton}
@@ -601,6 +735,16 @@ export default function MonitoringOsintPage() {
         <table className={styles.table}>
           <thead>
             <tr>
+              <th className={styles.checkboxTh}>
+                <input
+                  type="checkbox"
+                  className={styles.rowCheckbox}
+                  checked={isAllCurrentRowsSelected}
+                  onChange={toggleSelectAllCurrentRows}
+                  aria-label="Pilih semua data OSINT pada halaman ini"
+                  disabled={rows.length === 0 || loading}
+                />
+              </th>
               <th>No</th>
               <th>Sumber Data</th>
               <th>Konten/Snippet</th>
@@ -617,19 +761,30 @@ export default function MonitoringOsintPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={10} className={styles.emptyState}>
+                <td colSpan={11} className={styles.emptyState}>
                   Memuat data OSINT...
                 </td>
               </tr>
             ) : errorMessage ? (
               <tr>
-                <td colSpan={10} className={styles.emptyState}>
+                <td colSpan={11} className={styles.emptyState}>
                   {errorMessage}
                 </td>
               </tr>
             ) : rows.length > 0 ? (
               rows.map((row, index) => (
                 <tr key={row.id}>
+                   <td className={styles.checkboxCell}>
+                    <input
+                      type="checkbox"
+                      className={styles.rowCheckbox}
+                      checked={selectedIds.has(row.id)}
+                      onChange={() => toggleRowSelection(row.id)}
+                      aria-label={`Pilih data OSINT ${row.id}`}
+                      disabled={loading}
+                    />
+                  </td>
+
                   <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
                   <td>{row.source}</td>
                   <td>{row.snippet}</td>
@@ -679,21 +834,13 @@ export default function MonitoringOsintPage() {
                       >
                         <EyeIcon />
                       </button>
-                      <button
-                        type="button"
-                        className={styles.actionButton}
-                        aria-label="Edit OSINT"
-                        onClick={() => router.push(`/osint/detail/${row.id}`)}
-                      >
-                        <PencilIcon />
-                      </button>
                     </div>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={10} className={styles.emptyState}>
+                <td colSpan={11} className={styles.emptyState}>
                   Data OSINT tidak ditemukan.
                 </td>
               </tr>
@@ -745,6 +892,47 @@ export default function MonitoringOsintPage() {
           </button>
         </div>
       </div>
+      {deleteModalOpen && (
+      <div
+        className={styles.deleteModalOverlay}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-modal-title"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            closeDeleteModal();
+          }
+        }}
+      >
+        <div className={styles.deleteModalCard}>
+          <h2 id="delete-modal-title" className={styles.deleteModalTitle}>
+            Apakah anda
+            <br />
+            yakin Menghapus data ini?
+          </h2>
+
+          <div className={styles.deleteModalActions}>
+            <button
+              type="button"
+              className={styles.deleteCancelButton}
+              onClick={closeDeleteModal}
+              disabled={deleteLoading}
+            >
+              Batal
+            </button>
+
+            <button
+              type="button"
+              className={styles.deleteConfirmButton}
+              onClick={confirmDeleteSelected}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? "Menghapus..." : "Iya"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

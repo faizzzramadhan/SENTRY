@@ -515,3 +515,155 @@
     padding: 12px 16px;
   }
 }
+
+.checkboxTh,
+.checkboxCell {
+  width: 44px;
+  min-width: 44px;
+  padding: 10px 8px !important;
+  text-align: center;
+}
+
+.rowCheckbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: 0.2s ease;
+}
+
+.rowCheckbox:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rowCheckbox:checked {
+  background: #ff8e80;
+  border-color: #ff8e80;
+}
+
+.rowCheckbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 4px;
+  height: 9px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.rowCheckbox:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deleteSelectedButton {
+  border-color: rgba(255, 142, 128, 0.85);
+  color: #ffd1cb;
+}
+
+.deleteSelectedButton:hover {
+  background: rgba(255, 142, 128, 0.12);
+}
+
+.deleteModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.deleteModalCard {
+  width: min(650px, 92vw);
+  min-height: 435px;
+  border-radius: 16px;
+  background: #2b2b2b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 42px;
+  padding: 52px 40px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+}
+
+.deleteModalTitle {
+  margin: 0;
+  color: #ffffff;
+  font-size: 38px;
+  line-height: 1.22;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 0.2px;
+}
+
+.deleteModalActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+}
+
+.deleteCancelButton,
+.deleteConfirmButton {
+  min-width: 120px;
+  height: 40px;
+  border: none;
+  border-radius: 6px;
+  background: #ff747b;
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s ease;
+}
+
+.deleteCancelButton:hover:not(:disabled),
+.deleteConfirmButton:hover:not(:disabled) {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+}
+
+.deleteCancelButton:disabled,
+.deleteConfirmButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 700px) {
+  .deleteModalCard {
+    min-height: 330px;
+    gap: 30px;
+    padding: 38px 24px;
+  }
+
+  .deleteModalTitle {
+    font-size: 28px;
+  }
+
+  .deleteModalActions {
+    gap: 14px;
+  }
+
+  .deleteCancelButton,
+  .deleteConfirmButton {
+    min-width: 100px;
+    height: 38px;
+    font-size: 22px;
+  }
+}

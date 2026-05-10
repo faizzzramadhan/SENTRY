@@ -53,6 +53,12 @@ type StaffForm = {
   usr_password: string;
 };
 
+type DeleteTarget = {
+  mode: "single" | "bulk";
+  ids: number[];
+  label: string;
+};
+
 const emptyForm: StaffForm = {
   usr_nama_lengkap: "",
   usr_email: "",
@@ -294,6 +300,9 @@ export default function ManageStaffPage() {
   const [form, setForm] = useState<StaffForm>(emptyForm);
   const [modalSaving, setModalSaving] = useState(false);
   const [modalErrorMsg, setModalErrorMsg] = useState("");
+
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -551,53 +560,49 @@ export default function ManageStaffPage() {
     }
   };
 
-  const handleDeleteStaff = async (id: number, nama: string) => {
-    if (!token) {
-      router.replace("/login");
-      return;
-    }
-
-    const ok = window.confirm(`Hapus staff "${nama}"?`);
-    if (!ok) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/user/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setErrorMsg(data?.message || "Gagal menghapus data staff.");
-        return;
-      }
-
-      await fetchData();
-    } catch (err: any) {
-      setErrorMsg(err?.message || "Terjadi error saat menghapus staff.");
-    }
+  const openDeleteModal = (target: DeleteTarget) => {
+  setDeleteTarget(target);
   };
 
-  const handleDeleteSelected = async () => {
+  const closeDeleteModal = () => {
+    if (deleteSaving) return;
+    setDeleteTarget(null);
+  };
+
+  const handleDeleteStaff = (id: number, nama: string) => {
+      openDeleteModal({
+        mode: "single",
+        ids: [id],
+        label: nama,
+      });
+    };
+
+    const handleDeleteSelected = () => {
+    const idsToDelete = [...selectedIds];
+
+    if (idsToDelete.length === 0) return;
+
+    openDeleteModal({
+      mode: "bulk",
+      ids: idsToDelete,
+      label: `${idsToDelete.length} data staff terpilih`,
+    });
+  };
+
+  const confirmDeleteStaff = async () => {
     if (!token) {
       router.replace("/login");
       return;
     }
 
-    const idsToDelete = [...selectedIds];
-    if (idsToDelete.length === 0) return;
-
-    const ok = window.confirm(`Hapus ${idsToDelete.length} data staff terpilih?`);
-    if (!ok) return;
+    if (!deleteTarget || deleteTarget.ids.length === 0) return;
 
     try {
+      setDeleteSaving(true);
       setErrorMsg("");
 
       const results = await Promise.allSettled(
-        idsToDelete.map(async (id) => {
+        deleteTarget.ids.map(async (id) => {
           const res = await fetch(`${API_BASE_URL}/user/${id}`, {
             method: "DELETE",
             headers: {
@@ -616,6 +621,7 @@ export default function ManageStaffPage() {
       );
 
       const failed = results.filter((result) => result.status === "rejected");
+
       await fetchData();
 
       if (failed.length > 0) {
@@ -624,8 +630,11 @@ export default function ManageStaffPage() {
       }
 
       setSelectedIds(new Set());
+      setDeleteTarget(null);
     } catch (err: any) {
-      setErrorMsg(err?.message || "Terjadi error saat menghapus data terpilih.");
+      setErrorMsg(err?.message || "Terjadi error saat menghapus data staff.");
+    } finally {
+      setDeleteSaving(false);
     }
   };
 
@@ -851,6 +860,51 @@ export default function ManageStaffPage() {
         onClose={resetModal}
         onSave={handleSaveStaff}
       />
+            {deleteTarget ? (
+        <div
+          className={styles.deleteModalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeDeleteModal();
+          }}
+        >
+          <div className={styles.deleteModalCard}>
+            <h2 id="delete-modal-title" className={styles.deleteModalTitle}>
+              Apakah anda
+              <br />
+              yakin Menghapus data ini?
+            </h2>
+
+            <div className={styles.deleteModalInfo}>
+              {deleteTarget.mode === "single"
+                ? deleteTarget.label
+                : deleteTarget.label}
+            </div>
+
+            <div className={styles.deleteModalActions}>
+              <button
+                type="button"
+                className={styles.deleteCancelButton}
+                onClick={closeDeleteModal}
+                disabled={deleteSaving}
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                className={styles.deleteConfirmButton}
+                onClick={confirmDeleteStaff}
+                disabled={deleteSaving}
+              >
+                {deleteSaving ? "Menghapus..." : "Iya"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
