@@ -7,7 +7,7 @@ const path = require("path");
 const db = require("../../models");
 const { sequelize, detail_korban } = db;
 
-const { recalculateHumintById } = require("../../utils/recalculateHumint");
+const { recalculateAnalysisById } = require("../../utils/recalculateAnalysis");
 
 const PAGE = {
   width: 595.28,
@@ -642,7 +642,7 @@ router.get("/download/:id", async (req, res) => {
     let hasilRecalculate = null;
 
     try {
-      hasilRecalculate = await recalculateHumintById(id);
+      hasilRecalculate = await recalculateAnalysisById(id);
     } catch (recalculateError) {
       console.error("Recalculate sebelum download PDF gagal:", recalculateError.message);
     }

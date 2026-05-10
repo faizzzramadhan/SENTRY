@@ -4,7 +4,7 @@ const db = require("../../models");
 
 const { sequelize, detail_korban } = db;
 
-const { recalculateHumintById } = require("../../utils/recalculateHumint");
+const { recalculateAnalysisById } = require("../../utils/recalculateAnalysis");
 
 function isValidCoordinate(value) {
   if (value === undefined || value === null || value === "") return false;
@@ -166,7 +166,7 @@ router.get("/detail/:id", async (req, res) => {
     let hasilRecalculate = null;
 
     try {
-      hasilRecalculate = await recalculateHumintById(id);
+      hasilRecalculate = await recalculateAnalysisById(id);
     } catch (recalculateError) {
       console.error(
         "Recalculate rule-based detail laporan gagal:",

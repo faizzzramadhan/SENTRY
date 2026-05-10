@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const db = require("../../models");
-const { recalculateHumintById } = require("../../utils/recalculateHumint");
+const { recalculateAnalysisById } = require("../../utils/recalculateAnalysis");
 
 const {
   laporan,
@@ -224,7 +224,7 @@ router.put("/edit/:id", async (req, res) => {
     let hasilRecalculate = null;
 
     try {
-      hasilRecalculate = await recalculateHumintById(id);
+      hasilRecalculate = await recalculateAnalysisById(id);
     } catch (recalculateError) {
       console.error("Recalculate rule-based setelah edit gagal:", recalculateError.message);
     }

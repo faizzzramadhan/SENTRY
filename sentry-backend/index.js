@@ -1,7 +1,7 @@
 require("dotenv").config();
 
-const express = require('express');
-const cors = require('cors');
+const express = require("express");
+const cors = require("cors");
 const path = require("path");
 
 const app = express();
@@ -30,6 +30,7 @@ app.use("/log-aktivitas", logAktivitasRoutes);
 
 // folder upload image
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 /* ================= ROUTES HUMINT ================= */
 const humintLaporanRoutes = require("./src/routes/humint/laporan");
 const detailLaporanRoutes = require("./src/routes/humint/detail_laporan");
@@ -38,6 +39,7 @@ const editLaporanRoutes = require("./src/routes/humint/edit_laporan");
 app.use("/api/humint", humintLaporanRoutes);
 app.use("/api/humint", detailLaporanRoutes);
 app.use("/api/humint", editLaporanRoutes);
+
 
 /* ================= SERVER ================= */
 app.listen(5555, () => {
