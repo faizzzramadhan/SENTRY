@@ -56,6 +56,7 @@ type NamaBencanaItem = {
   } | null;
 };
 
+// decode
 function decodeJwtPayload(token: string): any | null {
   try {
     const payload = token.split(".")[1];
