@@ -10,6 +10,7 @@ const requireRole = require("../../middlewares/requireRole");
 
 const {
   syncOsintData,
+  recalculateOsintScore,
 } = require("../../services/osint/osintDataIntegrator");
 
 const {
@@ -325,7 +326,6 @@ router.get("/", auth, requireRole("staff", "admin"), async (req, res) => {
         osint_references: references,
       };
     });
-    const osintData = rows.rows.map((row) => row.get({ plain: true }));
 
     const summary = await buildSummary(where);
 
@@ -341,6 +341,267 @@ router.get("/", auth, requireRole("staff", "admin"), async (req, res) => {
 
     return res.status(500).json({
       message: "Gagal mengambil data OSINT",
+      error: error.message,
+    });
+  }
+});
+
+router.get("/public/x-unverified", async (req, res) => {
+  try {
+    const limit = Math.min(
+      Math.max(Number(req.query.limit || 4), 1),
+      12
+    );
+
+    const rows = await OsintData.findAll({
+      where: {
+        osint_source: "X",
+        osint_verification_status: "BELUM_DIVERIFIKASI",
+        osint_analysis_status: {
+          [Op.ne]: "REJECTED",
+        },
+        [Op.and]: [
+          {
+            osint_link_url: {
+              [Op.ne]: null,
+            },
+          },
+          {
+            osint_link_url: {
+              [Op.ne]: "",
+            },
+          },
+        ],
+      },
+      attributes: [
+        "osint_id",
+        "osint_source",
+        "osint_event_type",
+        "osint_area_text",
+        "osint_account_name",
+        "osint_account_username",
+        "osint_content",
+        "osint_post_time",
+        "osint_link_url",
+        "osint_media_url",
+        "osint_like_count",
+        "osint_share_count",
+        "osint_reply_count",
+        "osint_view_count",
+        "osint_verification_status",
+        "osint_priority_level",
+        "creation_date",
+        "last_update_date",
+      ],
+      order: [
+        ["osint_post_time", "DESC"],
+        ["creation_date", "DESC"],
+        ["last_update_date", "DESC"],
+      ],
+      limit,
+      raw: true,
+    });
+
+    return res.json({
+      count: rows.length,
+      osint_data: rows,
+    });
+  } catch (error) {
+    console.error("[public-x-unverified] error:", error);
+
+    return res.status(500).json({
+      message: "Gagal mengambil data OSINT X belum terverifikasi",
+      error: error.message,
+    });
+  }
+});
+
+router.put("/public/x-verification/:id", async (req, res) => {
+  try {
+    const osintId = Number(req.params.id);
+    const action = String(req.body?.action || "").toUpperCase();
+
+    if (!osintId) {
+      return res.status(400).json({
+        message: "osint_id tidak valid.",
+      });
+    }
+
+    if (!["YA", "TIDAK"].includes(action)) {
+      return res.status(400).json({
+        message: "Action tidak valid. Gunakan YA atau TIDAK.",
+        allowed_action: ["YA", "TIDAK"],
+      });
+    }
+
+    const existing = await OsintData.findOne({
+      where: {
+        osint_id: osintId,
+        osint_source: "X",
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        message: "Data OSINT X tidak ditemukan.",
+      });
+    }
+
+    if (existing.osint_verification_status !== "BELUM_DIVERIFIKASI") {
+      return res.status(409).json({
+        message: "Data OSINT ini sudah pernah diverifikasi.",
+        osint_id: osintId,
+        current_verification_status: existing.osint_verification_status,
+      });
+    }
+
+    const verificationStatus =
+      action === "YA" ? "TERVERIFIKASI_MANUAL" : "DITOLAK";
+
+    const analysisStatus = action === "YA" ? "PROCESSED" : "REJECTED";
+
+    await existing.update({
+      osint_verification_status: verificationStatus,
+      osint_analysis_status: analysisStatus,
+      last_updated_by: "sentry_user",
+      last_update_date: new Date(),
+    });
+
+    const updated = await OsintData.findOne({
+      where: {
+        osint_id: osintId,
+      },
+      raw: true,
+    });
+
+    return res.json({
+      ok: true,
+      message:
+        action === "YA"
+          ? "Data berhasil dikonfirmasi sebagai benar."
+          : "Data berhasil ditolak.",
+      action,
+      osint_id: osintId,
+      osint_verification_status: verificationStatus,
+      osint_analysis_status: analysisStatus,
+      osint_data: updated,
+    });
+  } catch (error) {
+    console.error("[public-x-verification] error:", error);
+
+    return res.status(500).json({
+      message: "Gagal memproses verifikasi data OSINT X",
+      error: error.message,
+    });
+  }
+});
+
+// delete
+
+router.delete("/bulk", auth, requireRole("staff", "admin"), async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? req.body.ids.map((id) => Number(id)).filter(Boolean)
+      : [];
+
+    if (!ids.length) {
+      return res.status(400).json({
+        message: "ids wajib berupa array dan tidak boleh kosong.",
+      });
+    }
+
+    if (OsintDataScore) {
+      await OsintDataScore.destroy({
+        where: {
+          osint_id: {
+            [Op.in]: ids,
+          },
+        },
+      });
+    }
+
+    if (models.osint_reference) {
+      await models.osint_reference.destroy({
+        where: {
+          osint_id: {
+            [Op.in]: ids,
+          },
+        },
+      });
+    }
+
+    const deletedCount = await OsintData.destroy({
+      where: {
+        osint_id: {
+          [Op.in]: ids,
+        },
+      },
+    });
+
+    return res.json({
+      message: "Data OSINT terpilih berhasil dihapus.",
+      requested_ids: ids,
+      deleted_count: deletedCount,
+    });
+  } catch (error) {
+    console.error("[osint-data-bulk-delete] error:", error);
+
+    return res.status(500).json({
+      message: "Gagal menghapus data OSINT terpilih",
+      error: error.message,
+    });
+  }
+});
+
+router.delete("/:id", auth, requireRole("staff", "admin"), async (req, res) => {
+  try {
+    const osintId = Number(req.params.id);
+
+    if (!osintId) {
+      return res.status(400).json({
+        message: "osint_id tidak valid.",
+      });
+    }
+
+    const existing = await OsintData.findOne({
+      where: {
+        osint_id: osintId,
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        message: "Data OSINT tidak ditemukan.",
+      });
+    }
+
+    if (OsintDataScore) {
+      await OsintDataScore.destroy({
+        where: {
+          osint_id: osintId,
+        },
+      });
+    }
+
+    if (models.osint_reference) {
+      await models.osint_reference.destroy({
+        where: {
+          osint_id: osintId,
+        },
+      });
+    }
+
+    await existing.destroy();
+
+    return res.json({
+      message: "Data OSINT berhasil dihapus.",
+      osint_id: osintId,
+    });
+  } catch (error) {
+    console.error("[osint-data-delete] error:", error);
+
+    return res.status(500).json({
+      message: "Gagal menghapus data OSINT",
       error: error.message,
     });
   }
@@ -385,8 +646,6 @@ router.get("/:id", auth, requireRole("staff", "admin"), async (req, res) => {
         osint_references: references,
       },
       osint_score: score || null,
-    return res.json({
-      osint_data: osintData,
     });
   } catch (error) {
     console.error("[osint-data-detail] error:", error);
@@ -472,5 +731,35 @@ router.put("/:id/verify", auth, requireRole("staff", "admin"), async (req, res) 
     });
   }
 });
+
+router.post(
+  "/:id/recalculate-score",
+  auth,
+  requireRole("staff", "admin"),
+  async (req, res) => {
+    try {
+      const result = await recalculateOsintScore(req.params.id);
+
+      if (!result) {
+        return res.status(404).json({
+          message: "Data OSINT tidak ditemukan",
+        });
+      }
+
+      return res.json({
+        message: "Recalculate score OSINT berhasil",
+        osint_data: result.osint_data,
+        osint_score: result.osint_score,
+      });
+    } catch (error) {
+      console.error("[osint-recalculate-score] error:", error);
+
+      return res.status(500).json({
+        message: "Gagal recalculate score OSINT",
+        error: error.message,
+      });
+    }
+  }
+);
 
 module.exports = router;

@@ -1,7 +1,7 @@
-const express     = require("express");
-const router      = express.Router();
-const models      = require("../models");
-const auth        = require("../middlewares/auth");
+const express = require("express");
+const router = express.Router();
+const models = require("../models");
+const auth = require("../middlewares/auth");
 const requireRole = require("../middlewares/requireRole");
 const { createLogAktivitas } = require("../utils/activityLogger");
 
@@ -10,7 +10,7 @@ router.get("/", auth, requireRole("admin"), async (req, res) => {
   try {
     const { nama_user, role, dari, sampai, limit = 500 } = req.query;
 
-    const conditions   = [];
+    const conditions = [];
     const replacements = [];
 
     if (nama_user) {
@@ -18,7 +18,6 @@ router.get("/", auth, requireRole("admin"), async (req, res) => {
       replacements.push(`%${nama_user}%`);
     }
 
-    // Validasi ENUM sebelum masuk query
     if (role && ["admin", "staff"].includes(role)) {
       conditions.push("la.role = ?");
       replacements.push(role);
@@ -38,7 +37,7 @@ router.get("/", auth, requireRole("admin"), async (req, res) => {
       ? "WHERE " + conditions.join(" AND ")
       : "";
 
-    replacements.push(Math.min(Number(limit) || 500, 1000)); // max cap 1000
+    replacements.push(Math.min(Number(limit) || 500, 1000));
 
     const [rows] = await models.sequelize.query(
       `SELECT
@@ -56,20 +55,19 @@ router.get("/", auth, requireRole("admin"), async (req, res) => {
     );
 
     return res.status(200).json({
-      message : "Berhasil mengambil log aktivitas",
-      total   : rows.length,
-      data    : rows,
+      message: "Berhasil mengambil log aktivitas",
+      total: rows.length,
+      data: rows,
     });
   } catch (error) {
     return res.status(500).json({
-      message : "Gagal mengambil log aktivitas",
-      error   : error.message,
+      message: "Gagal mengambil log aktivitas",
+      error: error.message,
     });
   }
 });
 
 // POST: catat aktivitas download CSV log aktivitas oleh admin
-// Dipanggil dari frontend setelah klik tombol Download CSV
 router.post("/catat-download-csv", auth, requireRole("admin"), async (req, res) => {
   try {
     await createLogAktivitas({
@@ -77,9 +75,14 @@ router.post("/catat-download-csv", auth, requireRole("admin"), async (req, res) 
       namaAktivitas: "Mengunduh log aktivitas dalam format CSV",
     });
 
-    return res.status(200).json({ message: "Aktivitas download CSV berhasil dicatat" });
+    return res.status(200).json({
+      message: "Aktivitas download CSV berhasil dicatat",
+    });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      message: "Gagal mencatat aktivitas download CSV",
+      error: error.message,
+    });
   }
 });
 
