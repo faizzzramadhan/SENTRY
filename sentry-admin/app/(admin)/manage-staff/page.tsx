@@ -5,8 +5,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // api backend
-const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555/api";
-const API_BASE_URL = RAW_API_BASE_URL.replace(/\/humint\/?$/, "");
+const RAW_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+
+const API_BASE_URL = RAW_API_BASE_URL
+  .replace(/\/$/, "")
+  .replace(/\/humint$/i, "")
+  .replace(/\/osint$/i, "");
+
+async function parseJsonResponse(res: Response) {
+  const contentType = res.headers.get("content-type") || "";
+  const rawText = await res.text();
+
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Endpoint mengembalikan HTML, bukan JSON. Periksa NEXT_PUBLIC_API_URL dan route backend. Status ${res.status}. Isi awal: ${rawText.slice(0, 80)}`
+    );
+  }
+
+  return JSON.parse(rawText);
+}
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -19,6 +37,7 @@ function decodeJwtPayload(token: string): any | null {
 }
 
 type SortType = "newest" | "oldest";
+type UserRole = "staff" | "admin";
 type ModalMode = "add" | "edit" | null;
 
 type StaffApiRow = {
@@ -26,7 +45,7 @@ type StaffApiRow = {
   usr_nama_lengkap: string;
   usr_email: string;
   usr_no_hp: string;
-  usr_role: "staff" | "admin";
+  usr_role: UserRole;
   created_by: string;
   creation_date: string;
   last_updated_by: string;
@@ -43,6 +62,8 @@ type StaffRow = {
   nama: string;
   email: string;
   noHp: string;
+  role: UserRole;
+  roleLabel: string;
   lastUpdatedDate: string;
   lastUpdatedDateRaw: string;
   createdBy: string;
@@ -53,6 +74,7 @@ type StaffForm = {
   usr_email: string;
   usr_no_hp: string;
   usr_password: string;
+  usr_role: UserRole;
 };
 
 type DeleteTarget = {
@@ -66,7 +88,13 @@ const emptyForm: StaffForm = {
   usr_email: "",
   usr_no_hp: "",
   usr_password: "",
+  usr_role: "staff",
 };
+
+
+function getRoleLabel(role: UserRole | string) {
+  return role === "admin" ? "Admin" : "Staff";
+}
 
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
@@ -210,12 +238,12 @@ function StaffModal({
       <div className={styles.modalCard}>
         <div className={styles.modalField}>
           <label className={styles.modalLabel}>
-            Nama Staff Pusdalops<span className={styles.modalRequired}>*</span>
+            Nama Lengkap<span className={styles.modalRequired}>*</span>
           </label>
           <input
             className={styles.modalInput}
             type="text"
-            placeholder="isi data Nama Staff disini...."
+            placeholder="Masukkan nama lengkap"
             value={form.usr_nama_lengkap}
             onChange={(e) => onChange("usr_nama_lengkap", e.target.value)}
             autoFocus
@@ -229,7 +257,7 @@ function StaffModal({
           <input
             className={styles.modalInput}
             type="email"
-            placeholder="isi data email disini...."
+            placeholder="Masukkan alamat email"
             value={form.usr_email}
             onChange={(e) => onChange("usr_email", e.target.value)}
           />
@@ -242,10 +270,27 @@ function StaffModal({
           <input
             className={styles.modalInput}
             type="text"
-            placeholder="isi data Handphone disini...."
+            placeholder="Masukkan nomor handphone"
             value={form.usr_no_hp}
             onChange={(e) => onChange("usr_no_hp", e.target.value)}
           />
+        </div>
+
+        <div className={styles.modalField}>
+          <label className={styles.modalLabel}>
+            Role<span className={styles.modalRequired}>*</span>
+          </label>
+          <select
+            className={styles.modalInput}
+            value={form.usr_role}
+            onChange={(e) => onChange("usr_role", e.target.value)}
+          >
+            <option value="staff">Staff</option>
+            <option value="admin">Admin</option>
+          </select>
+          <div className={styles.modalHint}>
+            Pilih role sesuai hak akses akun.
+          </div>
         </div>
 
         <div className={styles.modalField}>
@@ -255,7 +300,7 @@ function StaffModal({
           <input
             className={styles.modalInput}
             type="password"
-            placeholder="isi data password disini...."
+            placeholder="Masukkan password"
             value={form.usr_password}
             onChange={(e) => onChange("usr_password", e.target.value)}
           />
@@ -272,7 +317,7 @@ function StaffModal({
           onClick={onSave}
           disabled={saving}
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Menyimpan..." : "Simpan"}
         </button>
       </div>
     </div>
@@ -315,16 +360,16 @@ export default function ManageStaffPage() {
       setLoading(true);
       setErrorMsg("");
 
-      const res = await fetch(`${API_BASE_URL}/user/staff`, {
+      const res = await fetch(`${API_BASE_URL}/user`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      const data: StaffResponse | { message?: string } = await res.json();
+      const data: StaffResponse | { message?: string } = await parseJsonResponse(res);
 
       if (!res.ok) {
-        setErrorMsg((data as any)?.message || "Gagal mengambil data staff");
+        setErrorMsg((data as any)?.message || "Gagal mengambil data pengguna");
         return;
       }
 
@@ -340,6 +385,8 @@ export default function ManageStaffPage() {
         nama: item.usr_nama_lengkap,
         email: item.usr_email,
         noHp: item.usr_no_hp,
+        role: item.usr_role,
+        roleLabel: getRoleLabel(item.usr_role),
         lastUpdatedDate: formatDateTime(item.last_update_date),
         lastUpdatedDateRaw: item.last_update_date,
         createdBy: item.created_by,
@@ -347,7 +394,7 @@ export default function ManageStaffPage() {
 
       setRows(mappedRows);
     } catch (err: any) {
-      setErrorMsg(err?.message || "Terjadi error saat mengambil data");
+      setErrorMsg(err?.message || "Terjadi kesalahan saat mengambil data pengguna");
     } finally {
       setLoading(false);
     }
@@ -385,7 +432,7 @@ export default function ManageStaffPage() {
       const matchSearch =
         keyword === ""
           ? true
-          : [row.nama, row.email, row.noHp, row.lastUpdatedDate]
+          : [row.nama, row.email, row.noHp, row.roleLabel, row.lastUpdatedDate]
               .join(" ")
               .toLowerCase()
               .includes(keyword);
@@ -483,12 +530,24 @@ export default function ManageStaffPage() {
       usr_email: target.usr_email,
       usr_no_hp: target.usr_no_hp,
       usr_password: "",
+      usr_role: target.usr_role,
     });
     setModalErrorMsg("");
   };
 
   const handleFormChange = (field: keyof StaffForm, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    if (field === "usr_role") {
+      setForm((prev) => ({
+        ...prev,
+        usr_role: value === "admin" ? "admin" : "staff",
+      }));
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
   const handleSaveStaff = async () => {
@@ -498,7 +557,7 @@ export default function ManageStaffPage() {
     }
 
     if (!form.usr_nama_lengkap.trim()) {
-      setModalErrorMsg("Nama staff wajib diisi.");
+      setModalErrorMsg("Nama lengkap wajib diisi.");
       return;
     }
 
@@ -508,12 +567,17 @@ export default function ManageStaffPage() {
     }
 
     if (!form.usr_no_hp.trim()) {
-      setModalErrorMsg("Handphone wajib diisi.");
+      setModalErrorMsg("Nomor handphone wajib diisi.");
       return;
     }
 
     if (modalMode === "add" && !form.usr_password.trim()) {
       setModalErrorMsg("Password wajib diisi.");
+      return;
+    }
+
+    if (!["staff", "admin"].includes(form.usr_role)) {
+      setModalErrorMsg("Role wajib dipilih.");
       return;
     }
 
@@ -530,7 +594,7 @@ export default function ManageStaffPage() {
         usr_nama_lengkap: form.usr_nama_lengkap.trim(),
         usr_email: form.usr_email.trim(),
         usr_no_hp: form.usr_no_hp.trim(),
-        usr_role: "staff",
+        usr_role: form.usr_role,
       };
 
       if (!isEdit || form.usr_password.trim()) {
@@ -546,17 +610,17 @@ export default function ManageStaffPage() {
         body: JSON.stringify(body),
       });
 
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
 
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data staff.");
+        setModalErrorMsg(data?.message || "Gagal menyimpan data pengguna.");
         return;
       }
 
       resetModal();
       await fetchData();
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan staff.");
+      setModalErrorMsg(err?.message || "Terjadi kesalahan saat menyimpan data pengguna.");
     } finally {
       setModalSaving(false);
     }
@@ -612,10 +676,10 @@ export default function ManageStaffPage() {
             },
           });
 
-          const data = await res.json();
+          const data = await parseJsonResponse(res);
 
           if (!res.ok) {
-            throw new Error(data?.message || `Gagal menghapus staff dengan ID ${id}`);
+            throw new Error(data?.message || `Gagal menghapus pengguna dengan ID ${id}`);
           }
 
           return id;
@@ -634,7 +698,7 @@ export default function ManageStaffPage() {
       setSelectedIds(new Set());
       setDeleteTarget(null);
     } catch (err: any) {
-      setErrorMsg(err?.message || "Terjadi error saat menghapus data staff.");
+      setErrorMsg(err?.message || "Terjadi kesalahan saat menghapus data pengguna.");
     } finally {
       setDeleteSaving(false);
     }
@@ -644,7 +708,7 @@ export default function ManageStaffPage() {
     <>
       <div className={styles.page}>
         <div className={styles.topRow}>
-          <h1 className={styles.pageTitle}>MANAGE USER</h1>
+          <h1 className={styles.pageTitle}>MANAJEMEN PENGGUNA</h1>
           <div className={styles.hello}>Halo, {userName}</div>
         </div>
 
@@ -682,7 +746,7 @@ export default function ManageStaffPage() {
               onClick={openAddModal}
             >
               <PlusIcon />
-              <span>Tambah</span>
+              <span>Tambah Pengguna</span>
             </button>
 
             <div className={styles.dropdownWrap}>
@@ -697,7 +761,7 @@ export default function ManageStaffPage() {
 
               {openFilter && (
                 <div className={styles.dropdownMenu}>
-                  <div className={styles.dropdownTitle}>Filter by Created By</div>
+                  <div className={styles.dropdownTitle}>Filter berdasarkan pembuat data</div>
 
                   <div className={styles.dropdownOptionList}>
                     {createdByOptions.map((item) => (
@@ -741,23 +805,24 @@ export default function ManageStaffPage() {
                     className={styles.rowCheckbox}
                     checked={isAllFilteredSelected}
                     onChange={toggleSelectAllFiltered}
-                    aria-label="Pilih semua data staff"
+                    aria-label="Pilih semua data pengguna"
                     disabled={filteredIds.length === 0}
                   />
                 </th>
                 <th>No</th>
-                <th>Nama Staff Pusdalops</th>
-                <th>email</th>
+                <th>Nama Lengkap</th>
+                <th>Email</th>
                 <th>No Handphone</th>
-                <th>Last Updated Date</th>
+                <th>Role</th>
+                <th>Terakhir Diperbarui</th>
                 <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className={styles.emptyState}>
-                    Memuat data staff...
+                  <td colSpan={8} className={styles.emptyState}>
+                    Memuat data pengguna...
                   </td>
                 </tr>
               ) : currentRows.length > 0 ? (
@@ -769,20 +834,29 @@ export default function ManageStaffPage() {
                         className={styles.rowCheckbox}
                         checked={selectedIds.has(row.id)}
                         onChange={() => toggleRowSelection(row.id)}
-                        aria-label={`Pilih staff ${row.nama}`}
+                        aria-label={`Pilih pengguna ${row.nama}`}
                       />
                     </td>
                     <td>{(page - 1) * rowsPerPage + index + 1}</td>
                     <td>{row.nama}</td>
                     <td>{row.email}</td>
                     <td>{row.noHp}</td>
+                    <td>
+                      <span
+                        className={`${styles.roleBadge} ${
+                          row.role === "admin" ? styles.roleBadgeAdmin : styles.roleBadgeStaff
+                        }`}
+                      >
+                        {row.roleLabel}
+                      </span>
+                    </td>
                     <td>{row.lastUpdatedDate}</td>
                     <td>
                       <div className={styles.actionGroup}>
                         <button
                           type="button"
                           className={styles.actionButton}
-                          aria-label="Hapus staff"
+                          aria-label="Hapus pengguna"
                           onClick={() => handleDeleteStaff(row.id, row.nama)}
                         >
                           <TrashIcon />
@@ -790,7 +864,7 @@ export default function ManageStaffPage() {
                         <button
                           type="button"
                           className={styles.actionButton}
-                          aria-label="Edit staff"
+                          aria-label="Edit pengguna"
                           onClick={() => openEditModal(row.id)}
                         >
                           <PencilIcon />
@@ -801,8 +875,8 @@ export default function ManageStaffPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className={styles.emptyState}>
-                    Data staff tidak ditemukan.
+                  <td colSpan={8} className={styles.emptyState}>
+                    Data pengguna tidak ditemukan.
                   </td>
                 </tr>
               )}
