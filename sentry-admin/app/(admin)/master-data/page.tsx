@@ -7,8 +7,8 @@ import styles from "./master-data.module.css";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
 
 const ENDPOINTS = {
-  kelurahan: `${API_BASE_URL}/osint/kelurahan`,
-  kecamatan: `${API_BASE_URL}/osint/kecamatan`,
+  kelurahan: `${API_BASE_URL}/kelurahan`,
+  kecamatan: `${API_BASE_URL}/kecamatan`,
   jenisBencana: `${API_BASE_URL}/jenis-bencana`,
   namaBencana: `${API_BASE_URL}/nama-bencana`,
 };

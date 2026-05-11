@@ -13,6 +13,11 @@ const downloadPdfRoutes = require("./humint/download_pdf");
 const rekapPdfRoutes = require("./humint/rekap_pdf");
 const logAktivitasRoutes = require("./logAktivitasRoutes");
 
+const dataKelurahanRoutes = require("./data_kelurahan");
+const dataKecamatanRoutes = require("./data_kecamatan");
+const jenisBencanaRoutes = require("./jenis_bencana");
+const namaBencanaRoutes = require("./nama_bencana");
+
 router.use("/user", userRoutes);
 router.use("/osint", osintRoutes);
 router.use("/log-aktivitas", logAktivitasRoutes);
@@ -25,5 +30,10 @@ router.use("/humint", humintRoutes);
 
 router.use("/humint/admin", adminHumintRoutes);
 router.use("/humint/user", userHumintRoutes);
+
+router.use("/kelurahan", dataKelurahanRoutes);
+router.use("/kecamatan", dataKecamatanRoutes);
+router.use("/jenis-bencana", jenisBencanaRoutes);
+router.use("/nama-bencana", namaBencanaRoutes);
 
 module.exports = router;
