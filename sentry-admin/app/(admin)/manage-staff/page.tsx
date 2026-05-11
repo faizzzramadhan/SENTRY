@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 // api backend
 const RAW_API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555/api";
 
 const API_BASE_URL = RAW_API_BASE_URL
   .replace(/\/$/, "")
@@ -82,6 +82,12 @@ type DeleteTarget = {
   ids: number[];
   label: string;
 };
+
+type FeedbackModal = {
+  type: "success" | "error";
+  title: string;
+  message: string;
+} | null;
 
 const emptyForm: StaffForm = {
   usr_nama_lengkap: "",
@@ -331,7 +337,7 @@ export default function ManageStaffPage() {
 
   const [search, setSearch] = useState("");
   const [sortType, setSortType] = useState<SortType>("newest");
-  const [selectedCreatedBy, setSelectedCreatedBy] = useState("Semua");
+  const [selectedRole, setSelectedRole] = useState("Semua");
   const [openFilter, setOpenFilter] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -347,6 +353,8 @@ export default function ManageStaffPage() {
   const [form, setForm] = useState<StaffForm>(emptyForm);
   const [modalSaving, setModalSaving] = useState(false);
   const [modalErrorMsg, setModalErrorMsg] = useState("");
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState<FeedbackModal>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteSaving, setDeleteSaving] = useState(false);
@@ -420,10 +428,7 @@ export default function ManageStaffPage() {
     fetchData();
   }, [fetchData]);
 
-  const createdByOptions = useMemo(() => {
-    const unique = Array.from(new Set(rows.map((item) => item.createdBy)));
-    return ["Semua", ...unique];
-  }, [rows]);
+  const roleOptions = ["Semua", "Admin", "Staff"];
 
   const filteredRows = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -437,10 +442,10 @@ export default function ManageStaffPage() {
               .toLowerCase()
               .includes(keyword);
 
-      const matchCreatedBy =
-        selectedCreatedBy === "Semua" ? true : row.createdBy === selectedCreatedBy;
+      const matchRole =
+        selectedRole === "Semua" ? true : row.roleLabel === selectedRole;
 
-      return matchSearch && matchCreatedBy;
+      return matchSearch && matchRole;
     });
 
     return [...result].sort((a, b) => {
@@ -448,7 +453,7 @@ export default function ManageStaffPage() {
       const timeB = parseDate(b.lastUpdatedDateRaw);
       return sortType === "newest" ? timeB - timeA : timeA - timeB;
     });
-  }, [rows, search, selectedCreatedBy, sortType]);
+  }, [rows, search, selectedRole, sortType]);
 
   const filteredIds = useMemo(() => filteredRows.map((row) => row.id), [filteredRows]);
 
@@ -472,7 +477,7 @@ export default function ManageStaffPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, selectedCreatedBy, sortType]);
+  }, [search, selectedRole, sortType]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -510,6 +515,7 @@ export default function ManageStaffPage() {
     setForm(emptyForm);
     setModalErrorMsg("");
     setModalSaving(false);
+    setEditConfirmOpen(false);
   };
 
   const openAddModal = () => {
@@ -550,7 +556,7 @@ export default function ManageStaffPage() {
     }));
   };
 
-  const handleSaveStaff = async () => {
+  const handleSaveStaff = async (confirmed = false) => {
     if (!token) {
       router.replace("/login");
       return;
@@ -581,11 +587,17 @@ export default function ManageStaffPage() {
       return;
     }
 
+    const isEdit = modalMode === "edit";
+
+    if (isEdit && !confirmed) {
+      setEditConfirmOpen(true);
+      return;
+    }
+
     try {
       setModalSaving(true);
       setModalErrorMsg("");
 
-      const isEdit = modalMode === "edit";
       const url = isEdit
         ? `${API_BASE_URL}/user/${activeStaffId}`
         : `${API_BASE_URL}/user`;
@@ -613,14 +625,33 @@ export default function ManageStaffPage() {
       const data = await parseJsonResponse(res);
 
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data pengguna.");
+        const message = data?.message || (isEdit ? "Gagal memperbarui data user." : "Gagal menyimpan data user.");
+        setModalErrorMsg(message);
+        setFeedbackModal({
+          type: "error",
+          title: isEdit ? "Update Gagal" : "Simpan Gagal",
+          message,
+        });
         return;
       }
 
       resetModal();
       await fetchData();
+      setFeedbackModal({
+        type: "success",
+        title: isEdit ? "Update Berhasil" : "Data Berhasil Ditambahkan",
+        message: isEdit
+          ? "Data user berhasil diperbarui."
+          : "Data user berhasil ditambahkan.",
+      });
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi kesalahan saat menyimpan data pengguna.");
+      const message = err?.message || (isEdit ? "Terjadi kesalahan saat memperbarui data user." : "Terjadi kesalahan saat menyimpan data user.");
+      setModalErrorMsg(message);
+      setFeedbackModal({
+        type: "error",
+        title: isEdit ? "Update Gagal" : "Simpan Gagal",
+        message,
+      });
     } finally {
       setModalSaving(false);
     }
@@ -651,7 +682,7 @@ export default function ManageStaffPage() {
     openDeleteModal({
       mode: "bulk",
       ids: idsToDelete,
-      label: `${idsToDelete.length} data staff terpilih`,
+      label: `${idsToDelete.length} data user terpilih`,
     });
   };
 
@@ -691,14 +722,34 @@ export default function ManageStaffPage() {
       await fetchData();
 
       if (failed.length > 0) {
-        setErrorMsg(`${failed.length} data gagal dihapus. Silakan cek kembali.`);
+        const message = `${failed.length} data gagal dihapus. Silakan cek kembali.`;
+        setErrorMsg(message);
+        setFeedbackModal({
+          type: "error",
+          title: "Hapus Data Gagal",
+          message,
+        });
         return;
       }
 
       setSelectedIds(new Set());
       setDeleteTarget(null);
+      setFeedbackModal({
+        type: "success",
+        title: "Hapus Data Berhasil",
+        message:
+          deleteTarget.mode === "single"
+            ? "Data user berhasil dihapus."
+            : "Data user terpilih berhasil dihapus.",
+      });
     } catch (err: any) {
-      setErrorMsg(err?.message || "Terjadi kesalahan saat menghapus data pengguna.");
+      const message = err?.message || "Terjadi kesalahan saat menghapus data user.";
+      setErrorMsg(message);
+      setFeedbackModal({
+        type: "error",
+        title: "Hapus Data Gagal",
+        message,
+      });
     } finally {
       setDeleteSaving(false);
     }
@@ -708,7 +759,7 @@ export default function ManageStaffPage() {
     <>
       <div className={styles.page}>
         <div className={styles.topRow}>
-          <h1 className={styles.pageTitle}>MANAJEMEN PENGGUNA</h1>
+          <h1 className={styles.pageTitle}>MANAJEMEN USER</h1>
           <div className={styles.hello}>Halo, {userName}</div>
         </div>
 
@@ -761,18 +812,18 @@ export default function ManageStaffPage() {
 
               {openFilter && (
                 <div className={styles.dropdownMenu}>
-                  <div className={styles.dropdownTitle}>Filter berdasarkan pembuat data</div>
+                  <div className={styles.dropdownTitle}>Filter berdasarkan role</div>
 
                   <div className={styles.dropdownOptionList}>
-                    {createdByOptions.map((item) => (
+                    {roleOptions.map((item) => (
                       <button
                         key={item}
                         type="button"
                         className={`${styles.dropdownOption} ${
-                          selectedCreatedBy === item ? styles.dropdownOptionActive : ""
+                          selectedRole === item ? styles.dropdownOptionActive : ""
                         }`}
                         onClick={() => {
-                          setSelectedCreatedBy(item);
+                          setSelectedRole(item);
                           setOpenFilter(false);
                         }}
                       >
@@ -936,7 +987,85 @@ export default function ManageStaffPage() {
         onClose={resetModal}
         onSave={handleSaveStaff}
       />
-            {deleteTarget ? (
+
+      {editConfirmOpen ? (
+        <div
+          className={styles.confirmModalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-confirm-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !modalSaving) {
+              setEditConfirmOpen(false);
+            }
+          }}
+        >
+          <div className={styles.confirmModalCard}>
+            <h2 id="edit-confirm-title" className={styles.confirmModalTitle}>
+              Konfirmasi Perubahan Data
+            </h2>
+            <p className={styles.confirmModalText}>
+              Apakah Anda yakin ingin menyimpan perubahan pada akun
+              <strong> {form.usr_nama_lengkap || "user ini"}</strong>?
+            </p>
+            <div className={styles.confirmModalActions}>
+              <button
+                type="button"
+                className={styles.confirmCancelButton}
+                onClick={() => setEditConfirmOpen(false)}
+                disabled={modalSaving}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className={styles.confirmPrimaryButton}
+                onClick={() => handleSaveStaff(true)}
+                disabled={modalSaving}
+              >
+                {modalSaving ? "Menyimpan..." : "Ya, Simpan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {feedbackModal ? (
+        <div
+          className={styles.feedbackModalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="feedback-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setFeedbackModal(null);
+          }}
+        >
+          <div
+            className={`${styles.feedbackModalCard} ${
+              feedbackModal.type === "success"
+                ? styles.feedbackModalSuccess
+                : styles.feedbackModalError
+            }`}
+          >
+            <div className={styles.feedbackModalIcon}>
+              {feedbackModal.type === "success" ? "✓" : "!"}
+            </div>
+            <h2 id="feedback-modal-title" className={styles.feedbackModalTitle}>
+              {feedbackModal.title}
+            </h2>
+            <p className={styles.feedbackModalText}>{feedbackModal.message}</p>
+            <button
+              type="button"
+              className={styles.feedbackModalButton}
+              onClick={() => setFeedbackModal(null)}
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteTarget ? (
         <div
           className={styles.deleteModalOverlay}
           role="dialog"
@@ -947,16 +1076,14 @@ export default function ManageStaffPage() {
           }}
         >
           <div className={styles.deleteModalCard}>
+            <div className={styles.deleteModalIconDanger}>!</div>
             <h2 id="delete-modal-title" className={styles.deleteModalTitle}>
-              Apakah anda
-              <br />
-              yakin Menghapus data ini?
+              Konfirmasi Hapus Data
             </h2>
 
             <div className={styles.deleteModalInfo}>
-              {deleteTarget.mode === "single"
-                ? deleteTarget.label
-                : deleteTarget.label}
+              Apakah Anda yakin ingin menghapus
+              <strong> {deleteTarget.label}</strong>?
             </div>
 
             <div className={styles.deleteModalActions}>
@@ -975,7 +1102,7 @@ export default function ManageStaffPage() {
                 onClick={confirmDeleteStaff}
                 disabled={deleteSaving}
               >
-                {deleteSaving ? "Menghapus..." : "Iya"}
+                {deleteSaving ? "Menghapus..." : "Hapus"}
               </button>
             </div>
           </div>
