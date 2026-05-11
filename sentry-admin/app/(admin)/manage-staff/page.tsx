@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // api backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555/api";
+const API_BASE_URL = RAW_API_BASE_URL.replace(/\/humint\/?$/, "");
 
 function decodeJwtPayload(token: string): any | null {
   try {

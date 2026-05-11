@@ -4,13 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./master-data.module.css";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+const RAW_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555/api";
+
+const API_BASE_URL = RAW_API_BASE_URL
+  .replace(/\/$/, "")
+  .replace(/\/humint$/i, "")
+  .replace(/\/osint$/i, "");
 
 const ENDPOINTS = {
   kelurahan: `${API_BASE_URL}/osint/kelurahan`,
   kecamatan: `${API_BASE_URL}/osint/kecamatan`,
-  jenisBencana: `${API_BASE_URL}/jenis-bencana`,
-  namaBencana: `${API_BASE_URL}/nama-bencana`,
+  jenisBencana: `${API_BASE_URL}/humint/jenis-bencana`,
+  namaBencana: `${API_BASE_URL}/humint/nama-bencana`,
 };
 
 type TabKey = "kelurahan" | "kecamatan" | "jenis_bencana" | "nama_bencana";
