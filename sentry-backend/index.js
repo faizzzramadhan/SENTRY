@@ -15,8 +15,6 @@ const humintLaporanRoutes = require("./src/routes/humint/laporan");
 const detailLaporanRoutes = require("./src/routes/humint/detail_laporan");
 const editLaporanRoutes = require("./src/routes/humint/edit_laporan");
 
-const logAktivitasRoutes = require("./src/routes/logAktivitasRoutes");
-
 const { startTikTokScheduler } = require("./src/jobs/tiktokScheduler");
 const { startXScheduler } = require("./src/jobs/xScheduler");
 const { startBmkgScheduler } = require("./src/jobs/bmkgScheduler");
@@ -31,6 +29,7 @@ app.use(express.urlencoded({ extended: true }));
 /* ================= STATIC FILE ================= */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+/* ================= AUTO LOG AKTIVITAS ================= */
 app.use(
   autoLogAktivitas({
     logGet: true,
@@ -41,18 +40,19 @@ app.use(
 
 /* ================= ROUTES UTAMA ================= */
 app.use("/", routes);
+
+/*
+  Route ini tetap dipasang di root karena frontend memakai:
+  /jenis-bencana
+  /nama-bencana
+*/
 app.use("/jenis-bencana", jenisBencanaRoutes);
 app.use("/nama-bencana", namaBencanaRoutes);
-app.use("/log-aktivitas", logAktivitasRoutes);
 
-// folder upload image
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-/* ================= ROUTES HUMINT ================= */
+/* ================= ROUTES HUMINT PUBLIC/API ================= */
 app.use("/api/humint", humintLaporanRoutes);
 app.use("/api/humint", detailLaporanRoutes);
 app.use("/api/humint", editLaporanRoutes);
-
 
 /* ================= SERVER ================= */
 app.listen(5555, () => {

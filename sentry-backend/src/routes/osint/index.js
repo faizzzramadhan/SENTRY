@@ -9,6 +9,9 @@ const bmkgRoutes = require("./bmkg");
 const osintDataRoutes = require("./osint_data");
 const osintReferenceRoutes = require("./osint_reference");
 
+const dataKelurahanRoutes = require("../data_kelurahan");
+const dataKecamatanRoutes = require("../data_kecamatan");
+
 router.use("/keyword", dataKeywordRoutes);
 router.use("/kpi", osintKpiRoutes);
 router.use("/tiktok-crawler", tiktokCrawlerRoutes);
@@ -16,5 +19,8 @@ router.use("/x-crawler", xCrawlerRoutes);
 router.use("/bmkg", bmkgRoutes);
 router.use("/data", osintDataRoutes);
 router.use("/reference", osintReferenceRoutes);
+
+router.use("/kelurahan", dataKelurahanRoutes);
+router.use("/kecamatan", dataKecamatanRoutes);
 
 module.exports = router;
