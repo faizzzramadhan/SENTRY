@@ -31,12 +31,6 @@ app.use(express.urlencoded({ extended: true }));
 /* ================= STATIC FILE ================= */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-/*
-  Auto log aktivitas staff/admin.
-
-  Dipasang setelah middleware body parser,
-  dan sebelum routes utama agar semua request route bisa tercatat.
-*/
 app.use(
   autoLogAktivitas({
     logGet: true,
