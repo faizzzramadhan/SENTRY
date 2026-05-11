@@ -644,7 +644,7 @@ export default function ManageStaffPage() {
     <>
       <div className={styles.page}>
         <div className={styles.topRow}>
-          <h1 className={styles.pageTitle}>MANAGE STAFF</h1>
+          <h1 className={styles.pageTitle}>MANAGE USER</h1>
           <div className={styles.hello}>Halo, {userName}</div>
         </div>
 
