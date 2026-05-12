@@ -72,9 +72,36 @@ function getStatusClass(status?: string) {
   return styles.statusWaiting
 }
 
+function formatJenisKorban(value?: string | null) {
+  if (!value) return '-'
+
+  const normalizedValue = String(value).trim().toUpperCase()
+
+  const labelMap: Record<string, string> = {
+    TIDAK_ADA: 'Tidak Ada',
+    TERDAMPAK: 'Terdampak',
+    MENINGGAL: 'Meninggal',
+    HILANG: 'Hilang',
+    MENGUNGSI: 'Mengungsi',
+    LUKA_SAKIT: 'Luka/Sakit',
+  }
+
+  return labelMap[normalizedValue] || value
+}
+
+function getNumberValue(value: any) {
+  const numberValue = Number(value || 0)
+  return Number.isFinite(numberValue) ? numberValue : 0
+}
+
+function getTextValue(value: any) {
+  if (value === undefined || value === null || value === '') return '-'
+  return String(value)
+}
 
 function mapStatusData(data: any) {
   const status = data?.status_laporan || 'IDENTIFIKASI'
+  const rawIdentifikasi = data?.identifikasi || {}
 
   return {
     ...data,
@@ -103,6 +130,33 @@ function mapStatusData(data: any) {
       foto_kejadian: data?.foto_kejadian,
       foto_kerusakan: data?.foto_kerusakan,
     },
+    identifikasi: {
+      jenis_korban: rawIdentifikasi?.jenis_korban || data?.jenis_korban || 'TIDAK_ADA',
+      jumlah_korban_identifikasi: getNumberValue(
+        rawIdentifikasi?.jumlah_korban_identifikasi ?? data?.jumlah_korban_identifikasi
+      ),
+      jumlah_terdampak: getNumberValue(
+        rawIdentifikasi?.jumlah_terdampak ?? data?.jumlah_terdampak
+      ),
+      jumlah_meninggal: getNumberValue(
+        rawIdentifikasi?.jumlah_meninggal ?? data?.jumlah_meninggal
+      ),
+      jumlah_hilang: getNumberValue(
+        rawIdentifikasi?.jumlah_hilang ?? data?.jumlah_hilang
+      ),
+      jumlah_mengungsi: getNumberValue(
+        rawIdentifikasi?.jumlah_mengungsi ?? data?.jumlah_mengungsi
+      ),
+      jumlah_luka_sakit: getNumberValue(
+        rawIdentifikasi?.jumlah_luka_sakit ?? data?.jumlah_luka_sakit
+      ),
+      kerusakan_identifikasi:
+        rawIdentifikasi?.kerusakan_identifikasi ?? data?.kerusakan_identifikasi ?? null,
+      terdampak_identifikasi:
+        rawIdentifikasi?.terdampak_identifikasi ?? data?.terdampak_identifikasi ?? null,
+      penyebab_identifikasi:
+        rawIdentifikasi?.penyebab_identifikasi ?? data?.penyebab_identifikasi ?? null,
+    },
     tindak_lanjut: data?.tindak_lanjut || null,
   }
 }
@@ -125,6 +179,23 @@ export default function CekStatusPage() {
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean)
+  }, [detail])
+
+  const identifikasiKorban = useMemo(() => {
+    const idnt = detail?.identifikasi || {}
+
+    return {
+      jenis_korban: idnt.jenis_korban || 'TIDAK_ADA',
+      jumlah_korban_identifikasi: getNumberValue(idnt.jumlah_korban_identifikasi),
+      jumlah_terdampak: getNumberValue(idnt.jumlah_terdampak),
+      jumlah_meninggal: getNumberValue(idnt.jumlah_meninggal),
+      jumlah_hilang: getNumberValue(idnt.jumlah_hilang),
+      jumlah_mengungsi: getNumberValue(idnt.jumlah_mengungsi),
+      jumlah_luka_sakit: getNumberValue(idnt.jumlah_luka_sakit),
+      kerusakan_identifikasi: idnt.kerusakan_identifikasi || '',
+      terdampak_identifikasi: idnt.terdampak_identifikasi || '',
+      penyebab_identifikasi: idnt.penyebab_identifikasi || '',
+    }
   }, [detail])
 
   const fetchStatus = async (id: string) => {
@@ -260,15 +331,47 @@ export default function CekStatusPage() {
                     <InfoRow label="Kronologi" value={detail.kejadian?.kronologi} />
                   </DetailSection>
 
-                  <DetailSection title="Data Identifikasi">
-                    <InfoRow label="Jenis Korban" value={detail.identifikasi?.jenis_korban} />
+                  <DetailSection title="Data Identifikasi Korban">
                     <InfoRow
-                      label="Jumlah Korban"
-                      value={`${detail.identifikasi?.jumlah_korban_identifikasi ?? 0} orang`}
+                      label="Jenis Korban"
+                      value={formatJenisKorban(identifikasiKorban.jenis_korban)}
                     />
-                    <InfoRow label="Kerusakan" value={detail.identifikasi?.kerusakan_identifikasi} />
-                    <InfoRow label="Terdampak" value={detail.identifikasi?.terdampak_identifikasi} />
-                    <InfoRow label="Penyebab" value={detail.identifikasi?.penyebab_identifikasi} />
+                    <InfoRow
+                      label="Jumlah Korban Identifikasi"
+                      value={`${identifikasiKorban.jumlah_korban_identifikasi} orang`}
+                    />
+                    <InfoRow
+                      label="Jumlah Terdampak"
+                      value={`${identifikasiKorban.jumlah_terdampak} orang`}
+                    />
+                    <InfoRow
+                      label="Jumlah Meninggal"
+                      value={`${identifikasiKorban.jumlah_meninggal} orang`}
+                    />
+                    <InfoRow
+                      label="Jumlah Hilang"
+                      value={`${identifikasiKorban.jumlah_hilang} orang`}
+                    />
+                    <InfoRow
+                      label="Jumlah Mengungsi"
+                      value={`${identifikasiKorban.jumlah_mengungsi} orang`}
+                    />
+                    <InfoRow
+                      label="Jumlah Luka/Sakit"
+                      value={`${identifikasiKorban.jumlah_luka_sakit} orang`}
+                    />
+                    <InfoRow
+                      label="Kerusakan Identifikasi"
+                      value={getTextValue(identifikasiKorban.kerusakan_identifikasi)}
+                    />
+                    <InfoRow
+                      label="Terdampak Identifikasi"
+                      value={getTextValue(identifikasiKorban.terdampak_identifikasi)}
+                    />
+                    <InfoRow
+                      label="Penyebab Identifikasi"
+                      value={getTextValue(identifikasiKorban.penyebab_identifikasi)}
+                    />
                   </DetailSection>
 
                   {(detail.tindak_lanjut?.rekomendasi_tindak_lanjut || detail.tindak_lanjut?.tindak_lanjut) ? (

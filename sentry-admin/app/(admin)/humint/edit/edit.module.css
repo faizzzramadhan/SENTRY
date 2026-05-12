@@ -276,6 +276,32 @@
   font-size: 15px;
 }
 
+
+.identificationVictimList {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.identificationVictimItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: #111;
+  border: 1px solid #333;
+  color: #ddd;
+  font-size: 12px;
+}
+
+.identificationVictimItem strong {
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* ================= RINGKASAN KORBAN DARK CARD ================= */
 .korbanSummaryTitleMain {
   margin: 28px 0 14px;
@@ -308,7 +334,7 @@
 
 .korbanCardGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
   margin-top: 12px;
 }
@@ -316,11 +342,11 @@
 .korbanCardDark {
   border: 1px solid #2e2e33;
   background: #1a1a1f;
-  border-radius: 16px;
-  padding: 14px;
+  border-radius: 10px;
+  padding: 11px 12px;
   text-align: left;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
   transition: all 0.2s ease;
 }
 
@@ -331,9 +357,9 @@
 }
 
 .korbanCardDarkActive {
-  border: 2px solid #3b82f6;
-  background: #1e293b;
-  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.18);
+  border: 1px solid #555;
+  background: #24242a;
+  box-shadow: none;
 }
 
 .korbanCardTitleDark {
@@ -344,7 +370,7 @@
 }
 
 .korbanCardNumberDark {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 900;
   color: #ffffff;
   line-height: 1;

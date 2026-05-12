@@ -38,6 +38,32 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         defaultValue: "PRIORITAS RENDAH",
       },
+      prioritas_sistem: {
+        type: DataTypes.ENUM(
+          "PRIORITAS RENDAH",
+          "PRIORITAS SEDANG",
+          "PRIORITAS TINGGI"
+        ),
+        allowNull: true,
+        defaultValue: "PRIORITAS RENDAH",
+      },
+      prioritas_manual: {
+        type: DataTypes.ENUM(
+          "PRIORITAS RENDAH",
+          "PRIORITAS SEDANG",
+          "PRIORITAS TINGGI"
+        ),
+        allowNull: true,
+      },
+      is_prioritas_manual: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      alasan_prioritas_manual: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
       status_laporan: {
         type: DataTypes.ENUM(
           "IDENTIFIKASI",

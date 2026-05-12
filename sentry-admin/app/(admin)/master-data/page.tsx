@@ -5,18 +5,21 @@ import { useRouter } from "next/navigation";
 import styles from "./master-data.module.css";
 
 const RAW_API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555/api";
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "http://localhost:5555";
 
 const API_BASE_URL = RAW_API_BASE_URL
   .replace(/\/$/, "")
+  .replace(/\/api\/humint$/i, "")
   .replace(/\/humint$/i, "")
-  .replace(/\/osint$/i, "");
+  .replace(/\/api$/i, "");
 
 const ENDPOINTS = {
   kelurahan: `${API_BASE_URL}/osint/kelurahan`,
   kecamatan: `${API_BASE_URL}/osint/kecamatan`,
-  jenisBencana: `${API_BASE_URL}/humint/jenis-bencana`,
-  namaBencana: `${API_BASE_URL}/humint/nama-bencana`,
+  jenisBencana: `${API_BASE_URL}/jenis-bencana`,
+  namaBencana: `${API_BASE_URL}/nama-bencana`,
 };
 
 type TabKey = "kelurahan" | "kecamatan" | "jenis_bencana" | "nama_bencana";
@@ -44,7 +47,6 @@ type KecamatanItem = {
 type JenisBencanaItem = {
   jenis_id: number;
   nama_jenis: string;
-  icon_marker?: string | null;
   created_by: string;
   last_update_date: string;
 };
@@ -58,8 +60,7 @@ type NamaBencanaItem = {
   jenis_bencana?: {
     jenis_id: number;
     nama_jenis: string;
-    icon_marker?: string | null;
-  } | null;
+    } | null;
 };
 
 // decode
@@ -217,7 +218,7 @@ function TextModal({
         <button
           type="button"
           className={styles.modalSaveButton}
-          onClick={onSave}
+          onClick={() => onSave()}
           disabled={saving}
         >
           {saving ? "Saving..." : "Save"}
@@ -251,6 +252,19 @@ export default function MasterDataPage() {
 
   const [modalSaving, setModalSaving] = useState(false);
   const [modalErrorMsg, setModalErrorMsg] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    action: null | (() => Promise<void> | void);
+  }>({
+    open: false,
+    title: "",
+    message: "",
+    confirmText: "Lanjutkan",
+    action: null,
+  });
 
   const [kelurahanModalOpen, setKelurahanModalOpen] = useState(false);
   const [kecamatanModalOpen, setKecamatanModalOpen] = useState(false);
@@ -277,11 +291,8 @@ export default function MasterDataPage() {
   });
 
   const [jenisForm, setJenisForm] = useState({
-  nama_jenis: "",
-  icon_marker_file: null as File | null,
-  icon_marker_file_name: "",
-  existing_icon_marker: "",
-});
+    nama_jenis: "",
+  });
 
   const [namaBencanaForm, setNamaBencanaForm] = useState({
     nama_bencana: "",
@@ -395,7 +406,6 @@ export default function MasterDataPage() {
       jenisRows.map((item) => ({
         id: item.jenis_id,
         nama: item.nama_jenis,
-        iconMarker: item.icon_marker || "-",
         createdBy: item.created_by,
         updatedAt: item.last_update_date,
         raw: item,
@@ -490,6 +500,45 @@ export default function MasterDataPage() {
 
   const resetModalError = () => setModalErrorMsg("");
 
+  const openConfirmDialog = ({
+    title,
+    message,
+    confirmText = "Lanjutkan",
+    action,
+  }: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    action: () => Promise<void> | void;
+  }) => {
+    setConfirmDialog({
+      open: true,
+      title,
+      message,
+      confirmText,
+      action,
+    });
+  };
+
+  const closeConfirmDialog = () => {
+    setConfirmDialog({
+      open: false,
+      title: "",
+      message: "",
+      confirmText: "Lanjutkan",
+      action: null,
+    });
+  };
+
+  const executeConfirmDialog = async () => {
+    const action = confirmDialog.action;
+    closeConfirmDialog();
+
+    if (action) {
+      await action();
+    }
+  };
+
   const openAddModal = () => {
     resetModalError();
 
@@ -511,10 +560,7 @@ export default function MasterDataPage() {
       setEditingJenisId(null);
       setJenisForm({
         nama_jenis: "",
-        icon_marker_file: null,
-        icon_marker_file_name: "",
-        existing_icon_marker: "",
-    });
+      });
       setJenisModalOpen(true);
     } else {
       setEditingNamaBencanaId(null);
@@ -548,9 +594,6 @@ export default function MasterDataPage() {
       setEditingJenisId(row.raw.jenis_id);
       setJenisForm({
         nama_jenis: row.raw.nama_jenis || "",
-        icon_marker_file: null,
-        icon_marker_file_name: "",
-        existing_icon_marker: row.raw.icon_marker || "",
       });
       setJenisModalOpen(true);
     } else {
@@ -563,13 +606,27 @@ export default function MasterDataPage() {
     }
   };
 
-  const saveKelurahan = async () => {
+  const saveKelurahan = async (confirmed = false) => {
     if (!token) return;
 
     if (!kelurahanForm.nama_kelurahan.trim()) {
       setModalErrorMsg("Nama kelurahan wajib diisi.");
       return;
     }
+
+
+  if (!confirmed) {
+    const isEditAction = Boolean(editingKelurahanId);
+    openConfirmDialog({
+      title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+      message: isEditAction
+        ? "Apakah Anda yakin ingin menyimpan perubahan data kelurahan?"
+        : "Apakah Anda yakin ingin menambahkan data kelurahan?",
+      confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+      action: () => saveKelurahan(true),
+    });
+    return;
+  }
 
     try {
       setModalSaving(true);
@@ -608,7 +665,7 @@ export default function MasterDataPage() {
     }
   };
 
-  const saveKecamatan = async () => {
+  const saveKecamatan = async (confirmed = false) => {
     if (!token) return;
 
     if (!kecamatanForm.nama_kecamatan.trim()) {
@@ -620,6 +677,20 @@ export default function MasterDataPage() {
       setModalErrorMsg("File geojson wajib diupload.");
       return;
     }
+
+
+  if (!confirmed) {
+    const isEditAction = Boolean(editingKecamatanId);
+    openConfirmDialog({
+      title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+      message: isEditAction
+        ? "Apakah Anda yakin ingin menyimpan perubahan data kecamatan?"
+        : "Apakah Anda yakin ingin menambahkan data kecamatan?",
+      confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+      action: () => saveKecamatan(true),
+    });
+    return;
+  }
 
     try {
       setModalSaving(true);
@@ -662,11 +733,25 @@ export default function MasterDataPage() {
     }
   };
 
-  const saveJenis = async () => {
+  const saveJenis = async (confirmed = false) => {
   if (!token) return;
 
   if (!jenisForm.nama_jenis.trim()) {
     setModalErrorMsg("Nama jenis bencana wajib diisi.");
+    return;
+  }
+
+
+  if (!confirmed) {
+    const isEditAction = Boolean(editingJenisId);
+    openConfirmDialog({
+      title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+      message: isEditAction
+        ? "Apakah Anda yakin ingin menyimpan perubahan data jenis bencana?"
+        : "Apakah Anda yakin ingin menambahkan data jenis bencana?",
+      confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+      action: () => saveJenis(true),
+    });
     return;
   }
 
@@ -679,19 +764,15 @@ export default function MasterDataPage() {
       ? `${ENDPOINTS.jenisBencana}/${editingJenisId}`
       : ENDPOINTS.jenisBencana;
 
-    const formData = new FormData();
-    formData.append("nama_jenis", jenisForm.nama_jenis.trim());
-
-    if (jenisForm.icon_marker_file) {
-      formData.append("icon_marker_file", jenisForm.icon_marker_file);
-    }
-
     const res = await fetch(url, {
       method: isEdit ? "PUT" : "POST",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: formData,
+      body: JSON.stringify({
+        nama_jenis: jenisForm.nama_jenis.trim(),
+      }),
     });
 
     const data = await parseApiResponse(res);
@@ -709,7 +790,7 @@ export default function MasterDataPage() {
   }
 };
 
-  const saveNamaBencana = async () => {
+  const saveNamaBencana = async (confirmed = false) => {
     if (!token) return;
 
     if (!namaBencanaForm.nama_bencana.trim()) {
@@ -721,6 +802,20 @@ export default function MasterDataPage() {
       setModalErrorMsg("Jenis bencana wajib dipilih.");
       return;
     }
+
+
+  if (!confirmed) {
+    const isEditAction = Boolean(editingNamaBencanaId);
+    openConfirmDialog({
+      title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+      message: isEditAction
+        ? "Apakah Anda yakin ingin menyimpan perubahan data nama bencana?"
+        : "Apakah Anda yakin ingin menambahkan data nama bencana?",
+      confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+      action: () => saveNamaBencana(true),
+    });
+    return;
+  }
 
     try {
       setModalSaving(true);
@@ -758,15 +853,22 @@ export default function MasterDataPage() {
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = async (confirmed = false) => {
     if (!token) return;
     const ids = Array.from(currentSelection);
     if (ids.length === 0) return;
 
-    const confirmed = window.confirm(`Hapus ${ids.length} data terpilih?`);
-    if (!confirmed) return;
+    if (!confirmed) {
+      openConfirmDialog({
+        title: "Konfirmasi Hapus Data",
+        message: `Apakah Anda yakin ingin menghapus ${ids.length} data terpilih? Data yang dihapus tidak dapat dikembalikan.`,
+        confirmText: "Hapus Data",
+        action: () => handleBulkDelete(true),
+      });
+      return;
+    }
 
-    let url = "";
+    let url = ""; 
     if (activeTab === "kelurahan") url = `${ENDPOINTS.kelurahan}/bulk-delete`;
     if (activeTab === "kecamatan") url = `${ENDPOINTS.kecamatan}/bulk-delete`;
     if (activeTab === "jenis_bencana") url = `${ENDPOINTS.jenisBencana}/bulk-delete`;
@@ -915,7 +1017,6 @@ export default function MasterDataPage() {
               </th>
               <th>No</th>
               <th>Nama Jenis Bencana</th>
-              <th>Icon Marker</th>
               <th>Created By</th>
               <th>Last Updated Date</th>
               <th>Aksi</th>
@@ -935,17 +1036,6 @@ export default function MasterDataPage() {
                   </td>
                   <td>{(page - 1) * rowsPerPage + index + 1}</td>
                   <td>{row.nama}</td>
-                  <td>
-                    {row.iconMarker && row.iconMarker !== "-" ? (
-                        <img
-                        src={`${API_BASE_URL}${row.iconMarker}`}
-                        alt={row.nama}
-                        className={styles.iconMarkerImage}
-                        />
-                    ) : (
-                        "-"
-                    )}
-                    </td>
                   <td>{row.createdBy}</td>
                   <td>{formatDateTime(row.updatedAt)}</td>
                   <td>
@@ -957,7 +1047,7 @@ export default function MasterDataPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={7} className={styles.emptyState}>Data jenis bencana tidak ditemukan.</td>
+                <td colSpan={6} className={styles.emptyState}>Data jenis bencana tidak ditemukan.</td>
               </tr>
             )}
           </tbody>
@@ -1094,7 +1184,7 @@ export default function MasterDataPage() {
 
               <div className={styles.actionsGroup}>
                 {currentSelection.size > 0 ? (
-                  <button type="button" className={styles.dangerButton} onClick={handleBulkDelete}>
+                  <button type="button" className={styles.dangerButton} onClick={() => handleBulkDelete()}>
                     Hapus Terpilih ({currentSelection.size})
                   </button>
                 ) : null}
@@ -1312,40 +1402,6 @@ export default function MasterDataPage() {
               />
             </div>
 
-            <div className={styles.formField}>
-              <label className={styles.modalLabel}>Icon Marker</label>
-              <input
-                className={styles.fileInput}
-                type="file"
-                accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setJenisForm((prev) => ({
-                    ...prev,
-                    icon_marker_file: file,
-                    icon_marker_file_name: file?.name || "",
-                  }));
-                }}
-              />
-
-              <div className={styles.fileHint}>
-                {jenisForm.icon_marker_file_name
-                  ? `File dipilih: ${jenisForm.icon_marker_file_name}`
-                  : editingJenisId
-                  ? "Kosongkan jika tidak ingin mengganti gambar icon marker."
-                  : "Upload gambar png/jpg/jpeg/webp/svg"}
-              </div>
-
-              {jenisForm.existing_icon_marker ? (
-                <div className={styles.imagePreviewWrap}>
-                  <img
-                    src={`${API_BASE_URL}${jenisForm.existing_icon_marker}`}
-                    alt="Preview icon marker"
-                    className={styles.iconMarkerPreview}
-                  />
-                </div>
-              ) : null}
-            </div>
           </>
         }
       />
@@ -1387,6 +1443,33 @@ export default function MasterDataPage() {
           </>
         }
       />
+      {confirmDialog.open ? (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmCard}>
+            <div className={styles.confirmIcon}>!</div>
+            <h3 className={styles.confirmTitle}>{confirmDialog.title}</h3>
+            <p className={styles.confirmMessage}>{confirmDialog.message}</p>
+
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.confirmCancelButton}
+                onClick={closeConfirmDialog}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className={styles.confirmSubmitButton}
+                onClick={executeConfirmDialog}
+              >
+                {confirmDialog.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </>
   );
 }

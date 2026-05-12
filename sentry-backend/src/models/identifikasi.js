@@ -13,6 +13,12 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
     },
 
+    jumlah_korban_identifikasi: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+    },
+
     jenis_korban: {
       type: DataTypes.ENUM(
         "TIDAK_ADA",
@@ -26,7 +32,31 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: "TIDAK_ADA",
     },
 
-    jumlah_korban_identifikasi: {
+    jumlah_terdampak: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+    },
+
+    jumlah_meninggal: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+    },
+
+    jumlah_hilang: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+    },
+
+    jumlah_mengungsi: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+    },
+
+    jumlah_luka_sakit: {
       type: DataTypes.INTEGER,
       allowNull: true,
       defaultValue: 0,
