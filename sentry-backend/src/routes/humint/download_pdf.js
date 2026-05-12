@@ -776,7 +776,14 @@ router.get("/download/:id", async (req, res) => {
         dk.nama_kecamatan,
         dl.nama_kelurahan,
 
-        i.jenis_korban,
+        CASE
+          WHEN COALESCE(i.jumlah_meninggal, 0) > 0 THEN 'MENINGGAL'
+          WHEN COALESCE(i.jumlah_hilang, 0) > 0 THEN 'HILANG'
+          WHEN COALESCE(i.jumlah_luka_sakit, 0) > 0 THEN 'LUKA_SAKIT'
+          WHEN COALESCE(i.jumlah_mengungsi, 0) > 0 THEN 'MENGUNGSI'
+          WHEN COALESCE(i.jumlah_terdampak, 0) > 0 THEN 'TERDAMPAK'
+          ELSE 'TIDAK_ADA'
+        END AS jenis_korban,
         i.jumlah_korban_identifikasi,
         i.jumlah_terdampak,
         i.jumlah_meninggal,

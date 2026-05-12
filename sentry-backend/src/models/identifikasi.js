@@ -19,18 +19,6 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 0,
     },
 
-    jenis_korban: {
-      type: DataTypes.ENUM(
-        "TIDAK_ADA",
-        "TERDAMPAK",
-        "MENINGGAL",
-        "HILANG",
-        "MENGUNGSI",
-        "LUKA_SAKIT"
-      ),
-      allowNull: true,
-      defaultValue: "TIDAK_ADA",
-    },
 
     jumlah_terdampak: {
       type: DataTypes.INTEGER,

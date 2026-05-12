@@ -191,7 +191,6 @@ router.post(
       await identifikasi.create(
         {
           id_laporan: laporanBaru.laporan_id,
-          jenis_korban: body.jenis_korban || body.jenisKorban || "TIDAK_ADA",
           jumlah_korban_identifikasi:
             body.jumlah_korban_identifikasi || body.total_korban || 0,
           kerusakan_identifikasi: body.kerusakan_identifikasi || null,

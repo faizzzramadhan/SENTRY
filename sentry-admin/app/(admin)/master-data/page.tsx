@@ -24,6 +24,7 @@ const ENDPOINTS = {
 
 type TabKey = "kelurahan" | "kecamatan" | "jenis_bencana" | "nama_bencana";
 type SortType = "newest" | "oldest";
+type NotificationType = "success" | "error";
 
 type KelurahanItem = {
   kelurahan_id: number;
@@ -60,10 +61,9 @@ type NamaBencanaItem = {
   jenis_bencana?: {
     jenis_id: number;
     nama_jenis: string;
-    } | null;
+  } | null;
 };
 
-// decode
 function decodeJwtPayload(token: string): any | null {
   try {
     const payload = token.split(".")[1];
@@ -265,6 +265,15 @@ export default function MasterDataPage() {
     confirmText: "Lanjutkan",
     action: null,
   });
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    type: NotificationType;
+    message: string;
+  }>({
+    open: false,
+    type: "success",
+    message: "",
+  });
 
   const [kelurahanModalOpen, setKelurahanModalOpen] = useState(false);
   const [kecamatanModalOpen, setKecamatanModalOpen] = useState(false);
@@ -303,6 +312,18 @@ export default function MasterDataPage() {
     () => (typeof window !== "undefined" ? localStorage.getItem("token") : null),
     []
   );
+
+  const showNotification = (type: NotificationType, message: string) => {
+    setNotification({
+      open: true,
+      type,
+      message,
+    });
+  };
+
+  const closeNotification = () => {
+    setNotification((prev) => ({ ...prev, open: false }));
+  };
 
   useEffect(() => {
     const payload = token ? decodeJwtPayload(token) : null;
@@ -614,19 +635,18 @@ export default function MasterDataPage() {
       return;
     }
 
-
-  if (!confirmed) {
-    const isEditAction = Boolean(editingKelurahanId);
-    openConfirmDialog({
-      title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
-      message: isEditAction
-        ? "Apakah Anda yakin ingin menyimpan perubahan data kelurahan?"
-        : "Apakah Anda yakin ingin menambahkan data kelurahan?",
-      confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
-      action: () => saveKelurahan(true),
-    });
-    return;
-  }
+    if (!confirmed) {
+      const isEditAction = Boolean(editingKelurahanId);
+      openConfirmDialog({
+        title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+        message: isEditAction
+          ? "Apakah Anda yakin ingin menyimpan perubahan data kelurahan?"
+          : "Apakah Anda yakin ingin menambahkan data kelurahan?",
+        confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+        action: () => saveKelurahan(true),
+      });
+      return;
+    }
 
     try {
       setModalSaving(true);
@@ -652,14 +672,22 @@ export default function MasterDataPage() {
 
       const data = await parseApiResponse(res);
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data kelurahan.");
+        const message = data?.message || "Gagal menyimpan data kelurahan.";
+        setModalErrorMsg(message);
+        showNotification("error", message);
         return;
       }
 
       setKelurahanModalOpen(false);
       await fetchAllData(false);
+      showNotification(
+        "success",
+        isEdit ? "Data kelurahan berhasil diperbarui." : "Data kelurahan berhasil ditambahkan."
+      );
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan kelurahan.");
+      const message = err?.message || "Terjadi error saat menyimpan kelurahan.";
+      setModalErrorMsg(message);
+      showNotification("error", message);
     } finally {
       setModalSaving(false);
     }
@@ -678,19 +706,18 @@ export default function MasterDataPage() {
       return;
     }
 
-
-  if (!confirmed) {
-    const isEditAction = Boolean(editingKecamatanId);
-    openConfirmDialog({
-      title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
-      message: isEditAction
-        ? "Apakah Anda yakin ingin menyimpan perubahan data kecamatan?"
-        : "Apakah Anda yakin ingin menambahkan data kecamatan?",
-      confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
-      action: () => saveKecamatan(true),
-    });
-    return;
-  }
+    if (!confirmed) {
+      const isEditAction = Boolean(editingKecamatanId);
+      openConfirmDialog({
+        title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+        message: isEditAction
+          ? "Apakah Anda yakin ingin menyimpan perubahan data kecamatan?"
+          : "Apakah Anda yakin ingin menambahkan data kecamatan?",
+        confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+        action: () => saveKecamatan(true),
+      });
+      return;
+    }
 
     try {
       setModalSaving(true);
@@ -720,75 +747,90 @@ export default function MasterDataPage() {
 
       const data = await parseApiResponse(res);
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data kecamatan.");
+        const message = data?.message || "Gagal menyimpan data kecamatan.";
+        setModalErrorMsg(message);
+        showNotification("error", message);
         return;
       }
 
       setKecamatanModalOpen(false);
       await fetchAllData(false);
+      showNotification(
+        "success",
+        isEdit ? "Data kecamatan berhasil diperbarui." : "Data kecamatan berhasil ditambahkan."
+      );
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan kecamatan.");
+      const message = err?.message || "Terjadi error saat menyimpan kecamatan.";
+      setModalErrorMsg(message);
+      showNotification("error", message);
     } finally {
       setModalSaving(false);
     }
   };
 
   const saveJenis = async (confirmed = false) => {
-  if (!token) return;
+    if (!token) return;
 
-  if (!jenisForm.nama_jenis.trim()) {
-    setModalErrorMsg("Nama jenis bencana wajib diisi.");
-    return;
-  }
-
-
-  if (!confirmed) {
-    const isEditAction = Boolean(editingJenisId);
-    openConfirmDialog({
-      title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
-      message: isEditAction
-        ? "Apakah Anda yakin ingin menyimpan perubahan data jenis bencana?"
-        : "Apakah Anda yakin ingin menambahkan data jenis bencana?",
-      confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
-      action: () => saveJenis(true),
-    });
-    return;
-  }
-
-  try {
-    setModalSaving(true);
-    setModalErrorMsg("");
-
-    const isEdit = Boolean(editingJenisId);
-    const url = isEdit
-      ? `${ENDPOINTS.jenisBencana}/${editingJenisId}`
-      : ENDPOINTS.jenisBencana;
-
-    const res = await fetch(url, {
-      method: isEdit ? "PUT" : "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        nama_jenis: jenisForm.nama_jenis.trim(),
-      }),
-    });
-
-    const data = await parseApiResponse(res);
-    if (!res.ok) {
-      setModalErrorMsg(data?.message || "Gagal menyimpan data jenis bencana.");
+    if (!jenisForm.nama_jenis.trim()) {
+      setModalErrorMsg("Nama jenis bencana wajib diisi.");
       return;
     }
 
-    setJenisModalOpen(false);
-    await fetchAllData(false);
-  } catch (err: any) {
-    setModalErrorMsg(err?.message || "Terjadi error saat menyimpan jenis bencana.");
-  } finally {
-    setModalSaving(false);
-  }
-};
+    if (!confirmed) {
+      const isEditAction = Boolean(editingJenisId);
+      openConfirmDialog({
+        title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+        message: isEditAction
+          ? "Apakah Anda yakin ingin menyimpan perubahan data jenis bencana?"
+          : "Apakah Anda yakin ingin menambahkan data jenis bencana?",
+        confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+        action: () => saveJenis(true),
+      });
+      return;
+    }
+
+    try {
+      setModalSaving(true);
+      setModalErrorMsg("");
+
+      const isEdit = Boolean(editingJenisId);
+      const url = isEdit
+        ? `${ENDPOINTS.jenisBencana}/${editingJenisId}`
+        : ENDPOINTS.jenisBencana;
+
+      const res = await fetch(url, {
+        method: isEdit ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nama_jenis: jenisForm.nama_jenis.trim(),
+        }),
+      });
+
+      const data = await parseApiResponse(res);
+      if (!res.ok) {
+        const message = data?.message || "Gagal menyimpan data jenis bencana.";
+        setModalErrorMsg(message);
+        showNotification("error", message);
+        return;
+      }
+
+      setJenisModalOpen(false);
+      await fetchAllData(false);
+      showNotification(
+        "success",
+        isEdit ? "Data jenis bencana berhasil diperbarui." : "Data jenis bencana berhasil ditambahkan."
+      );
+    } catch (err: any) {
+      const message = err?.message || "Terjadi error saat menyimpan jenis bencana.";
+      setModalErrorMsg(message);
+      showNotification("error", message);
+    } finally {
+      setModalSaving(false);
+    }
+  };
 
   const saveNamaBencana = async (confirmed = false) => {
     if (!token) return;
@@ -803,19 +845,18 @@ export default function MasterDataPage() {
       return;
     }
 
-
-  if (!confirmed) {
-    const isEditAction = Boolean(editingNamaBencanaId);
-    openConfirmDialog({
-      title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
-      message: isEditAction
-        ? "Apakah Anda yakin ingin menyimpan perubahan data nama bencana?"
-        : "Apakah Anda yakin ingin menambahkan data nama bencana?",
-      confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
-      action: () => saveNamaBencana(true),
-    });
-    return;
-  }
+    if (!confirmed) {
+      const isEditAction = Boolean(editingNamaBencanaId);
+      openConfirmDialog({
+        title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+        message: isEditAction
+          ? "Apakah Anda yakin ingin menyimpan perubahan data nama bencana?"
+          : "Apakah Anda yakin ingin menambahkan data nama bencana?",
+        confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+        action: () => saveNamaBencana(true),
+      });
+      return;
+    }
 
     try {
       setModalSaving(true);
@@ -840,14 +881,22 @@ export default function MasterDataPage() {
 
       const data = await parseApiResponse(res);
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data nama bencana.");
+        const message = data?.message || "Gagal menyimpan data nama bencana.";
+        setModalErrorMsg(message);
+        showNotification("error", message);
         return;
       }
 
       setNamaBencanaModalOpen(false);
       await fetchAllData(false);
+      showNotification(
+        "success",
+        isEdit ? "Data nama bencana berhasil diperbarui." : "Data nama bencana berhasil ditambahkan."
+      );
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan nama bencana.");
+      const message = err?.message || "Terjadi error saat menyimpan nama bencana.";
+      setModalErrorMsg(message);
+      showNotification("error", message);
     } finally {
       setModalSaving(false);
     }
@@ -868,7 +917,7 @@ export default function MasterDataPage() {
       return;
     }
 
-    let url = ""; 
+    let url = "";
     if (activeTab === "kelurahan") url = `${ENDPOINTS.kelurahan}/bulk-delete`;
     if (activeTab === "kecamatan") url = `${ENDPOINTS.kecamatan}/bulk-delete`;
     if (activeTab === "jenis_bencana") url = `${ENDPOINTS.jenisBencana}/bulk-delete`;
@@ -889,14 +938,19 @@ export default function MasterDataPage() {
 
       const data = await parseApiResponse(res);
       if (!res.ok) {
-        setErrorMsg(data?.message || "Gagal menghapus data.");
+        const message = data?.message || "Gagal menghapus data.";
+        setErrorMsg(message);
+        showNotification("error", message);
         return;
       }
 
       setCurrentSelection(new Set());
       await fetchAllData(false);
+      showNotification("success", `${ids.length} data berhasil dihapus.`);
     } catch (err: any) {
-      setErrorMsg(err?.message || "Terjadi error saat menghapus data.");
+      const message = err?.message || "Terjadi error saat menghapus data.";
+      setErrorMsg(message);
+      showNotification("error", message);
     } finally {
       setLoading(false);
     }
@@ -1259,55 +1313,55 @@ export default function MasterDataPage() {
         onClose={() => setKelurahanModalOpen(false)}
         onSave={saveKelurahan}
         fields={
-  <>
-    <div className={styles.formField}>
-      <label className={styles.modalLabel}>
-        Nama Kelurahan<span className={styles.modalRequired}>*</span>
-      </label>
-      <input
-        className={styles.modalInput}
-        value={kelurahanForm.nama_kelurahan}
-        onChange={(e) =>
-          setKelurahanForm((prev) => ({
-            ...prev,
-            nama_kelurahan: e.target.value,
-          }))
-        }
-        placeholder="isi data kelurahan disini...."
-      />
-    </div>
+          <>
+            <div className={styles.formField}>
+              <label className={styles.modalLabel}>
+                Nama Kelurahan<span className={styles.modalRequired}>*</span>
+              </label>
+              <input
+                className={styles.modalInput}
+                value={kelurahanForm.nama_kelurahan}
+                onChange={(e) =>
+                  setKelurahanForm((prev) => ({
+                    ...prev,
+                    nama_kelurahan: e.target.value,
+                  }))
+                }
+                placeholder="isi data kelurahan disini...."
+              />
+            </div>
 
-    <div className={styles.formField}>
-      <label className={styles.modalLabel}>Latitude</label>
-      <input
-        className={styles.modalInput}
-        value={kelurahanForm.latitude_center}
-        onChange={(e) =>
-          setKelurahanForm((prev) => ({
-            ...prev,
-            latitude_center: e.target.value,
-          }))
-        }
-        placeholder="contoh: -7.8028333"
-      />
-    </div>
+            <div className={styles.formField}>
+              <label className={styles.modalLabel}>Latitude</label>
+              <input
+                className={styles.modalInput}
+                value={kelurahanForm.latitude_center}
+                onChange={(e) =>
+                  setKelurahanForm((prev) => ({
+                    ...prev,
+                    latitude_center: e.target.value,
+                  }))
+                }
+                placeholder="contoh: -7.8028333"
+              />
+            </div>
 
-    <div className={styles.formField}>
-      <label className={styles.modalLabel}>Longitude</label>
-      <input
-        className={styles.modalInput}
-        value={kelurahanForm.longitude_center}
-        onChange={(e) =>
-          setKelurahanForm((prev) => ({
-            ...prev,
-            longitude_center: e.target.value,
-          }))
+            <div className={styles.formField}>
+              <label className={styles.modalLabel}>Longitude</label>
+              <input
+                className={styles.modalInput}
+                value={kelurahanForm.longitude_center}
+                onChange={(e) =>
+                  setKelurahanForm((prev) => ({
+                    ...prev,
+                    longitude_center: e.target.value,
+                  }))
+                }
+                placeholder="contoh: 110.374138"
+              />
+            </div>
+          </>
         }
-        placeholder="contoh: 110.374138"
-      />
-    </div>
-  </>
-}
       />
 
       <TextModal
@@ -1401,7 +1455,6 @@ export default function MasterDataPage() {
                 placeholder="isi nama jenis bencana..."
               />
             </div>
-
           </>
         }
       />
@@ -1443,6 +1496,7 @@ export default function MasterDataPage() {
           </>
         }
       />
+
       {confirmDialog.open ? (
         <div className={styles.confirmOverlay}>
           <div className={styles.confirmCard}>
@@ -1470,6 +1524,32 @@ export default function MasterDataPage() {
         </div>
       ) : null}
 
+      {notification.open ? (
+        <div className={styles.notificationOverlay}>
+          <div className={styles.notificationCard}>
+            <div
+              className={`${styles.notificationIcon} ${
+                notification.type === "success"
+                  ? styles.notificationIconSuccess
+                  : styles.notificationIconError
+              }`}
+            >
+              {notification.type === "success" ? "✓" : "!"}
+            </div>
+            <h3 className={styles.notificationTitle}>
+              {notification.type === "success" ? "Berhasil" : "Gagal"}
+            </h3>
+            <p className={styles.notificationMessage}>{notification.message}</p>
+            <button
+              type="button"
+              className={styles.notificationButton}
+              onClick={closeNotification}
+            >
+              Oke
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
