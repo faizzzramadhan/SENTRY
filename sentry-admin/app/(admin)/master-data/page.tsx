@@ -4,7 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./master-data.module.css";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+const RAW_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555/api";
+
+const API_BASE_URL = RAW_API_BASE_URL
+  .replace(/\/$/, "")
+  .replace(/\/humint$/i, "")
+  .replace(/\/osint$/i, "");
 
 const ENDPOINTS = {
   kelurahan: `${API_BASE_URL}/kelurahan`,

@@ -5,7 +5,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // api backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+const RAW_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555/api";
+
+const API_BASE_URL = RAW_API_BASE_URL
+  .replace(/\/$/, "")
+  .replace(/\/humint$/i, "")
+  .replace(/\/osint$/i, "");
+
+async function parseJsonResponse(res: Response) {
+  const contentType = res.headers.get("content-type") || "";
+  const rawText = await res.text();
+
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Endpoint mengembalikan HTML, bukan JSON. Periksa NEXT_PUBLIC_API_URL dan route backend. Status ${res.status}. Isi awal: ${rawText.slice(0, 80)}`
+    );
+  }
+
+  return JSON.parse(rawText);
+}
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -18,6 +37,7 @@ function decodeJwtPayload(token: string): any | null {
 }
 
 type SortType = "newest" | "oldest";
+type UserRole = "staff" | "admin";
 type ModalMode = "add" | "edit" | null;
 
 type StaffApiRow = {
@@ -25,7 +45,7 @@ type StaffApiRow = {
   usr_nama_lengkap: string;
   usr_email: string;
   usr_no_hp: string;
-  usr_role: "staff" | "admin";
+  usr_role: UserRole;
   created_by: string;
   creation_date: string;
   last_updated_by: string;
@@ -42,6 +62,8 @@ type StaffRow = {
   nama: string;
   email: string;
   noHp: string;
+  role: UserRole;
+  roleLabel: string;
   lastUpdatedDate: string;
   lastUpdatedDateRaw: string;
   createdBy: string;
@@ -52,6 +74,7 @@ type StaffForm = {
   usr_email: string;
   usr_no_hp: string;
   usr_password: string;
+  usr_role: UserRole;
 };
 
 type DeleteTarget = {
@@ -60,12 +83,96 @@ type DeleteTarget = {
   label: string;
 };
 
+type FeedbackModal = {
+  type: "success" | "error";
+  title: string;
+  message: string;
+} | null;
+
 const emptyForm: StaffForm = {
   usr_nama_lengkap: "",
   usr_email: "",
   usr_no_hp: "",
   usr_password: "",
+  usr_role: "staff",
 };
+
+
+function getRoleLabel(role: UserRole | string) {
+  return role === "admin" ? "Admin" : "Staff";
+}
+
+function validateEmail(value: string) {
+  const email = value.trim().toLowerCase();
+
+  if (!email) {
+    return "Email wajib diisi.";
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return "Format email tidak valid.";
+  }
+
+  if (!email.endsWith("@gmail.com")) {
+    return "Email harus menggunakan domain @gmail.com.";
+  }
+
+  return "";
+}
+
+function validatePhone(value: string) {
+  const phone = value.trim();
+
+  if (!phone) {
+    return "Nomor telepon wajib diisi.";
+  }
+
+  if (!/^\d+$/.test(phone)) {
+    return "Nomor telepon hanya boleh berisi angka.";
+  }
+
+  if (phone.length !== 12) {
+    return "Nomor telepon harus terdiri dari 12 digit.";
+  }
+
+  return "";
+}
+
+function validatePassword(value: string, isEdit: boolean) {
+  const password = value.trim();
+
+  if (!isEdit && !password) {
+    return "Password wajib diisi.";
+  }
+
+  if (password && password.length < 8) {
+    return "Password minimal 8 karakter.";
+  }
+
+  return "";
+}
+
+function validateName(value: string) {
+  const name = value.trim();
+
+  if (!name) {
+    return "Nama lengkap wajib diisi.";
+  }
+
+  if (name.length < 3) {
+    return "Nama lengkap minimal 3 karakter.";
+  }
+
+  if (name.length > 30) {
+    return "Nama lengkap maksimal 30 karakter.";
+  }
+
+  if (!/^[A-Za-zÀ-ÿ' .-]+$/.test(name)) {
+    return "Nama lengkap hanya boleh berisi huruf, spasi, titik, apostrof, atau tanda hubung.";
+  }
+
+  return "";
+}
 
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
@@ -209,12 +316,12 @@ function StaffModal({
       <div className={styles.modalCard}>
         <div className={styles.modalField}>
           <label className={styles.modalLabel}>
-            Nama Staff Pusdalops<span className={styles.modalRequired}>*</span>
+            Nama Lengkap<span className={styles.modalRequired}>*</span>
           </label>
           <input
             className={styles.modalInput}
             type="text"
-            placeholder="isi data Nama Staff disini...."
+            placeholder="Masukkan nama lengkap"
             value={form.usr_nama_lengkap}
             onChange={(e) => onChange("usr_nama_lengkap", e.target.value)}
             autoFocus
@@ -228,10 +335,11 @@ function StaffModal({
           <input
             className={styles.modalInput}
             type="email"
-            placeholder="isi data email disini...."
+            placeholder="Contoh: nama@gmail.com"
             value={form.usr_email}
             onChange={(e) => onChange("usr_email", e.target.value)}
           />
+          <div className={styles.modalHint}>Email harus menggunakan domain @gmail.com.</div>
         </div>
 
         <div className={styles.modalField}>
@@ -241,10 +349,30 @@ function StaffModal({
           <input
             className={styles.modalInput}
             type="text"
-            placeholder="isi data Handphone disini...."
+            inputMode="numeric"
+            maxLength={12}
+            placeholder="Masukkan 12 digit nomor telepon"
             value={form.usr_no_hp}
             onChange={(e) => onChange("usr_no_hp", e.target.value)}
           />
+          <div className={styles.modalHint}>Nomor telepon harus 12 digit angka.</div>
+        </div>
+
+        <div className={styles.modalField}>
+          <label className={styles.modalLabel}>
+            Role<span className={styles.modalRequired}>*</span>
+          </label>
+          <select
+            className={styles.modalInput}
+            value={form.usr_role}
+            onChange={(e) => onChange("usr_role", e.target.value)}
+          >
+            <option value="staff">Staff</option>
+            <option value="admin">Admin</option>
+          </select>
+          <div className={styles.modalHint}>
+            Pilih role sesuai hak akses akun.
+          </div>
         </div>
 
         <div className={styles.modalField}>
@@ -254,7 +382,7 @@ function StaffModal({
           <input
             className={styles.modalInput}
             type="password"
-            placeholder="isi data password disini...."
+            placeholder="Masukkan password"
             value={form.usr_password}
             onChange={(e) => onChange("usr_password", e.target.value)}
           />
@@ -268,10 +396,10 @@ function StaffModal({
         <button
           type="button"
           className={styles.modalSaveButton}
-          onClick={onSave}
+          onClick={() => onSave()}
           disabled={saving}
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Menyimpan..." : "Simpan"}
         </button>
       </div>
     </div>
@@ -285,7 +413,7 @@ export default function ManageStaffPage() {
 
   const [search, setSearch] = useState("");
   const [sortType, setSortType] = useState<SortType>("newest");
-  const [selectedCreatedBy, setSelectedCreatedBy] = useState("Semua");
+  const [selectedRole, setSelectedRole] = useState("Semua");
   const [openFilter, setOpenFilter] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -301,6 +429,8 @@ export default function ManageStaffPage() {
   const [form, setForm] = useState<StaffForm>(emptyForm);
   const [modalSaving, setModalSaving] = useState(false);
   const [modalErrorMsg, setModalErrorMsg] = useState("");
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState<FeedbackModal>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteSaving, setDeleteSaving] = useState(false);
@@ -314,16 +444,16 @@ export default function ManageStaffPage() {
       setLoading(true);
       setErrorMsg("");
 
-      const res = await fetch(`${API_BASE_URL}/user/staff`, {
+      const res = await fetch(`${API_BASE_URL}/user`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      const data: StaffResponse | { message?: string } = await res.json();
+      const data: StaffResponse | { message?: string } = await parseJsonResponse(res);
 
       if (!res.ok) {
-        setErrorMsg((data as any)?.message || "Gagal mengambil data staff");
+        setErrorMsg((data as any)?.message || "Gagal mengambil data pengguna");
         return;
       }
 
@@ -339,6 +469,8 @@ export default function ManageStaffPage() {
         nama: item.usr_nama_lengkap,
         email: item.usr_email,
         noHp: item.usr_no_hp,
+        role: item.usr_role,
+        roleLabel: getRoleLabel(item.usr_role),
         lastUpdatedDate: formatDateTime(item.last_update_date),
         lastUpdatedDateRaw: item.last_update_date,
         createdBy: item.created_by,
@@ -346,7 +478,7 @@ export default function ManageStaffPage() {
 
       setRows(mappedRows);
     } catch (err: any) {
-      setErrorMsg(err?.message || "Terjadi error saat mengambil data");
+      setErrorMsg(err?.message || "Terjadi kesalahan saat mengambil data pengguna");
     } finally {
       setLoading(false);
     }
@@ -372,10 +504,7 @@ export default function ManageStaffPage() {
     fetchData();
   }, [fetchData]);
 
-  const createdByOptions = useMemo(() => {
-    const unique = Array.from(new Set(rows.map((item) => item.createdBy)));
-    return ["Semua", ...unique];
-  }, [rows]);
+  const roleOptions = ["Semua", "Admin", "Staff"];
 
   const filteredRows = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -384,15 +513,15 @@ export default function ManageStaffPage() {
       const matchSearch =
         keyword === ""
           ? true
-          : [row.nama, row.email, row.noHp, row.lastUpdatedDate]
+          : [row.nama, row.email, row.noHp, row.roleLabel, row.lastUpdatedDate]
               .join(" ")
               .toLowerCase()
               .includes(keyword);
 
-      const matchCreatedBy =
-        selectedCreatedBy === "Semua" ? true : row.createdBy === selectedCreatedBy;
+      const matchRole =
+        selectedRole === "Semua" ? true : row.roleLabel === selectedRole;
 
-      return matchSearch && matchCreatedBy;
+      return matchSearch && matchRole;
     });
 
     return [...result].sort((a, b) => {
@@ -400,7 +529,7 @@ export default function ManageStaffPage() {
       const timeB = parseDate(b.lastUpdatedDateRaw);
       return sortType === "newest" ? timeB - timeA : timeA - timeB;
     });
-  }, [rows, search, selectedCreatedBy, sortType]);
+  }, [rows, search, selectedRole, sortType]);
 
   const filteredIds = useMemo(() => filteredRows.map((row) => row.id), [filteredRows]);
 
@@ -424,7 +553,7 @@ export default function ManageStaffPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, selectedCreatedBy, sortType]);
+  }, [search, selectedRole, sortType]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -462,6 +591,7 @@ export default function ManageStaffPage() {
     setForm(emptyForm);
     setModalErrorMsg("");
     setModalSaving(false);
+    setEditConfirmOpen(false);
   };
 
   const openAddModal = () => {
@@ -482,37 +612,78 @@ export default function ManageStaffPage() {
       usr_email: target.usr_email,
       usr_no_hp: target.usr_no_hp,
       usr_password: "",
+      usr_role: target.usr_role,
     });
     setModalErrorMsg("");
   };
 
   const handleFormChange = (field: keyof StaffForm, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    if (field === "usr_role") {
+      setForm((prev) => ({
+        ...prev,
+        usr_role: value === "admin" ? "admin" : "staff",
+      }));
+      return;
+    }
+
+    if (field === "usr_no_hp") {
+      const numericOnly = value.replace(/\D/g, "").slice(0, 12);
+      setForm((prev) => ({
+        ...prev,
+        usr_no_hp: numericOnly,
+      }));
+      return;
+    }
+
+    if (field === "usr_nama_lengkap") {
+      setForm((prev) => ({
+        ...prev,
+        usr_nama_lengkap: value.slice(0, 30),
+      }));
+      return;
+    }
+
+    if (field === "usr_email") {
+      setForm((prev) => ({
+        ...prev,
+        usr_email: value.slice(0, 50),
+      }));
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
-  const handleSaveStaff = async () => {
+  const handleSaveStaff = async (confirmed = false) => {
     if (!token) {
       router.replace("/login");
       return;
     }
 
-    if (!form.usr_nama_lengkap.trim()) {
-      setModalErrorMsg("Nama staff wajib diisi.");
+    const isEdit = modalMode === "edit";
+    const validationErrors = [
+      validateName(form.usr_nama_lengkap),
+      validateEmail(form.usr_email),
+      validatePhone(form.usr_no_hp),
+      validatePassword(form.usr_password, isEdit),
+      !["staff", "admin"].includes(form.usr_role) ? "Role wajib dipilih." : "",
+    ].filter(Boolean);
+
+    if (validationErrors.length > 0) {
+      setModalErrorMsg(validationErrors[0]);
+      setFeedbackModal({
+        type: "error",
+        title: "Validasi Gagal",
+        message: validationErrors[0],
+      });
       return;
     }
 
-    if (!form.usr_email.trim()) {
-      setModalErrorMsg("Email wajib diisi.");
-      return;
-    }
-
-    if (!form.usr_no_hp.trim()) {
-      setModalErrorMsg("Handphone wajib diisi.");
-      return;
-    }
-
-    if (modalMode === "add" && !form.usr_password.trim()) {
-      setModalErrorMsg("Password wajib diisi.");
+    if (isEdit && !confirmed) {
+      setEditConfirmOpen(true);
       return;
     }
 
@@ -520,7 +691,6 @@ export default function ManageStaffPage() {
       setModalSaving(true);
       setModalErrorMsg("");
 
-      const isEdit = modalMode === "edit";
       const url = isEdit
         ? `${API_BASE_URL}/user/${activeStaffId}`
         : `${API_BASE_URL}/user`;
@@ -529,7 +699,7 @@ export default function ManageStaffPage() {
         usr_nama_lengkap: form.usr_nama_lengkap.trim(),
         usr_email: form.usr_email.trim(),
         usr_no_hp: form.usr_no_hp.trim(),
-        usr_role: "staff",
+        usr_role: form.usr_role,
       };
 
       if (!isEdit || form.usr_password.trim()) {
@@ -545,17 +715,36 @@ export default function ManageStaffPage() {
         body: JSON.stringify(body),
       });
 
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
 
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data staff.");
+        const message = data?.message || (isEdit ? "Gagal memperbarui data user." : "Gagal menyimpan data user.");
+        setModalErrorMsg(message);
+        setFeedbackModal({
+          type: "error",
+          title: isEdit ? "Update Gagal" : "Simpan Gagal",
+          message,
+        });
         return;
       }
 
       resetModal();
       await fetchData();
+      setFeedbackModal({
+        type: "success",
+        title: isEdit ? "Update Berhasil" : "Data Berhasil Ditambahkan",
+        message: isEdit
+          ? "Data user berhasil diperbarui."
+          : "Data user berhasil ditambahkan.",
+      });
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan staff.");
+      const message = err?.message || (isEdit ? "Terjadi kesalahan saat memperbarui data user." : "Terjadi kesalahan saat menyimpan data user.");
+      setModalErrorMsg(message);
+      setFeedbackModal({
+        type: "error",
+        title: isEdit ? "Update Gagal" : "Simpan Gagal",
+        message,
+      });
     } finally {
       setModalSaving(false);
     }
@@ -586,7 +775,7 @@ export default function ManageStaffPage() {
     openDeleteModal({
       mode: "bulk",
       ids: idsToDelete,
-      label: `${idsToDelete.length} data staff terpilih`,
+      label: `${idsToDelete.length} data user terpilih`,
     });
   };
 
@@ -611,10 +800,10 @@ export default function ManageStaffPage() {
             },
           });
 
-          const data = await res.json();
+          const data = await parseJsonResponse(res);
 
           if (!res.ok) {
-            throw new Error(data?.message || `Gagal menghapus staff dengan ID ${id}`);
+            throw new Error(data?.message || `Gagal menghapus pengguna dengan ID ${id}`);
           }
 
           return id;
@@ -626,14 +815,34 @@ export default function ManageStaffPage() {
       await fetchData();
 
       if (failed.length > 0) {
-        setErrorMsg(`${failed.length} data gagal dihapus. Silakan cek kembali.`);
+        const message = `${failed.length} data gagal dihapus. Silakan cek kembali.`;
+        setErrorMsg(message);
+        setFeedbackModal({
+          type: "error",
+          title: "Hapus Data Gagal",
+          message,
+        });
         return;
       }
 
       setSelectedIds(new Set());
       setDeleteTarget(null);
+      setFeedbackModal({
+        type: "success",
+        title: "Hapus Data Berhasil",
+        message:
+          deleteTarget.mode === "single"
+            ? "Data user berhasil dihapus."
+            : "Data user terpilih berhasil dihapus.",
+      });
     } catch (err: any) {
-      setErrorMsg(err?.message || "Terjadi error saat menghapus data staff.");
+      const message = err?.message || "Terjadi kesalahan saat menghapus data user.";
+      setErrorMsg(message);
+      setFeedbackModal({
+        type: "error",
+        title: "Hapus Data Gagal",
+        message,
+      });
     } finally {
       setDeleteSaving(false);
     }
@@ -643,7 +852,7 @@ export default function ManageStaffPage() {
     <>
       <div className={styles.page}>
         <div className={styles.topRow}>
-          <h1 className={styles.pageTitle}>MANAGE STAFF</h1>
+          <h1 className={styles.pageTitle}>MANAJEMEN USER</h1>
           <div className={styles.hello}>Halo, {userName}</div>
         </div>
 
@@ -681,7 +890,7 @@ export default function ManageStaffPage() {
               onClick={openAddModal}
             >
               <PlusIcon />
-              <span>Tambah</span>
+              <span>Tambah Pengguna</span>
             </button>
 
             <div className={styles.dropdownWrap}>
@@ -696,18 +905,18 @@ export default function ManageStaffPage() {
 
               {openFilter && (
                 <div className={styles.dropdownMenu}>
-                  <div className={styles.dropdownTitle}>Filter by Created By</div>
+                  <div className={styles.dropdownTitle}>Filter berdasarkan role</div>
 
                   <div className={styles.dropdownOptionList}>
-                    {createdByOptions.map((item) => (
+                    {roleOptions.map((item) => (
                       <button
                         key={item}
                         type="button"
                         className={`${styles.dropdownOption} ${
-                          selectedCreatedBy === item ? styles.dropdownOptionActive : ""
+                          selectedRole === item ? styles.dropdownOptionActive : ""
                         }`}
                         onClick={() => {
-                          setSelectedCreatedBy(item);
+                          setSelectedRole(item);
                           setOpenFilter(false);
                         }}
                       >
@@ -740,23 +949,24 @@ export default function ManageStaffPage() {
                     className={styles.rowCheckbox}
                     checked={isAllFilteredSelected}
                     onChange={toggleSelectAllFiltered}
-                    aria-label="Pilih semua data staff"
+                    aria-label="Pilih semua data pengguna"
                     disabled={filteredIds.length === 0}
                   />
                 </th>
                 <th>No</th>
-                <th>Nama Staff Pusdalops</th>
-                <th>email</th>
+                <th>Nama Lengkap</th>
+                <th>Email</th>
                 <th>No Handphone</th>
-                <th>Last Updated Date</th>
+                <th>Role</th>
+                <th>Terakhir Diperbarui</th>
                 <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className={styles.emptyState}>
-                    Memuat data staff...
+                  <td colSpan={8} className={styles.emptyState}>
+                    Memuat data pengguna...
                   </td>
                 </tr>
               ) : currentRows.length > 0 ? (
@@ -768,20 +978,29 @@ export default function ManageStaffPage() {
                         className={styles.rowCheckbox}
                         checked={selectedIds.has(row.id)}
                         onChange={() => toggleRowSelection(row.id)}
-                        aria-label={`Pilih staff ${row.nama}`}
+                        aria-label={`Pilih pengguna ${row.nama}`}
                       />
                     </td>
                     <td>{(page - 1) * rowsPerPage + index + 1}</td>
                     <td>{row.nama}</td>
                     <td>{row.email}</td>
                     <td>{row.noHp}</td>
+                    <td>
+                      <span
+                        className={`${styles.roleBadge} ${
+                          row.role === "admin" ? styles.roleBadgeAdmin : styles.roleBadgeStaff
+                        }`}
+                      >
+                        {row.roleLabel}
+                      </span>
+                    </td>
                     <td>{row.lastUpdatedDate}</td>
                     <td>
                       <div className={styles.actionGroup}>
                         <button
                           type="button"
                           className={styles.actionButton}
-                          aria-label="Hapus staff"
+                          aria-label="Hapus pengguna"
                           onClick={() => handleDeleteStaff(row.id, row.nama)}
                         >
                           <TrashIcon />
@@ -789,7 +1008,7 @@ export default function ManageStaffPage() {
                         <button
                           type="button"
                           className={styles.actionButton}
-                          aria-label="Edit staff"
+                          aria-label="Edit pengguna"
                           onClick={() => openEditModal(row.id)}
                         >
                           <PencilIcon />
@@ -800,8 +1019,8 @@ export default function ManageStaffPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className={styles.emptyState}>
-                    Data staff tidak ditemukan.
+                  <td colSpan={8} className={styles.emptyState}>
+                    Data pengguna tidak ditemukan.
                   </td>
                 </tr>
               )}
@@ -861,7 +1080,85 @@ export default function ManageStaffPage() {
         onClose={resetModal}
         onSave={handleSaveStaff}
       />
-            {deleteTarget ? (
+
+      {editConfirmOpen ? (
+        <div
+          className={styles.confirmModalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-confirm-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !modalSaving) {
+              setEditConfirmOpen(false);
+            }
+          }}
+        >
+          <div className={styles.confirmModalCard}>
+            <h2 id="edit-confirm-title" className={styles.confirmModalTitle}>
+              Konfirmasi Edit Data
+            </h2>
+            <p className={styles.confirmModalText}>
+              Apakah Anda yakin ingin melakukan edit pada akun
+              <strong> {form.usr_nama_lengkap || "user ini"}</strong>?
+            </p>
+            <div className={styles.confirmModalActions}>
+              <button
+                type="button"
+                className={styles.confirmCancelButton}
+                onClick={() => setEditConfirmOpen(false)}
+                disabled={modalSaving}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className={styles.confirmPrimaryButton}
+                onClick={() => handleSaveStaff(true)}
+                disabled={modalSaving}
+              >
+                {modalSaving ? "Menyimpan..." : "Ya, Simpan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {feedbackModal ? (
+        <div
+          className={styles.feedbackModalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="feedback-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setFeedbackModal(null);
+          }}
+        >
+          <div
+            className={`${styles.feedbackModalCard} ${
+              feedbackModal.type === "success"
+                ? styles.feedbackModalSuccess
+                : styles.feedbackModalError
+            }`}
+          >
+            <div className={styles.feedbackModalIcon}>
+              {feedbackModal.type === "success" ? "✓" : "!"}
+            </div>
+            <h2 id="feedback-modal-title" className={styles.feedbackModalTitle}>
+              {feedbackModal.title}
+            </h2>
+            <p className={styles.feedbackModalText}>{feedbackModal.message}</p>
+            <button
+              type="button"
+              className={styles.feedbackModalButton}
+              onClick={() => setFeedbackModal(null)}
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteTarget ? (
         <div
           className={styles.deleteModalOverlay}
           role="dialog"
@@ -872,16 +1169,14 @@ export default function ManageStaffPage() {
           }}
         >
           <div className={styles.deleteModalCard}>
+            <div className={styles.deleteModalIconDanger}>!</div>
             <h2 id="delete-modal-title" className={styles.deleteModalTitle}>
-              Apakah anda
-              <br />
-              yakin Menghapus data ini?
+              Konfirmasi Hapus Data
             </h2>
 
             <div className={styles.deleteModalInfo}>
-              {deleteTarget.mode === "single"
-                ? deleteTarget.label
-                : deleteTarget.label}
+              Apakah Anda yakin ingin menghapus
+              <strong> {deleteTarget.label}</strong>?
             </div>
 
             <div className={styles.deleteModalActions}>
@@ -900,7 +1195,7 @@ export default function ManageStaffPage() {
                 onClick={confirmDeleteStaff}
                 disabled={deleteSaving}
               >
-                {deleteSaving ? "Menghapus..." : "Iya"}
+                {deleteSaving ? "Menghapus..." : "Hapus"}
               </button>
             </div>
           </div>

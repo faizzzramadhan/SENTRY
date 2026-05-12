@@ -618,3 +618,194 @@
     font-size: 22px;
   }
 }
+
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.roleBadgeStaff {
+  color: #dbeafe;
+  background: rgba(37, 99, 235, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+}
+
+.roleBadgeAdmin {
+  color: #fef3c7;
+  background: rgba(217, 119, 6, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.38);
+}
+
+/* ================= CONFIRM & FEEDBACK MODAL ================= */
+.confirmModalOverlay,
+.feedbackModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(5px);
+}
+
+.feedbackModalOverlay {
+  z-index: 10001;
+}
+
+.confirmModalCard,
+.feedbackModalCard {
+  width: min(440px, 92vw);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, #242428 0%, #17171a 100%);
+  color: #ffffff;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.58);
+  padding: 34px 30px 28px;
+  text-align: center;
+}
+
+.confirmModalTitle,
+.feedbackModalTitle {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 900;
+  letter-spacing: 0.1px;
+  color: #ffffff;
+}
+
+.confirmModalText,
+.feedbackModalText {
+  margin: 12px auto 0;
+  max-width: 360px;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+.confirmModalText strong {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.confirmModalActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  margin-top: 28px;
+}
+
+.confirmCancelButton,
+.confirmPrimaryButton,
+.feedbackModalButton {
+  height: 42px;
+  border-radius: 12px;
+  border: none;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.18s ease, filter 0.18s ease, background 0.18s ease;
+}
+
+.confirmCancelButton {
+  background: #303035;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.confirmPrimaryButton {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.24);
+}
+
+.feedbackModalButton {
+  min-width: 128px;
+  margin-top: 24px;
+  background: #ffffff;
+  color: #111827;
+}
+
+.confirmCancelButton:hover:not(:disabled),
+.confirmPrimaryButton:hover:not(:disabled),
+.feedbackModalButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.confirmCancelButton:disabled,
+.confirmPrimaryButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.feedbackModalIcon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 18px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.feedbackModalSuccess .feedbackModalIcon {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+  border: 1px solid rgba(134, 239, 172, 0.34);
+}
+
+.feedbackModalError .feedbackModalIcon {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+  border: 1px solid rgba(252, 165, 165, 0.34);
+}
+
+@media (max-width: 520px) {
+  .deleteModalCard,
+  .confirmModalCard,
+  .feedbackModalCard {
+    padding: 28px 20px;
+  }
+
+  .deleteModalTitle,
+  .confirmModalTitle,
+  .feedbackModalTitle {
+    font-size: 21px;
+  }
+
+  .deleteModalActions,
+  .confirmModalActions {
+    grid-template-columns: 1fr;
+  }
+
+  .deleteCancelButton,
+  .deleteConfirmButton,
+  .confirmCancelButton,
+  .confirmPrimaryButton,
+  .feedbackModalButton {
+    width: 100%;
+  }
+}
+
+
+
+.modalInput:focus {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
+}
+
+.modalInput::placeholder {
+  color: rgba(34, 34, 34, 0.5);
+}
