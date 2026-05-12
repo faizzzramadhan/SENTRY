@@ -102,6 +102,78 @@ function getRoleLabel(role: UserRole | string) {
   return role === "admin" ? "Admin" : "Staff";
 }
 
+function validateEmail(value: string) {
+  const email = value.trim().toLowerCase();
+
+  if (!email) {
+    return "Email wajib diisi.";
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return "Format email tidak valid.";
+  }
+
+  if (!email.endsWith("@gmail.com")) {
+    return "Email harus menggunakan domain @gmail.com.";
+  }
+
+  return "";
+}
+
+function validatePhone(value: string) {
+  const phone = value.trim();
+
+  if (!phone) {
+    return "Nomor telepon wajib diisi.";
+  }
+
+  if (!/^\d+$/.test(phone)) {
+    return "Nomor telepon hanya boleh berisi angka.";
+  }
+
+  if (phone.length !== 12) {
+    return "Nomor telepon harus terdiri dari 12 digit.";
+  }
+
+  return "";
+}
+
+function validatePassword(value: string, isEdit: boolean) {
+  const password = value.trim();
+
+  if (!isEdit && !password) {
+    return "Password wajib diisi.";
+  }
+
+  if (password && password.length < 8) {
+    return "Password minimal 8 karakter.";
+  }
+
+  return "";
+}
+
+function validateName(value: string) {
+  const name = value.trim();
+
+  if (!name) {
+    return "Nama lengkap wajib diisi.";
+  }
+
+  if (name.length < 3) {
+    return "Nama lengkap minimal 3 karakter.";
+  }
+
+  if (name.length > 30) {
+    return "Nama lengkap maksimal 30 karakter.";
+  }
+
+  if (!/^[A-Za-zÀ-ÿ' .-]+$/.test(name)) {
+    return "Nama lengkap hanya boleh berisi huruf, spasi, titik, apostrof, atau tanda hubung.";
+  }
+
+  return "";
+}
+
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
 
@@ -263,10 +335,11 @@ function StaffModal({
           <input
             className={styles.modalInput}
             type="email"
-            placeholder="Masukkan alamat email"
+            placeholder="Contoh: nama@gmail.com"
             value={form.usr_email}
             onChange={(e) => onChange("usr_email", e.target.value)}
           />
+          <div className={styles.modalHint}>Email harus menggunakan domain @gmail.com.</div>
         </div>
 
         <div className={styles.modalField}>
@@ -276,10 +349,13 @@ function StaffModal({
           <input
             className={styles.modalInput}
             type="text"
-            placeholder="Masukkan nomor handphone"
+            inputMode="numeric"
+            maxLength={12}
+            placeholder="Masukkan 12 digit nomor telepon"
             value={form.usr_no_hp}
             onChange={(e) => onChange("usr_no_hp", e.target.value)}
           />
+          <div className={styles.modalHint}>Nomor telepon harus 12 digit angka.</div>
         </div>
 
         <div className={styles.modalField}>
@@ -320,7 +396,7 @@ function StaffModal({
         <button
           type="button"
           className={styles.modalSaveButton}
-          onClick={onSave}
+          onClick={() => onSave()}
           disabled={saving}
         >
           {saving ? "Menyimpan..." : "Simpan"}
@@ -550,6 +626,31 @@ export default function ManageStaffPage() {
       return;
     }
 
+    if (field === "usr_no_hp") {
+      const numericOnly = value.replace(/\D/g, "").slice(0, 12);
+      setForm((prev) => ({
+        ...prev,
+        usr_no_hp: numericOnly,
+      }));
+      return;
+    }
+
+    if (field === "usr_nama_lengkap") {
+      setForm((prev) => ({
+        ...prev,
+        usr_nama_lengkap: value.slice(0, 30),
+      }));
+      return;
+    }
+
+    if (field === "usr_email") {
+      setForm((prev) => ({
+        ...prev,
+        usr_email: value.slice(0, 50),
+      }));
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       [field]: value,
@@ -562,32 +663,24 @@ export default function ManageStaffPage() {
       return;
     }
 
-    if (!form.usr_nama_lengkap.trim()) {
-      setModalErrorMsg("Nama lengkap wajib diisi.");
-      return;
-    }
-
-    if (!form.usr_email.trim()) {
-      setModalErrorMsg("Email wajib diisi.");
-      return;
-    }
-
-    if (!form.usr_no_hp.trim()) {
-      setModalErrorMsg("Nomor handphone wajib diisi.");
-      return;
-    }
-
-    if (modalMode === "add" && !form.usr_password.trim()) {
-      setModalErrorMsg("Password wajib diisi.");
-      return;
-    }
-
-    if (!["staff", "admin"].includes(form.usr_role)) {
-      setModalErrorMsg("Role wajib dipilih.");
-      return;
-    }
-
     const isEdit = modalMode === "edit";
+    const validationErrors = [
+      validateName(form.usr_nama_lengkap),
+      validateEmail(form.usr_email),
+      validatePhone(form.usr_no_hp),
+      validatePassword(form.usr_password, isEdit),
+      !["staff", "admin"].includes(form.usr_role) ? "Role wajib dipilih." : "",
+    ].filter(Boolean);
+
+    if (validationErrors.length > 0) {
+      setModalErrorMsg(validationErrors[0]);
+      setFeedbackModal({
+        type: "error",
+        title: "Validasi Gagal",
+        message: validationErrors[0],
+      });
+      return;
+    }
 
     if (isEdit && !confirmed) {
       setEditConfirmOpen(true);
@@ -1002,10 +1095,10 @@ export default function ManageStaffPage() {
         >
           <div className={styles.confirmModalCard}>
             <h2 id="edit-confirm-title" className={styles.confirmModalTitle}>
-              Konfirmasi Perubahan Data
+              Konfirmasi Edit Data
             </h2>
             <p className={styles.confirmModalText}>
-              Apakah Anda yakin ingin menyimpan perubahan pada akun
+              Apakah Anda yakin ingin melakukan edit pada akun
               <strong> {form.usr_nama_lengkap || "user ini"}</strong>?
             </p>
             <div className={styles.confirmModalActions}>

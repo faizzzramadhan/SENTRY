@@ -724,8 +724,9 @@
 }
 
 .confirmPrimaryButton {
-  background: #2563eb;
+  background: linear-gradient(135deg, #f97316, #ea580c);
   color: #ffffff;
+  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.24);
 }
 
 .feedbackModalButton {
@@ -799,3 +800,12 @@
   }
 }
 
+
+
+.modalInput:focus {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
+}
+
+.modalInput::placeholder {
+  color: rgba(34, 34, 34, 0.5);
+}
