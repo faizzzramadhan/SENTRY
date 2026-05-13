@@ -7,8 +7,13 @@ import styles from './addreport.module.css'
 import LocationSearch from './LocationSearch'
 import Link from 'next/link'
 
-const API_URL =
+const RAW_API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/api/humint'
+
+const API_URL = RAW_API_URL
+  .replace(/\/$/, '')
+  .replace(/\/humint$/i, '/api/humint')
+  .replace(/\/api$/i, '/api/humint')
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024
 const MAX_FOTO_KERUSAKAN = 2
@@ -24,6 +29,34 @@ const MapPicker = dynamic(() => import('./MapPicker'), {
     <div style={{ height: '450px', background: '#111', borderRadius: '12px' }} />
   ),
 })
+
+const getArrayFromResponse = (data: any, keys: string[]) => {
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key]
+  }
+
+  if (Array.isArray(data)) return data
+
+  return []
+}
+
+const fetchJson = async (url: string) => {
+  const res = await fetch(url, { cache: 'no-store' })
+  const text = await res.text()
+
+  if (!text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+    throw new Error(`Endpoint tidak mengembalikan JSON: ${url}`)
+  }
+
+  const data = JSON.parse(text)
+
+  if (!res.ok) {
+    throw new Error(data?.message || `Gagal memuat data dari ${url}`)
+  }
+
+  return data
+}
+
 
 const emptyKorban = {
   anakL: 0,
@@ -575,14 +608,12 @@ export default function AddReportAdmin() {
   }, [])
 
   useEffect(() => {
-    fetch(`${API_URL}/data-kecamatan`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => setKecamatanList(data.data || []))
+    fetchJson(`${API_URL}/data-kecamatan`)
+      .then((data) => setKecamatanList(getArrayFromResponse(data, ['data', 'kecamatan', 'data_kecamatan'])))
       .catch(() => setKecamatanList([]))
 
-    fetch(`${API_URL}/jenis-bencana`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => setJenisList(data.data || []))
+    fetchJson(`${API_URL}/jenis-bencana`)
+      .then((data) => setJenisList(getArrayFromResponse(data, ['data', 'jenis_bencana'])))
       .catch(() => setJenisList([]))
   }, [])
 
@@ -592,9 +623,8 @@ export default function AddReportAdmin() {
       return
     }
 
-    fetch(`${API_URL}/data-kelurahan?kecamatan_id=${selectedKec}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => setKelurahanList(data.data || []))
+    fetchJson(`${API_URL}/data-kelurahan?kecamatan_id=${selectedKec}`)
+      .then((data) => setKelurahanList(getArrayFromResponse(data, ['data', 'kelurahan', 'data_kelurahan'])))
       .catch(() => setKelurahanList([]))
   }, [selectedKec])
 
@@ -604,9 +634,8 @@ export default function AddReportAdmin() {
       return
     }
 
-    fetch(`${API_URL}/nama-bencana?jenis_id=${selectedJenis}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => setBencanaList(data.data || []))
+    fetchJson(`${API_URL}/nama-bencana?jenis_id=${selectedJenis}`)
+      .then((data) => setBencanaList(getArrayFromResponse(data, ['data', 'nama_bencana'])))
       .catch(() => setBencanaList([]))
   }, [selectedJenis])
 
@@ -847,9 +876,14 @@ export default function AddReportAdmin() {
                   }}
                 >
                   <option value="">Pilih jenis bencana...</option>
-                  {jenisList.map((item) => (
-                    <option key={item.jenis_id} value={String(item.jenis_id)}>{item.nama_jenis}</option>
-                  ))}
+                  {jenisList.map((item) => {
+                    const jenisId = item.jenis_id ?? item.id_jenis
+                    const namaJenis = item.nama_jenis ?? item.jenis_bencana ?? item.nama ?? '-'
+
+                    return (
+                      <option key={jenisId} value={String(jenisId)}>{namaJenis}</option>
+                    )
+                  })}
                 </select>
               </div>
               <div className={styles.inputGroup}>
@@ -861,9 +895,14 @@ export default function AddReportAdmin() {
               <label className={styles.fieldLabel}>Nama Kejadian Spesifik</label>
               <select name="id_bencana" value={form.id_bencana} onChange={handleChange}>
                 <option value="">{selectedJenis ? 'Pilih kejadian...' : 'Pilih jenis bencana dulu'}</option>
-                {bencanaList.map((item) => (
-                  <option key={item.bencana_id} value={String(item.bencana_id)}>{item.nama_bencana}</option>
-                ))}
+                {bencanaList.map((item) => {
+                  const bencanaId = item.bencana_id ?? item.id_bencana
+                  const namaBencana = item.nama_bencana ?? item.nama ?? '-'
+
+                  return (
+                    <option key={bencanaId} value={String(bencanaId)}>{namaBencana}</option>
+                  )
+                })}
               </select>
             </div>
             <div className={styles.inputGroup} style={{ flexGrow: 1 }}>

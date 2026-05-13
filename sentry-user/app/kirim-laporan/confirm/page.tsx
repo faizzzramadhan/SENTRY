@@ -8,21 +8,12 @@ import styles from './confirm.module.css'
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/humint'
 
-const JENIS_KORBAN_LABEL: Record<string, string> = {
-  TIDAK_ADA: 'Tidak Ada Korban',
-  TERDAMPAK: 'Terdampak',
-  MENINGGAL: 'Meninggal',
-  HILANG: 'Hilang',
-  MENGUNGSI: 'Mengungsi',
-  LUKA_SAKIT: 'Luka/Sakit',
-}
-
 export default function ConfirmKirimLaporanPage() {
   const router = useRouter()
   const [draft, setDraft] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
-  const [successData, setSuccessData] = useState<any>(null)
+  const [submittedReportId, setSubmittedReportId] = useState<string>('')
 
   useEffect(() => {
     const saved = sessionStorage.getItem('draft_laporan_user')
@@ -64,86 +55,55 @@ export default function ConfirmKirimLaporanPage() {
       formData.append('jenis_laporan', draft.jenis_laporan || '')
       formData.append('latitude', String(draft.lat ?? ''))
       formData.append('longitude', String(draft.lng ?? ''))
-      formData.append('foto_kejadian_source', draft.foto_kejadian_source || 'FILE_UPLOAD')
-      formData.append(
-        'is_camera_capture',
-        draft.is_camera_capture === true ? 'true' : 'false'
-      )
-      formData.append('foto_captured_at', draft.foto_captured_at || '')
-
-      const bolehKirimFallbackGps = draft.foto_kejadian_source === 'WEB_CAMERA'
 
       formData.append(
         'browser_gps_lat',
-        bolehKirimFallbackGps &&
-          draft.browser_gps_lat !== null &&
-          draft.browser_gps_lat !== undefined
+        draft.browser_gps_lat !== null && draft.browser_gps_lat !== undefined
           ? String(draft.browser_gps_lat)
           : ''
       )
 
       formData.append(
         'browser_gps_lng',
-        bolehKirimFallbackGps &&
-          draft.browser_gps_lng !== null &&
-          draft.browser_gps_lng !== undefined
+        draft.browser_gps_lng !== null && draft.browser_gps_lng !== undefined
           ? String(draft.browser_gps_lng)
           : ''
       )
 
-      formData.append(
-        'browser_latitude',
-        bolehKirimFallbackGps &&
-          draft.browser_gps_lat !== null &&
-          draft.browser_gps_lat !== undefined
-          ? String(draft.browser_gps_lat)
-          : ''
-      )
+      const korbanPayload = Array.isArray(draft.korbanPayload)
+        ? draft.korbanPayload.filter((item: any) => Number(item?.jumlah || 0) > 0)
+        : []
 
-      formData.append(
-        'browser_longitude',
-        bolehKirimFallbackGps &&
-          draft.browser_gps_lng !== null &&
-          draft.browser_gps_lng !== undefined
-          ? String(draft.browser_gps_lng)
-          : ''
+      const jumlahKorban = korbanPayload.reduce(
+        (total: number, item: any) => total + Number(item?.jumlah || 0),
+        0
       )
-
-      formData.append(
-        'browser_accuracy',
-        bolehKirimFallbackGps &&
-          draft.browser_gps_accuracy !== null &&
-          draft.browser_gps_accuracy !== undefined
-          ? String(draft.browser_gps_accuracy)
-          : ''
-      )
-
-      const jumlahKorban =
-        draft.jenis_laporan === 'ASSESSMENT'
-          ? Number(form.jumlah_korban_identifikasi || 0)
-          : 0
 
       const jenisKorban =
-        draft.jenis_laporan === 'ASSESSMENT'
-          ? form.jenis_korban || 'TIDAK_ADA'
-          : 'TIDAK_ADA'
+        korbanPayload.find((item: any) => Number(item?.jumlah || 0) > 0)
+          ?.jenis_korban || 'TIDAK_ADA'
 
-      const korbanPayload =
-        draft.jenis_laporan === 'ASSESSMENT' && jumlahKorban > 0
-          ? [
-              {
-                jenis_korban: jenisKorban,
-                jenis_kelamin: 'TIDAK_DIKETAHUI',
-                kelompok_umur: 'TIDAK_DIKETAHUI',
-                jumlah: jumlahKorban,
-              },
-            ]
-          : []
+      const getJumlahByJenis = (jenis: string) => {
+        const found = korbanPayload.find((item: any) => item?.jenis_korban === jenis)
+        return Number(found?.jumlah || 0)
+      }
 
+      const jumlahTerdampak = getJumlahByJenis('TERDAMPAK')
+      const jumlahMeninggal = getJumlahByJenis('MENINGGAL')
+      const jumlahHilang = getJumlahByJenis('HILANG')
+      const jumlahMengungsi = getJumlahByJenis('MENGUNGSI')
+      const jumlahLukaSakit = getJumlahByJenis('LUKA_SAKIT')
+
+      // Data korban masyarakat disimpan langsung pada tabel identifikasi.
       formData.append('jenis_korban', jenisKorban)
-      formData.append('korban', JSON.stringify(korbanPayload))
-      formData.append('detail_korban', JSON.stringify(korbanPayload))
+      formData.append('jumlah_korban_identifikasi', String(jumlahKorban))
       formData.append('total_korban', String(jumlahKorban))
+
+      formData.append('jumlah_terdampak', String(jumlahTerdampak))
+      formData.append('jumlah_meninggal', String(jumlahMeninggal))
+      formData.append('jumlah_hilang', String(jumlahHilang))
+      formData.append('jumlah_mengungsi', String(jumlahMengungsi))
+      formData.append('jumlah_luka_sakit', String(jumlahLukaSakit))
 
       if (draft.fotoKejadianBase64) {
         const file = await base64ToFile(
@@ -177,19 +137,22 @@ export default function ConfirmKirimLaporanPage() {
         throw new Error(data.message || 'Gagal mengirim laporan')
       }
 
-      const laporanId = data.laporan_id
-      const nomorLaporan =
-        data.nomor_laporan ||
-        (laporanId ? `LAP-${String(laporanId).padStart(4, '0')}` : '-')
-      const cekStatusUrl = data.cek_status_url || `/cek-status?id=${laporanId}`
+      const reportId =
+        data?.laporan_id ||
+        data?.id_laporan ||
+        data?.data?.laporan_id ||
+        data?.data?.id_laporan ||
+        data?.laporan?.laporan_id ||
+        data?.laporan?.id_laporan ||
+        ''
 
+      setSubmittedReportId(reportId ? String(reportId) : '')
       sessionStorage.removeItem('draft_laporan_user')
-      setSuccessData({
-        laporan_id: laporanId,
-        nomor_laporan: nomorLaporan,
-        cek_status_url: cekStatusUrl,
-      })
       setShowSuccess(true)
+
+      setTimeout(() => {
+        router.push('/')
+      }, 6000)
     } catch (error: any) {
       alert(error.message || 'Gagal mengirim laporan')
     } finally {
@@ -209,6 +172,26 @@ export default function ConfirmKirimLaporanPage() {
   }
 
   const form = draft.form
+  const korbanPayload = Array.isArray(draft.korbanPayload)
+    ? draft.korbanPayload.filter((item: any) => Number(item?.jumlah || 0) > 0)
+    : []
+  const totalKorban = korbanPayload.reduce(
+    (total: number, item: any) => total + Number(item?.jumlah || 0),
+    0
+  )
+
+  const getLabelJenisKorban = (value: string) => {
+    const labels: Record<string, string> = {
+      TIDAK_ADA: 'Tidak Ada Korban',
+      TERDAMPAK: 'Terdampak',
+      MENINGGAL: 'Meninggal',
+      HILANG: 'Hilang',
+      MENGUNGSI: 'Mengungsi',
+      LUKA_SAKIT: 'Luka/Sakit',
+    }
+
+    return labels[value] || value
+  }
 
   return (
     <main className={styles.mainWrapper}>
@@ -221,34 +204,33 @@ export default function ConfirmKirimLaporanPage() {
             <h2>Laporan Berhasil Dikirim</h2>
             <p>Terima kasih. Laporan Anda sudah masuk ke sistem SENTRY.</p>
 
-            <div className={styles.reportIdBox}>
-              <span>ID Laporan Anda</span>
-              <strong>{successData?.nomor_laporan || successData?.laporan_id || '-'}</strong>
-              <small>Gunakan ID ini untuk mengecek status laporan.</small>
-            </div>
-
-            <div className={styles.popupActions}>
-              <button
-                type="button"
-                className={styles.btnPopupSecondary}
-                onClick={() => router.push('/')}
+            {submittedReportId ? (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  color: '#0f172a',
+                }}
               >
-                Ke Beranda
-              </button>
+                <div style={{ fontSize: 13, color: '#64748b', marginBottom: 6 }}>
+                  ID Laporan untuk cek status
+                </div>
+                <strong style={{ fontSize: 24, letterSpacing: 1 }}>
+                  {submittedReportId}
+                </strong>
+              </div>
+            ) : (
+              <p style={{ marginTop: 12 }}>
+                ID laporan belum terbaca dari response server. Silakan cek status melalui data laporan terbaru.
+              </p>
+            )}
 
-              <button
-                type="button"
-                className={styles.btnPopupPrimary}
-                onClick={() =>
-                  router.push(
-                    successData?.cek_status_url ||
-                      `/cek-status?id=${successData?.laporan_id || ''}`
-                  )
-                }
-              >
-                Cek Status
-              </button>
-            </div>
+            <p style={{ marginTop: 14, fontSize: 14 }}>
+              Simpan ID laporan ini untuk mengecek status laporan Anda.
+            </p>
           </div>
         </div>
       )}
@@ -380,7 +362,7 @@ export default function ConfirmKirimLaporanPage() {
 
                   <div className={styles.coordBox}>
                     <div>
-                      <small>Fallback GPS Kamera Web Latitude</small>
+                      <small>Metadata EXIF - Fallback GPS Browser Latitude</small>
                       <strong>
                         {draft.browser_gps_lat !== null &&
                         draft.browser_gps_lat !== undefined
@@ -389,7 +371,7 @@ export default function ConfirmKirimLaporanPage() {
                       </strong>
                     </div>
                     <div>
-                      <small>Fallback GPS Kamera Web Longitude</small>
+                      <small>Metadata EXIF - Fallback GPS Browser Longitude</small>
                       <strong>
                         {draft.browser_gps_lng !== null &&
                         draft.browser_gps_lng !== undefined
@@ -409,17 +391,37 @@ export default function ConfirmKirimLaporanPage() {
 
                   <div className={styles.sectionBody}>
                     <div className={styles.infoRow}>
-                      <span className={styles.label}>Jenis Korban</span>
+                      <span className={styles.label}>Jumlah Korban</span>
                       <span className={styles.value}>
-                        {JENIS_KORBAN_LABEL[form.jenis_korban] || '-'}
+                        {totalKorban} Orang
                       </span>
                     </div>
 
-                    <div className={styles.infoRow}>
-                      <span className={styles.label}>Jumlah Korban</span>
-                      <span className={styles.value}>
-                        {form.jumlah_korban_identifikasi || 0} Orang
-                      </span>
+                    <div className={styles.fullInfo}>
+                      <span className={styles.label}>Rincian Korban</span>
+                      {korbanPayload.length > 0 ? (
+                        <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                          {korbanPayload.map((item: any) => (
+                            <div
+                              key={item.jenis_korban}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 12,
+                                padding: '10px 12px',
+                                borderRadius: 12,
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                              }}
+                            >
+                              <span>{getLabelJenisKorban(item.jenis_korban)}</span>
+                              <strong>{item.jumlah} orang</strong>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p>Tidak ada korban.</p>
+                      )}
                     </div>
 
                     <div className={styles.fullInfo}>

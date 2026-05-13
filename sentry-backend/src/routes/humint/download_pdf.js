@@ -219,6 +219,64 @@ function sumTotalKorban(korbanRows) {
   }, 0);
 }
 
+function formatJenisKorban(value) {
+  if (!value) return "-";
+
+  const text = String(value).trim().toUpperCase();
+
+  const labelMap = {
+    TIDAK_ADA: "Tidak Ada",
+    TERDAMPAK: "Terdampak",
+    MENINGGAL: "Meninggal",
+    HILANG: "Hilang",
+    MENGUNGSI: "Mengungsi",
+    LUKA_SAKIT: "Luka/Sakit",
+  };
+
+  return labelMap[text] || safe(value);
+}
+
+function toNumber(value, fallback = 0) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function getIdentifikasiKorbanRows(d) {
+  return [
+    {
+      jenis_korban: "TERDAMPAK",
+      label: "Terdampak",
+      jumlah: toNumber(d.jumlah_terdampak),
+    },
+    {
+      jenis_korban: "MENINGGAL",
+      label: "Meninggal",
+      jumlah: toNumber(d.jumlah_meninggal),
+    },
+    {
+      jenis_korban: "HILANG",
+      label: "Hilang",
+      jumlah: toNumber(d.jumlah_hilang),
+    },
+    {
+      jenis_korban: "MENGUNGSI",
+      label: "Mengungsi",
+      jumlah: toNumber(d.jumlah_mengungsi),
+    },
+    {
+      jenis_korban: "LUKA_SAKIT",
+      label: "Luka/Sakit",
+      jumlah: toNumber(d.jumlah_luka_sakit),
+    },
+  ];
+}
+
+function sumTotalIdentifikasiKorban(d) {
+  return getIdentifikasiKorbanRows(d).reduce((total, item) => {
+    return total + toNumber(item.jumlah);
+  }, 0);
+}
+
 function formatListAsBullets(items) {
   if (!Array.isArray(items) || items.length === 0) return "-";
 
@@ -490,6 +548,64 @@ function drawKorbanTable(doc, state, korbanRows, x, y, width) {
   return y;
 }
 
+function drawIdentifikasiKorbanTable(doc, state, identifikasiRows, x, y, width) {
+  y = ensureSpace(doc, state, y, 52);
+
+  const colJenis = 340;
+  const colJumlah = width - colJenis;
+  const headerHeight = 22;
+  const rowHeight = 22;
+
+  function drawHeader() {
+    doc.save();
+
+    doc.lineWidth(0.6).strokeColor("#333");
+    doc.rect(x, y, width, headerHeight).stroke();
+
+    doc.font("Helvetica-Bold").fontSize(9).fillColor("#000");
+    doc.text("Jenis Korban", x + 7, y + 7, { width: colJenis - 10 });
+    doc.text("Jumlah", x + colJenis + 7, y + 7, {
+      width: colJumlah - 10,
+      align: "center",
+    });
+
+    doc.moveTo(x + colJenis, y).lineTo(x + colJenis, y + headerHeight).stroke();
+
+    doc.restore();
+
+    y += headerHeight;
+  }
+
+  drawHeader();
+
+  for (const item of identifikasiRows) {
+    y = ensureSpace(doc, state, y, rowHeight + 24);
+
+    if (y === 48) {
+      drawHeader();
+    }
+
+    doc.save();
+
+    doc.lineWidth(0.4).strokeColor("#c7c7c7");
+    doc.rect(x, y, width, rowHeight).stroke();
+    doc.moveTo(x + colJenis, y).lineTo(x + colJenis, y + rowHeight).stroke();
+
+    doc.font("Helvetica").fontSize(9).fillColor("#000");
+    doc.text(safe(item.label), x + 7, y + 6, { width: colJenis - 10 });
+    doc.text(`${safe(item.jumlah)} orang`, x + colJenis + 7, y + 6, {
+      width: colJumlah - 10,
+      align: "center",
+    });
+
+    doc.restore();
+
+    y += rowHeight;
+  }
+
+  return y;
+}
+
 function drawImageBox(doc, title, imagePath, x, y, width, height) {
   doc.save();
 
@@ -660,8 +776,20 @@ router.get("/download/:id", async (req, res) => {
         dk.nama_kecamatan,
         dl.nama_kelurahan,
 
-        i.jenis_korban,
+        CASE
+          WHEN COALESCE(i.jumlah_meninggal, 0) > 0 THEN 'MENINGGAL'
+          WHEN COALESCE(i.jumlah_hilang, 0) > 0 THEN 'HILANG'
+          WHEN COALESCE(i.jumlah_luka_sakit, 0) > 0 THEN 'LUKA_SAKIT'
+          WHEN COALESCE(i.jumlah_mengungsi, 0) > 0 THEN 'MENGUNGSI'
+          WHEN COALESCE(i.jumlah_terdampak, 0) > 0 THEN 'TERDAMPAK'
+          ELSE 'TIDAK_ADA'
+        END AS jenis_korban,
         i.jumlah_korban_identifikasi,
+        i.jumlah_terdampak,
+        i.jumlah_meninggal,
+        i.jumlah_hilang,
+        i.jumlah_mengungsi,
+        i.jumlah_luka_sakit,
         i.kerusakan_identifikasi,
         i.terdampak_identifikasi,
         i.penyebab_identifikasi,
@@ -750,6 +878,9 @@ router.get("/download/:id", async (req, res) => {
     );
 
     const totalKorban = sumTotalKorban(korbanRows);
+    const identifikasiKorbanRows = getIdentifikasiKorbanRows(d);
+    const totalKorbanIdentifikasi =
+      toNumber(d.jumlah_korban_identifikasi) || sumTotalIdentifikasiKorban(d);
 
     const zonaRawanText = getZonaRawanText(d);
     const isPrioritasManual =
@@ -838,7 +969,15 @@ router.get("/download/:id", async (req, res) => {
     y += 12;
 
     y = drawSectionTitle(doc, state, "III. IDENTIFIKASI AWAL MASYARAKAT", x, y, width);
-    y = drawInfoRow(doc, state, "Jumlah Korban Identifikasi", d.jumlah_korban_identifikasi, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Jumlah Korban Identifikasi", `${totalKorbanIdentifikasi} orang`, x, y, labelWidth, valueWidth);
+
+    y += 8;
+
+    y = drawSectionTitle(doc, state, "RINCIAN KORBAN IDENTIFIKASI MASYARAKAT", x, y, width);
+    y = drawIdentifikasiKorbanTable(doc, state, identifikasiKorbanRows, x, y, width);
+
+    y += 8;
+
     y = drawInfoRow(doc, state, "Kerusakan Identifikasi", d.kerusakan_identifikasi, x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "Terdampak Identifikasi", d.terdampak_identifikasi, x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "Penyebab Identifikasi", d.penyebab_identifikasi, x, y, labelWidth, valueWidth);
@@ -852,7 +991,7 @@ router.get("/download/:id", async (req, res) => {
 
     y += 8;
 
-    y = drawSectionTitle(doc, state, "DETAIL KORBAN", x, y, width);
+    y = drawSectionTitle(doc, state, "DETAIL KORBAN PETUGAS", x, y, width);
     y = drawKorbanTable(doc, state, korbanRows, x, y, width);
 
     y += 12;
@@ -905,7 +1044,8 @@ router.get("/download/:id", async (req, res) => {
     y = drawInfoRow(doc, state, "Alasan Prioritas", alasanPrioritas, x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "Override Manual", getYaTidak(isPrioritasManual), x, y, labelWidth, valueWidth);
     y = drawInfoRow(doc, state, "Alasan Override Manual", alasanOverrideManual, x, y, labelWidth, valueWidth);
-    y = drawInfoRow(doc, state, "Total Korban Terhitung", `${totalKorban} orang`, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Total Korban Identifikasi Masyarakat", `${totalKorbanIdentifikasi} orang`, x, y, labelWidth, valueWidth);
+    y = drawInfoRow(doc, state, "Total Korban Detail Petugas", `${totalKorban} orang`, x, y, labelWidth, valueWidth);
 
     y += 14;
 

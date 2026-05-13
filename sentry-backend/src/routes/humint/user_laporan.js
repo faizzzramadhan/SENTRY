@@ -200,41 +200,124 @@ function getValidasiFotoRuleBased(distanceMeter, gpsSource) {
   };
 }
 
-function resolveJenisKorbanFromBody(body) {
-  const jumlahKorbanInput = toNumberSafe(
-    body.total_korban || body.jumlah_korban_identifikasi,
-    0
-  );
+function parseKorbanPayload(value) {
+  if (!value) return [];
 
-  const jenisKorbanInput = normalizeJenisKorban(
-    getFirstSingleValue(
-      [
-        body.jenis_korban,
-        body.jenisKorban,
-        body.jenis_korban_identifikasi,
-      ],
-      jumlahKorbanInput > 0 ? "TERDAMPAK" : "TIDAK_ADA"
-    )
-  );
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function getJumlahKorbanByJenis(body, jenis) {
+  const fieldMap = {
+    TERDAMPAK: "jumlah_terdampak",
+    MENINGGAL: "jumlah_meninggal",
+    HILANG: "jumlah_hilang",
+    MENGUNGSI: "jumlah_mengungsi",
+    LUKA_SAKIT: "jumlah_luka_sakit",
+  };
+
+  const fieldName = fieldMap[jenis];
+  const directValue = toNumberSafe(body[fieldName], 0);
+
+  if (directValue > 0) {
+    return directValue;
+  }
+
+  const korbanPayload = parseKorbanPayload(body.korban || body.detail_korban);
+
+  const found = korbanPayload.find((item) => {
+    return normalizeJenisKorban(item?.jenis_korban) === jenis;
+  });
+
+  return toNumberSafe(found?.jumlah, 0);
+}
+
+function getJenisKorbanUtama({
+  jumlahMeninggal,
+  jumlahHilang,
+  jumlahLukaSakit,
+  jumlahMengungsi,
+  jumlahTerdampak,
+}) {
+  if (jumlahMeninggal > 0) return "MENINGGAL";
+  if (jumlahHilang > 0) return "HILANG";
+  if (jumlahLukaSakit > 0) return "LUKA_SAKIT";
+  if (jumlahMengungsi > 0) return "MENGUNGSI";
+  if (jumlahTerdampak > 0) return "TERDAMPAK";
+
+  return "TIDAK_ADA";
+}
+
+function resolveJenisKorbanFromBody(body) {
+  const jumlahTerdampak = getJumlahKorbanByJenis(body, "TERDAMPAK");
+  const jumlahMeninggal = getJumlahKorbanByJenis(body, "MENINGGAL");
+  const jumlahHilang = getJumlahKorbanByJenis(body, "HILANG");
+  const jumlahMengungsi = getJumlahKorbanByJenis(body, "MENGUNGSI");
+  const jumlahLukaSakit = getJumlahKorbanByJenis(body, "LUKA_SAKIT");
+
+  const totalKorban =
+    jumlahTerdampak +
+    jumlahMeninggal +
+    jumlahHilang +
+    jumlahMengungsi +
+    jumlahLukaSakit;
+
+  const jenisKorbanUtama = getJenisKorbanUtama({
+    jumlahMeninggal,
+    jumlahHilang,
+    jumlahLukaSakit,
+    jumlahMengungsi,
+    jumlahTerdampak,
+  });
+
+  if (totalKorban <= 0) {
+    return {
+      jenis_korban: "TIDAK_ADA",
+      jumlah_korban_identifikasi: 0,
+      jumlah_terdampak: 0,
+      jumlah_meninggal: 0,
+      jumlah_hilang: 0,
+      jumlah_mengungsi: 0,
+      jumlah_luka_sakit: 0,
+    };
+  }
 
   return {
-    jenis_korban: jenisKorbanInput,
-    jumlah_korban_identifikasi:
-      jenisKorbanInput === "TIDAK_ADA" ? 0 : jumlahKorbanInput,
+    jenis_korban: jenisKorbanUtama,
+    jumlah_korban_identifikasi: totalKorban,
+    jumlah_terdampak: jumlahTerdampak,
+    jumlah_meninggal: jumlahMeninggal,
+    jumlah_hilang: jumlahHilang,
+    jumlah_mengungsi: jumlahMengungsi,
+    jumlah_luka_sakit: jumlahLukaSakit,
   };
 }
 
-function buildDetailKorbanForRule(jenisKorban, jumlahKorban) {
-  if (!jenisKorban || jenisKorban === "TIDAK_ADA" || Number(jumlahKorban) <= 0) {
-    return [];
-  }
-
-  return [
-    {
-      jenis_korban: jenisKorban,
-      jumlah: Number(jumlahKorban),
-    },
+function buildDetailKorbanForRule(identifikasiKorban) {
+  const items = [
+    { jenis_korban: "TERDAMPAK", jumlah: identifikasiKorban.jumlah_terdampak },
+    { jenis_korban: "MENINGGAL", jumlah: identifikasiKorban.jumlah_meninggal },
+    { jenis_korban: "HILANG", jumlah: identifikasiKorban.jumlah_hilang },
+    { jenis_korban: "MENGUNGSI", jumlah: identifikasiKorban.jumlah_mengungsi },
+    { jenis_korban: "LUKA_SAKIT", jumlah: identifikasiKorban.jumlah_luka_sakit },
   ];
+
+  return items
+    .map((item) => ({
+      jenis_korban: item.jenis_korban,
+      jumlah: Number(item.jumlah || 0),
+    }))
+    .filter((item) => item.jumlah > 0);
 }
 
 function getFotoSource(body) {
@@ -397,18 +480,34 @@ router.post(
         exif_longitude: null,
       };
 
-      if (fotoKejadianFile) {
-        exifData = await extractExifLocation(fotoKejadianFile.path);
-      }
-
       const fotoKejadianSource = getFotoSource(body);
       const isCameraCapture =
         fotoKejadianSource === "WEB_CAMERA" ||
         normalizeBoolean(body.is_camera_capture) ||
         normalizeBoolean(body.isCameraCapture);
 
-      const adaExifGps = Boolean(exifData.exif_latitude && exifData.exif_longitude);
-      const adaBrowserGps = isCameraCapture && Boolean(browserLatitude && browserLongitude);
+      if (fotoKejadianFile) {
+        exifData = await extractExifLocation(fotoKejadianFile.path, {
+          browser_gps_lat: browserLatitude,
+          browser_gps_lng: browserLongitude,
+          source: fotoKejadianSource,
+          is_camera_capture: isCameraCapture,
+        });
+      }
+
+      const adaExifGps =
+        exifData.exif_latitude !== null &&
+        exifData.exif_latitude !== undefined &&
+        exifData.exif_longitude !== null &&
+        exifData.exif_longitude !== undefined;
+
+      const adaBrowserGps =
+        isCameraCapture &&
+        browserLatitude !== null &&
+        browserLatitude !== undefined &&
+        browserLongitude !== null &&
+        browserLongitude !== undefined;
+
       const gpsSource = adaExifGps ? "exif" : adaBrowserGps ? "browser" : "none";
 
       const gpsValidasiLatitude = adaExifGps
@@ -437,10 +536,7 @@ router.post(
       );
 
       const identifikasiKorban = resolveJenisKorbanFromBody(body);
-      const detailKorbanForRule = buildDetailKorbanForRule(
-        identifikasiKorban.jenis_korban,
-        identifikasiKorban.jumlah_korban_identifikasi
-      );
+      const detailKorbanForRule = buildDetailKorbanForRule(identifikasiKorban);
 
       const ruleAnalysis = calculateRuleBasedAnalysis({
         laporan: {
@@ -487,22 +583,15 @@ router.post(
         {
           id_laporan: laporanId,
           jenis_korban: identifikasiKorban.jenis_korban,
-          jumlah_korban_identifikasi:
-            jenisLaporan === "ASSESSMENT"
-              ? identifikasiKorban.jumlah_korban_identifikasi
-              : 0,
-          kerusakan_identifikasi:
-            jenisLaporan === "ASSESSMENT"
-              ? getSingleValue(body.kerusakan_identifikasi, null)
-              : null,
-          terdampak_identifikasi:
-            jenisLaporan === "ASSESSMENT"
-              ? getSingleValue(body.terdampak_identifikasi, null)
-              : null,
-          penyebab_identifikasi:
-            jenisLaporan === "ASSESSMENT"
-              ? getSingleValue(body.penyebab_identifikasi, null)
-              : null,
+          jumlah_korban_identifikasi: identifikasiKorban.jumlah_korban_identifikasi,
+          jumlah_terdampak: identifikasiKorban.jumlah_terdampak,
+          jumlah_meninggal: identifikasiKorban.jumlah_meninggal,
+          jumlah_hilang: identifikasiKorban.jumlah_hilang,
+          jumlah_mengungsi: identifikasiKorban.jumlah_mengungsi,
+          jumlah_luka_sakit: identifikasiKorban.jumlah_luka_sakit,
+          kerusakan_identifikasi: getSingleValue(body.kerusakan_identifikasi, null),
+          terdampak_identifikasi: getSingleValue(body.terdampak_identifikasi, null),
+          penyebab_identifikasi: getSingleValue(body.penyebab_identifikasi, null),
           created_by: actor,
           creation_date: now,
           last_updated_by: actor,
@@ -617,6 +706,11 @@ router.get("/status/:id", async (req, res) => {
 
         i.jenis_korban,
         i.jumlah_korban_identifikasi,
+        i.jumlah_terdampak,
+        i.jumlah_meninggal,
+        i.jumlah_hilang,
+        i.jumlah_mengungsi,
+        i.jumlah_luka_sakit,
         i.kerusakan_identifikasi,
         i.terdampak_identifikasi,
         i.penyebab_identifikasi,
@@ -684,6 +778,11 @@ router.get("/status/:id", async (req, res) => {
         identifikasi: {
           jenis_korban: item.jenis_korban,
           jumlah_korban_identifikasi: item.jumlah_korban_identifikasi,
+          jumlah_terdampak: item.jumlah_terdampak,
+          jumlah_meninggal: item.jumlah_meninggal,
+          jumlah_hilang: item.jumlah_hilang,
+          jumlah_mengungsi: item.jumlah_mengungsi,
+          jumlah_luka_sakit: item.jumlah_luka_sakit,
           kerusakan_identifikasi: item.kerusakan_identifikasi,
           terdampak_identifikasi: item.terdampak_identifikasi,
           penyebab_identifikasi: item.penyebab_identifikasi,

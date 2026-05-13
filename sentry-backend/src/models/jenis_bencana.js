@@ -26,11 +26,6 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         field: "nama_jenis",
       },
-      icon_marker: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-        field: "icon_marker",
-      },
       created_by: {
         type: DataTypes.STRING(255),
         allowNull: false,

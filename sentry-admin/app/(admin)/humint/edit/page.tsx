@@ -93,6 +93,18 @@ const jenisKorbanLabel: Record<JenisKorbanKey, string> = {
   MENGUNGSI: 'Mengungsi',
 }
 
+// ─── Warna per kategori korban ────────────────────────────────────
+const korbanColors: Record<string, string> = {
+  MENINGGAL: '#ef4444',
+  HILANG: '#f97316',
+  LUKA_SAKIT: '#eab308',
+  TERDAMPAK: '#3b82f6',
+  MENGUNGSI: '#8b5cf6',
+}
+
+function getKorbanColor(jenis: string) {
+  return korbanColors[String(jenis).toUpperCase()] || '#6b7280'
+}
 
 type LoginStaff = {
   usr_id?: string | number
@@ -461,9 +473,33 @@ export default function EditLaporanPage() {
       .filter((item) => item.total > 0 || item.jenis === selectedJenisKorban)
   }, [korbanByJenis, selectedJenisKorban])
 
-  const totalKorbanMasyarakat = useMemo(() => {
-    return Number(detail?.identifikasi?.jumlah_korban_identifikasi || 0)
+  // ─── Data identifikasi masyarakat (read-only) ─────────────────────
+  const korbanIdentifikasiData = useMemo(() => {
+    const idnt = detail?.identifikasi || {}
+
+    return [
+      { label: 'Terdampak', value: Number(idnt.jumlah_terdampak || 0), jenis: 'TERDAMPAK' },
+      { label: 'Meninggal', value: Number(idnt.jumlah_meninggal || 0), jenis: 'MENINGGAL' },
+      { label: 'Hilang', value: Number(idnt.jumlah_hilang || 0), jenis: 'HILANG' },
+      { label: 'Mengungsi', value: Number(idnt.jumlah_mengungsi || 0), jenis: 'MENGUNGSI' },
+      { label: 'Luka/Sakit', value: Number(idnt.jumlah_luka_sakit || 0), jenis: 'LUKA_SAKIT' },
+    ]
   }, [detail])
+
+  const totalKorbanMasyarakat = useMemo(() => {
+    const totalFromIdentifikasi = Number(
+      detail?.identifikasi?.jumlah_korban_identifikasi || 0
+    )
+
+    if (totalFromIdentifikasi > 0) {
+      return totalFromIdentifikasi
+    }
+
+    return korbanIdentifikasiData.reduce(
+      (total, item) => total + Number(item.value || 0),
+      0
+    )
+  }, [detail, korbanIdentifikasiData])
 
   const buildDetailKorbanPayload = () => {
     const rows: {
@@ -787,6 +823,7 @@ export default function EditLaporanPage() {
 
       <section className={styles.mainGrid}>
         <div>
+          {/* ── Card Data Laporan Masyarakat ── */}
           <div className={styles.card}>
             <div className={styles.cardTitle}>Data Laporan Masyarakat</div>
 
@@ -825,14 +862,33 @@ export default function EditLaporanPage() {
             <div className={styles.viewValue}>{detail.kronologi || '-'}</div>
           </div>
 
+          {/* ══════════════════════════════════════════════════════════
+              CARD IDENTIFIKASI KORBAN MASYARAKAT — LENGKAP (READ-ONLY)
+          ═══════════════════════════════════════════════════════════ */}
           <div className={styles.card}>
-            <div className={styles.cardTitle}>Data Assessment Masyarakat</div>
+            <div className={styles.cardTitle}>Data Identifikasi Korban Masyarakat</div>
 
-            <span className={styles.viewLabel}>Jumlah Korban Dilaporkan</span>
-            <div className={styles.viewValue}>
+            {/* Total keseluruhan */}
+            <span className={styles.viewLabel}>Total Korban Dilaporkan</span>
+            <div className={styles.viewValue} style={{ fontWeight: 700, fontSize: '1.05rem' }}>
               {totalKorbanMasyarakat} Orang
             </div>
 
+            {/* Kartu rincian per kategori */}
+            <span className={styles.viewLabel} style={{ display: 'block', marginTop: 14, marginBottom: 10 }}>
+              Rincian per Kategori Korban
+            </span>
+
+            <div className={styles.identificationVictimList}>
+              {korbanIdentifikasiData.map((item) => (
+                <div key={item.jenis} className={styles.identificationVictimItem}>
+                  <span>{item.label}</span>
+                  <strong>{item.value} orang</strong>
+                </div>
+              ))}
+            </div>
+
+            {/* Narasi identifikasi */}
             <span className={styles.viewLabel}>Kerusakan Dilaporkan</span>
             <div className={styles.viewValue}>
               {identifikasi.kerusakan_identifikasi || '-'}

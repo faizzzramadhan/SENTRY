@@ -554,25 +554,173 @@
   }
 }
 
-.iconMarkerImage {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-  display: inline-block;
-}
 
-.imagePreviewWrap {
-  margin-top: 8px;
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(3px);
 }
 
-.iconMarkerPreview {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 6px;
+.confirmCard {
+  width: min(440px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 26px;
+  background: #1f1f1f;
+  color: #ffffff;
+  padding: 30px 28px;
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+.confirmIcon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 126, 116, 0.18);
+  color: #ff7e74;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.confirmTitle {
+  margin: 0 0 10px;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.confirmMessage {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.confirmActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.confirmCancelButton,
+.confirmSubmitButton {
+  border: 0;
+  border-radius: 16px;
+  padding: 13px 16px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.confirmCancelButton {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.confirmSubmitButton {
+  background: #ff7e74;
+  color: #111111;
+}
+
+.confirmCancelButton:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.confirmSubmitButton:hover {
+  background: #ff9189;
+}
+
+@media (max-width: 640px) {
+  .confirmActions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ================= NOTIFICATION RESULT ================= */
+.notificationOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.notificationCard {
+  width: min(430px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 26px;
+  background: #1f1f1f;
+  color: #ffffff;
+  padding: 30px 28px;
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+.notificationIcon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.notificationIconSuccess {
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
+}
+
+.notificationIconError {
+  background: rgba(255, 126, 116, 0.18);
+  color: #ff7e74;
+}
+
+.notificationTitle {
+  margin: 0 0 10px;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.notificationMessage {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.notificationButton {
+  min-width: 128px;
+  margin-top: 24px;
+  border: 0;
+  border-radius: 16px;
+  padding: 13px 18px;
+  background: #ff7e74;
+  color: #111111;
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.notificationButton:hover {
+  background: #ff9189;
 }
