@@ -218,10 +218,13 @@ function ChevronRightIcon() {
 }
 
 function getVisiblePages(currentPage: number, totalPages: number): Array<number | "..."> {
-  if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
-  if (currentPage <= 3) return [1, 2, 3, 4, "..."];
-  if (currentPage >= totalPages - 2) return ["...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-  return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+  if (totalPages <= 4) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  if (currentPage <= 2) return [1, 2, 3, "..."];
+  if (currentPage >= totalPages - 1) {
+    return ["...", totalPages - 2, totalPages - 1, totalPages];
+  }
+
+  return [currentPage - 1, currentPage, currentPage + 1, "..."];
 }
 
 export default function LogAktivitasPage() {
@@ -511,21 +514,12 @@ export default function LogAktivitasPage() {
       </div>
 
       <div className={styles.paginationWrap}>
-        <div className={styles.paginationInfo}>
-          Menampilkan {filteredRows.length === 0 ? 0 : (page - 1) * rowsPerPage + 1}
-          {" - "}
-          {Math.min(page * rowsPerPage, filteredRows.length)}
-          {" dari "}
-          {filteredRows.length}
-          {" data"}
-        </div>
-
         <div className={styles.pagination}>
           <button
             type="button"
             className={styles.pageArrow}
             onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            disabled={page === 1}
+            disabled={page === 1 || loading}
           >
             <ChevronLeftIcon />
           </button>
@@ -544,6 +538,7 @@ export default function LogAktivitasPage() {
                     page === item ? styles.pageNumberActive : ""
                   }`}
                   onClick={() => setPage(Number(item))}
+                  disabled={loading}
                 >
                   {item}
                 </button>
@@ -555,7 +550,7 @@ export default function LogAktivitasPage() {
             type="button"
             className={styles.pageArrow}
             onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={page === totalPages}
+            disabled={page === totalPages || loading}
           >
             <ChevronRightIcon />
           </button>

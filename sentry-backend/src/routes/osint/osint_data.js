@@ -700,13 +700,24 @@ router.put("/:id/verify", auth, requireRole("staff", "admin"), async (req, res) 
       });
     }
 
+    let nextAnalysisStatus = existing.osint_analysis_status;
+
+    if (verificationStatus === "DITOLAK") {
+      nextAnalysisStatus = "REJECTED";
+    }
+
+    if (verificationStatus === "TERVERIFIKASI_MANUAL") {
+      nextAnalysisStatus = "PROCESSED";
+    }
+
+    if (verificationStatus === "TERVERIFIKASI_OTOMATIS") {
+      nextAnalysisStatus = "PROCESSED";
+    }
+
     await existing.update({
       osint_verification_status: verificationStatus,
       osint_priority_level: priorityLevel,
-      osint_analysis_status:
-        verificationStatus === "DITOLAK"
-          ? "REJECTED"
-          : existing.osint_analysis_status,
+      osint_analysis_status: nextAnalysisStatus,
       last_updated_by:
         req.user?.usr_nama_lengkap || req.user?.usr_email || "system",
       last_update_date: new Date(),

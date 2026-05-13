@@ -146,6 +146,8 @@ type DetailView = {
   shares: number;
   verified: boolean;
   verificationLabel: string;
+  verificationStatus: string;
+  canVerify: boolean;
   priority: PriorityLevel;
   keywords: string[];
   scoreLabel: string;
@@ -398,6 +400,8 @@ function mapDetail(data: OsintApiData, score: OsintScore | null): DetailView {
       String(data.osint_verification_status || "")
     ),
     verificationLabel,
+    verificationStatus: String(data.osint_verification_status || "BELUM_DIVERIFIKASI"),
+    canVerify: String(data.osint_verification_status || "") === "BELUM_DIVERIFIKASI",
     priority: data.osint_priority_level || "SEDANG",
     keywords: getKeywords(score, data),
     scoreLabel,
@@ -515,6 +519,10 @@ export default function DetailOsintPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+  const [selectedVerificationStatus, setSelectedVerificationStatus] = useState<
+    "TERVERIFIKASI_MANUAL" | "DITOLAK" | ""
+  >("");
 
   const token = useMemo(
     () => (typeof window !== "undefined" ? localStorage.getItem("token") : null),
@@ -569,8 +577,32 @@ export default function DetailOsintPage() {
     fetchDetail();
   }, [fetchDetail]);
 
-  async function handleVerify() {
+  function openVerifyModal() {
+    if (!detail) return;
+
+    if (!detail.canVerify) {
+      alert("Data ini sudah memiliki status verifikasi.");
+      return;
+    }
+
+    setSelectedVerificationStatus("");
+    setVerifyModalOpen(true);
+  }
+
+  function closeVerifyModal() {
+    if (verifying) return;
+
+    setVerifyModalOpen(false);
+    setSelectedVerificationStatus("");
+  }
+
+  async function submitVerificationStatus() {
     if (!token || !detail) return;
+
+    if (!selectedVerificationStatus) {
+      alert("Pilih status verifikasi terlebih dahulu.");
+      return;
+    }
 
     try {
       setVerifying(true);
@@ -578,14 +610,16 @@ export default function DetailOsintPage() {
       await fetchJson(`${API_BASE_URL}/osint/data/${detail.id}/verify`, token, {
         method: "PUT",
         body: JSON.stringify({
-          verification_status: "TERVERIFIKASI_MANUAL",
+          verification_status: selectedVerificationStatus,
           osint_priority_level: detail.priority,
         }),
       });
 
+      setVerifyModalOpen(false);
+      setSelectedVerificationStatus("");
       await fetchDetail();
     } catch (error: any) {
-      alert(error?.message || "Gagal verifikasi data OSINT");
+      alert(error?.message || "Gagal memperbarui status verifikasi OSINT");
     } finally {
       setVerifying(false);
     }
@@ -851,10 +885,14 @@ export default function DetailOsintPage() {
             <button
               type="button"
               className={styles.verifyButton}
-              onClick={handleVerify}
-              disabled={verifying || detail.verified}
+              onClick={openVerifyModal}
+              disabled={verifying || !detail.canVerify}
             >
-              {detail.verified ? "Sudah Terverifikasi" : verifying ? "Memverifikasi..." : "Verifikasi Data"}
+              {!detail.canVerify
+                ? detail.verificationLabel
+                : verifying
+                ? "Memproses..."
+                : "Verifikasi Data"}
             </button>
           </div>
         </div>
@@ -916,6 +954,92 @@ export default function DetailOsintPage() {
           </section>
         </div>
       </div>
+      {verifyModalOpen && detail && (
+        <div
+          className={styles.verifyModalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="verify-modal-title"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeVerifyModal();
+            }
+          }}
+        >
+          <div className={styles.verifyModalCard}>
+            <button
+              type="button"
+              className={styles.verifyModalClose}
+              onClick={closeVerifyModal}
+              disabled={verifying}
+              aria-label="Tutup modal verifikasi"
+            >
+              ×
+            </button>
+
+            <h2 id="verify-modal-title" className={styles.verifyModalTitle}>
+              Pilih Status Verifikasi
+            </h2>
+
+            <p className={styles.verifyModalText}>
+              Tentukan status verifikasi untuk data OSINT ini.
+            </p>
+
+            <div className={styles.verifyModalInfo}>
+              <strong>{detail.captionTitle}</strong>
+              <span>{detail.captionBody}</span>
+            </div>
+
+            <div className={styles.verifyStatusOptions}>
+              <button
+                type="button"
+                className={`${styles.verifyStatusOption} ${
+                  selectedVerificationStatus === "DITOLAK"
+                    ? styles.verifyStatusOptionActiveReject
+                    : ""
+                }`}
+                onClick={() => setSelectedVerificationStatus("DITOLAK")}
+                disabled={verifying}
+              >
+                Ditolak
+              </button>
+
+              <button
+                type="button"
+                className={`${styles.verifyStatusOption} ${
+                  selectedVerificationStatus === "TERVERIFIKASI_MANUAL"
+                    ? styles.verifyStatusOptionActiveApprove
+                    : ""
+                }`}
+                onClick={() => setSelectedVerificationStatus("TERVERIFIKASI_MANUAL")}
+                disabled={verifying}
+              >
+                Verifikasi Manual
+              </button>
+            </div>
+
+            <div className={styles.verifyModalActions}>
+              <button
+                type="button"
+                className={styles.verifyModalCancel}
+                onClick={closeVerifyModal}
+                disabled={verifying}
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                className={styles.verifyModalSubmit}
+                onClick={submitVerificationStatus}
+                disabled={verifying || !selectedVerificationStatus}
+              >
+                {verifying ? "Menyimpan..." : "Simpan Status"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
