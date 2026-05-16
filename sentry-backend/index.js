@@ -8,8 +8,6 @@ const app = express();
 
 /* ================= IMPORT ROUTES & JOBS ================= */
 const routes = require("./src/routes");
-const jenisBencanaRoutes = require("./src/routes/jenis_bencana");
-const namaBencanaRoutes = require("./src/routes/nama_bencana");
 
 const humintLaporanRoutes = require("./src/routes/humint/laporan");
 const detailLaporanRoutes = require("./src/routes/humint/detail_laporan");
@@ -40,14 +38,6 @@ app.use(
 
 /* ================= ROUTES UTAMA ================= */
 app.use("/", routes);
-
-/*
-  Route ini tetap dipasang di root karena frontend memakai:
-  /jenis-bencana
-  /nama-bencana
-*/
-app.use("/jenis-bencana", jenisBencanaRoutes);
-app.use("/nama-bencana", namaBencanaRoutes);
 
 /* ================= ROUTES HUMINT PUBLIC/API ================= */
 app.use("/api/humint", humintLaporanRoutes);

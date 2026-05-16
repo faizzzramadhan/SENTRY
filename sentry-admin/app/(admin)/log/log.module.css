@@ -236,55 +236,39 @@
   }
 }
 
-/* ================= PAGINATION ================= */
+/* ================= PAGINATION================= */
 .paginationWrap {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: center;
   margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.paginationInfo {
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .pagination {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
+  gap: 18px;
+  padding: 16px 22px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
+  background: rgba(0, 0, 0, 0.14);
 }
 
-.pageNumbers {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pageArrow,
-.pageNumber {
-  min-width: 38px;
-  height: 38px;
-  border: 1.4px solid rgba(255, 255, 255, 0.28);
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.16);
-  color: rgba(255, 255, 255, 0.92);
+.pageArrow {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  font-weight: 800;
+  border-radius: 999px;
   transition: 0.2s ease;
 }
 
-.pageArrow:hover:not(:disabled),
-.pageNumber:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.5);
+.pageArrow:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .pageArrow:disabled {
@@ -292,33 +276,54 @@
   cursor: not-allowed;
 }
 
+.pageNumbers {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pageNumber {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 18px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.pageNumber:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pageNumber:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .pageNumberActive {
-  background: #ff8a3d;
-  border-color: #ff8a3d;
+  background: #ff8e80;
   color: #ffffff;
-  box-shadow: 0 10px 22px rgba(255, 138, 61, 0.18);
 }
 
 .pageDots {
-  min-width: 22px;
-  color: rgba(255, 255, 255, 0.72);
-  text-align: center;
-  font-weight: 800;
+  font-size: 24px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0 2px;
 }
 
 .pageArrowIcon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
 }
 
 @media (max-width: 720px) {
-  .paginationWrap {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
   .pagination {
-    justify-content: center;
+    gap: 10px;
+    padding: 12px 16px;
   }
 
   .pageNumbers {

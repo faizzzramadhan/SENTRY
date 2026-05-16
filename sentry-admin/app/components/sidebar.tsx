@@ -241,7 +241,7 @@ export default function Sidebar({ open, onClose }: Props) {
       "/geoint/peta-sebaran-osint",
       "/master-data",
     ];
-    const adminOnlyPaths = ["/manage-staff", "/log"];
+    const adminOnlyPaths = ["/manage-staff", "/log", "/profile"];
 
     const isStaffOnlyPath = staffOnlyPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
     const isAdminOnlyPath = adminOnlyPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -339,16 +339,20 @@ export default function Sidebar({ open, onClose }: Props) {
         </nav>
 
         <div className={styles.bottom}>
-          <Link
-            href="/profile"
-            onClick={handleNavClick}
-            className={`${styles.profileBtn} ${isActive("/profile") ? styles.profileActive : ""}`}
-          >
-            <span className={styles.profileIcon}>
-              <IconUser />
-            </span>
-            <span>Profile</span>
-          </Link>
+          {userRole === "admin" ? (
+            <Link
+              href="/profile"
+              onClick={handleNavClick}
+              className={`${styles.profileBtn} ${
+                isActive("/profile") ? styles.profileActive : ""
+              }`}
+            >
+              <span className={styles.profileIcon}>
+                <IconUser />
+              </span>
+              <span>Profile</span>
+            </Link>
+          ) : null}
 
           <button className={styles.logoutBtn} type="button" onClick={logout}>
             <span className={styles.logoutIcon}>

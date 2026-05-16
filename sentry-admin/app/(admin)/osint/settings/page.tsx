@@ -87,11 +87,11 @@ function getMetricTitle(field: MetricField | null) {
     case "set_jumlah_postingan":
       return "SET JUMLAH POSTINGAN";
     case "set_jumlah_like":
-      return "SET JUMLAH LIKE";
+      return "SET JUMLAH SUKA";
     case "set_jumlah_comment":
-      return "SET JUMLAH COMMENT";
+      return "SET JUMLAH KOMENTAR";
     case "set_jumlah_share":
-      return "SET JUMLAH SHARE";
+      return "SET JUMLAH BAGIKAN";
     default:
       return "";
   }
@@ -472,7 +472,7 @@ export default function SettingsOsintPage() {
         const data: FrontendSettingsResponse | { message?: string } = await res.json();
 
         if (!res.ok) {
-          setErrorMsg((data as any)?.message || "Gagal mengambil data settings OSINT");
+          setErrorMsg((data as any)?.message || "Gagal mengambil data pengaturan OSINT");
           return;
         }
 
@@ -773,7 +773,7 @@ export default function SettingsOsintPage() {
               <BackIcon />
             </button>
 
-            <h1 className={styles.pageTitle}>SETTINGS OSINT</h1>
+            <h1 className={styles.pageTitle}>PENGATURAN OSINT</h1>
           </div>
 
           <div className={styles.hello}>Halo, {userName}</div>
@@ -784,7 +784,7 @@ export default function SettingsOsintPage() {
         ) : null}
 
         {loading ? (
-          <div className={styles.dataState}>Memuat data settings OSINT...</div>
+          <div className={styles.dataState}>Memuat data pengaturan OSINT...</div>
         ) : (
           <>
             <div className={styles.metricGrid}>
@@ -807,7 +807,7 @@ export default function SettingsOsintPage() {
               </div>
 
               <div className={styles.metricCard}>
-                <div className={styles.metricTitle}>SET JUMLAH LIKE</div>
+                <div className={styles.metricTitle}>SET JUMLAH SUKA</div>
                 <div className={styles.metricContent}>
                   <div className={styles.metricValueWrap}>
                     <HeartIcon />
@@ -825,7 +825,7 @@ export default function SettingsOsintPage() {
               </div>
 
               <div className={styles.metricCard}>
-                <div className={styles.metricTitle}>SET JUMLAH COMMENT</div>
+                <div className={styles.metricTitle}>SET JUMLAH KOMENTAR</div>
                 <div className={styles.metricContent}>
                   <div className={styles.metricValueWrap}>
                     <CommentIcon />
@@ -843,7 +843,7 @@ export default function SettingsOsintPage() {
               </div>
 
               <div className={styles.metricCard}>
-                <div className={styles.metricTitle}>SET JUMLAH SHARE</div>
+                <div className={styles.metricTitle}>SET JUMLAH BAGIKAN</div>
                 <div className={styles.metricContent}>
                   <div className={styles.metricValueWrap}>
                     <ShareIcon />
