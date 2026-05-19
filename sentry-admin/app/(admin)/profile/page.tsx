@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./profile.module.css";
 
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5555"
+).replace(/\/$/, "");
+
 type UserData = {
   usr_id: number;
   usr_email: string;
@@ -27,6 +33,7 @@ export default function ProfilePage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const [usr, setUsr] = useState<UserData | null>(null);
+  const [userRole, setUserRole] = useState<"staff" | "admin" | null>(null);
 
   const [usr_email, setEmail] = useState("");
   const [usr_password, setPassword] = useState("");
@@ -37,6 +44,10 @@ export default function ProfilePage() {
     () => (typeof window !== "undefined" ? localStorage.getItem("token") : null),
     []
   );
+
+  const effectiveRole = userRole || usr?.usr_role || null;
+  const canEditProfile = effectiveRole === "admin";
+  const isReadOnlyStaff = effectiveRole === "staff";
 
   useEffect(() => {
     const run = async () => {
@@ -49,6 +60,13 @@ export default function ProfilePage() {
 
       const payload = decodeJwtPayload(token);
       const usr_id = payload?.usr_id;
+      const role = payload?.usr_role || payload?.adm_role || null;
+
+      if (role === "staff" || role === "admin") {
+        setUserRole(role);
+      } else {
+        setUserRole(null);
+      }
 
       if (!usr_id) {
         localStorage.removeItem("token");
@@ -59,7 +77,7 @@ export default function ProfilePage() {
       try {
         setLoading(true);
 
-        const res = await fetch(`http://localhost:5555/user/${usr_id}`, {
+        const res = await fetch(`${API_BASE_URL}/user/${usr_id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -92,6 +110,11 @@ export default function ProfilePage() {
 
     if (!token || !usr) return;
 
+    if (!canEditProfile) {
+      setErrorMsg("Staff hanya dapat melihat profile dan tidak dapat mengubah data profile sendiri.");
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -105,7 +128,7 @@ export default function ProfilePage() {
         body.usr_password = usr_password;
       }
 
-      const res = await fetch(`http://localhost:5555/user/${usr.usr_id}`, {
+      const res = await fetch(`${API_BASE_URL}/user/${usr.usr_id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -140,6 +163,12 @@ export default function ProfilePage() {
           <div className={styles.loading}>Memuat data...</div>
         ) : (
           <form className={styles.card} onSubmit={onSave}>
+            {isReadOnlyStaff ? (
+              <div className={styles.readOnlyNotice}>
+                Staff tidak dapat mengubah data profile sendiri. Hubungi admin untuk melakukan perubahan data profile Anda.
+              </div>
+            ) : null}
+
             <div className={styles.grid}>
               <div className={styles.field}>
                 <label className={styles.label}>
@@ -151,6 +180,7 @@ export default function ProfilePage() {
                   placeholder="isi alamat email anda disini..."
                   value={usr_email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={!canEditProfile || saving}
                   required
                 />
               </div>
@@ -162,12 +192,15 @@ export default function ProfilePage() {
                 <input
                   className={styles.input}
                   type="password"
-                  placeholder="percaya padaku ini aman..."
+                  placeholder={canEditProfile ? "percaya padaku ini aman..." : "Tidak dapat diubah oleh staff"}
                   value={usr_password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={!canEditProfile || saving}
                 />
                 <div className={styles.hint}>
-                  Kosongkan jika tidak ingin mengganti password.
+                  {canEditProfile
+                    ? "Kosongkan jika tidak ingin mengganti password."
+                    : "Password tidak dapat diubah oleh staff."}
                 </div>
               </div>
 
@@ -181,6 +214,7 @@ export default function ProfilePage() {
                   placeholder="isi nama lengkap anda disini..."
                   value={usr_nama_lengkap}
                   onChange={(e) => setNama(e.target.value)}
+                  disabled={!canEditProfile || saving}
                   required
                 />
               </div>
@@ -195,21 +229,30 @@ export default function ProfilePage() {
                   placeholder="isi nomor telepon anda disini..."
                   value={usr_no_hp}
                   onChange={(e) => setNoHp(e.target.value)}
+                  disabled={!canEditProfile || saving}
                   required
                 />
               </div>
             </div>
 
             <div className={styles.statusBlock}>
-              <div className={styles.statusLabel}>Status Akun</div>
-              <div className={styles.statusValue}>AKTIF</div>
+              <div>
+                <div className={styles.statusLabel}>Status Akun</div>
+                <div className={styles.statusValue}>AKTIF</div>
+              </div>
+              <div>
+                <div className={styles.statusLabel}>Role</div>
+                <div className={styles.statusValue}>{String(effectiveRole || "-").toUpperCase()}</div>
+              </div>
             </div>
 
             {errorMsg ? <div className={styles.error}>{errorMsg}</div> : null}
 
-            <button className={styles.btn} type="submit" disabled={saving}>
-              {saving ? "Menyimpan..." : "Simpan"}
-            </button>
+            {canEditProfile ? (
+              <button className={styles.btn} type="submit" disabled={saving}>
+                {saving ? "Menyimpan..." : "Simpan"}
+              </button>
+            ) : null}
           </form>
         )}
       </div>

@@ -24,9 +24,6 @@ function decodeJwtPayload(token: string): any | null {
   }
 }
 
-type PriorityLevel = "RENDAH" | "SEDANG" | "TINGGI" | "KRITIS";
-
-
 type LaporanReferenceApi = {
   laporan_id?: number | null;
   nama_pelapor?: string | null;
@@ -98,7 +95,6 @@ type OsintApiData = {
   osint_match_status?: string | null;
   osint_analysis_status?: string | null;
   osint_verification_status?: string | null;
-  osint_priority_level?: PriorityLevel | null;
   osint_raw_json?: string | null;
   osint_reference_count?: number | null;
   humint_related?: boolean | null;
@@ -106,30 +102,10 @@ type OsintApiData = {
   osint_references?: OsintReferenceApi[] | null;
 };
 
-type OsintScore = {
-  keyword_score?: number;
-  keyword_level?: string | null;
-  keyword_reason?: string | null;
-  location_score?: number;
-  location_level?: string | null;
-  location_reason?: string | null;
-  time_score?: number;
-  time_level?: string | null;
-  time_reason?: string | null;
-  engagement_score?: number;
-  engagement_level?: string | null;
-  engagement_reason?: string | null;
-  total_score?: number;
-  max_score?: number;
-  score_percentage?: string | number;
-  score_level?: string | null;
-  score_status?: string | null;
-  scoring_detail?: string | null;
-};
 
 type OsintDetailResponse = {
   osint_data: OsintApiData;
-  osint_score: OsintScore | null;
+  scoring_enabled?: boolean;
 };
 
 type DetailView = {
@@ -148,10 +124,7 @@ type DetailView = {
   verificationLabel: string;
   verificationStatus: string;
   canVerify: boolean;
-  priority: PriorityLevel;
   keywords: string[];
-  scoreLabel: string;
-  scoreStatus: string;
   keywordReason: string;
   locationReason: string;
   timeReason: string;
@@ -247,24 +220,8 @@ function parseRawJson(value?: string | null): any {
   }
 }
 
-function parseScoringDetail(value?: string | null): any {
-  if (!value) return null;
 
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function getKeywords(score: OsintScore | null, data: OsintApiData) {
-  const scoringDetail = parseScoringDetail(score?.scoring_detail);
-  const fromScore = scoringDetail?.keyword?.matched_keywords;
-
-  if (Array.isArray(fromScore) && fromScore.length > 0) {
-    return fromScore.map((item) => String(item));
-  }
-
+function getKeywords(data: OsintApiData) {
   const hashtags = String(data.osint_hashtags || "")
     .split(/[,\s#]+/)
     .map((item) => item.trim())
@@ -272,7 +229,53 @@ function getKeywords(score: OsintScore | null, data: OsintApiData) {
 
   if (hashtags.length > 0) return hashtags;
 
-  return [data.osint_event_type || data.osint_weather_desc || data.osint_warning_event || "OSINT"];
+  return [
+    data.osint_event_type ||
+      data.osint_weather_desc ||
+      data.osint_warning_event ||
+      data.osint_bmkg_source_type ||
+      "OSINT",
+  ];
+}
+
+function buildKeywordReason(keywords: string[]) {
+  if (!keywords.length) return "Keyword atau jenis kejadian belum tersedia.";
+
+  return `Keyword / jenis kejadian terdeteksi: ${keywords.join(", ")}.`;
+}
+
+function buildLocationReason(data: OsintApiData) {
+  if (data.osint_latitude && data.osint_longitude) {
+    return "Data memiliki koordinat lokasi.";
+  }
+
+  if (data.osint_adm4_code) {
+    return `Data memiliki kode ADM4: ${data.osint_adm4_code}.`;
+  }
+
+  if (data.osint_area_text) {
+    return `Area kejadian terdeteksi: ${data.osint_area_text}.`;
+  }
+
+  return "Lokasi belum tersedia atau belum terdeteksi.";
+}
+
+function buildTimeReason(value?: string | null) {
+  if (!value) return "Waktu data belum tersedia.";
+
+  return `Waktu data tersedia: ${formatDateIndo(value)}.`;
+}
+
+function buildEngagementReason(data: OsintApiData, isBmkgOnly: boolean) {
+  if (isBmkgOnly) {
+    return "Data BMKG tidak memiliki metrik like, comment, dan share.";
+  }
+
+  const like = Number(data.osint_like_count || 0);
+  const comment = Number(data.osint_reply_count || 0);
+  const share = Number(data.osint_share_count || 0);
+
+  return `Engagement X: Like ${like}, Comment ${comment}, Share ${share}.`;
 }
 
 function isBmkgOnlySource(data: OsintApiData) {
@@ -328,7 +331,7 @@ function formatReferenceTime(value?: string | null) {
   return formatDateIndo(value);
 }
 
-function mapDetail(data: OsintApiData, score: OsintScore | null): DetailView {
+function mapDetail(data: OsintApiData): DetailView {
   const rawJson = parseRawJson(data.osint_raw_json);
   const latitude = parseNumber(data.osint_latitude, DEFAULT_LATITUDE);
   const longitude = parseNumber(data.osint_longitude, DEFAULT_LONGITUDE);
@@ -350,9 +353,6 @@ function mapDetail(data: OsintApiData, score: OsintScore | null): DetailView {
     data.osint_warning_effective ||
     null;
 
-  const scoreLabel = score
-    ? `${score.total_score ?? 0}/${score.max_score ?? 100} (${score.score_level || "-"})`
-    : "-";
 
   const verificationLabel =
     data.osint_verification_status === "TERVERIFIKASI_MANUAL"
@@ -385,6 +385,8 @@ function mapDetail(data: OsintApiData, score: OsintScore | null): DetailView {
     rawJson?.original?.full_text ||
     "-";
 
+  const keywords = getKeywords(data);
+
   return {
     id: data.osint_id,
     source: data.osint_source,
@@ -402,14 +404,11 @@ function mapDetail(data: OsintApiData, score: OsintScore | null): DetailView {
     verificationLabel,
     verificationStatus: String(data.osint_verification_status || "BELUM_DIVERIFIKASI"),
     canVerify: String(data.osint_verification_status || "") === "BELUM_DIVERIFIKASI",
-    priority: data.osint_priority_level || "SEDANG",
-    keywords: getKeywords(score, data),
-    scoreLabel,
-    scoreStatus: score?.score_status || "-",
-    keywordReason: score?.keyword_reason || "-",
-    locationReason: score?.location_reason || "-",
-    timeReason: score?.time_reason || "-",
-    engagementReason: score?.engagement_reason || "-",
+    keywords,
+    keywordReason: buildKeywordReason(keywords),
+    locationReason: buildLocationReason(data),
+    timeReason: buildTimeReason(postedTime),
+    engagementReason: buildEngagementReason(data, isBmkgOnly),
     locationName: data.osint_area_text || "Lokasi belum tersedia",
     locationDetail:
       data.osint_area_text ||
@@ -424,8 +423,8 @@ function mapDetail(data: OsintApiData, score: OsintScore | null): DetailView {
     humintCount,
     humintReferences,
     primaryHumintId: getPrimaryHumintId(data),
-    postDateValid: Number(score?.time_score || 0) >= 10,
-    engagementValid: Number(score?.engagement_score || 0) >= 10,
+    postDateValid: Boolean(postedTime),
+    engagementValid: isBmkgOnly || Number(data.osint_like_count || 0) + Number(data.osint_reply_count || 0) + Number(data.osint_share_count || 0) > 0,
     bmkgStatus: buildBmkgStatus(data),
     bmkgWeather: data.osint_weather_desc || data.osint_bmkg_source_type || "-",
     bmkgTemp:
@@ -564,7 +563,7 @@ export default function DetailOsintPage() {
         token
       );
 
-      setDetail(mapDetail(data.osint_data, data.osint_score));
+      setDetail(mapDetail(data.osint_data));
     } catch (error: any) {
       setErrorMessage(error?.message || "Gagal mengambil detail OSINT");
       setDetail(null);
@@ -611,7 +610,6 @@ export default function DetailOsintPage() {
         method: "PUT",
         body: JSON.stringify({
           verification_status: selectedVerificationStatus,
-          osint_priority_level: detail.priority,
         }),
       });
 
@@ -721,9 +719,6 @@ export default function DetailOsintPage() {
           <section className={styles.card}>
             <div className={styles.cardHeader}>
               <h2 className={styles.cardTitle}>HASIL ANALISIS OSINT</h2>
-              <span className={`${styles.statusBadge} ${styles.statusPriority}`}>
-                PRIORITAS {detail.priority}
-              </span>
             </div>
 
             <div className={styles.analysisGrid}>
@@ -736,14 +731,6 @@ export default function DetailOsintPage() {
                       {index < detail.keywords.length - 1 ? ", " : ""}
                     </span>
                   ))}
-                </div>
-
-                <div className={styles.similarPost}>
-                  Score OSINT: <strong>{detail.scoreLabel}</strong>
-                </div>
-
-                <div className={styles.similarPost}>
-                  Status Score: <strong>{detail.scoreStatus}</strong>
                 </div>
 
                 <div className={styles.locationBlock}>
@@ -809,7 +796,7 @@ export default function DetailOsintPage() {
             <section className={styles.card}>
               <div className={styles.cardHeader}>
                 <h2 className={styles.cardTitle}>DATA HUMINT TERKAIT</h2>
-                <span className={`${styles.statusBadge} ${styles.statusPriority}`}>
+                <span className={`${styles.statusBadge} ${styles.statusCount}`}>
                   {detail.humintCount} DATA
                 </span>
               </div>

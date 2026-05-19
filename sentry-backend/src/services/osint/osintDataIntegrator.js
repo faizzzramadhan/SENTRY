@@ -3,13 +3,11 @@
 const { Op } = require("sequelize");
 const models = require("../../models");
 const {
-  calculateOsintScore,
   normalizeText,
   getKeywordTerms,
 } = require("./osintDataScoring");
 
 const OsintData = models.osint_data;
-const OsintDataScore = models.osint_data_score;
 const OsintDataX = models.osint_data_x;
 const OsintDataBmkg = models.osint_data_bmkg;
 const DataKeyword = models.data_keyword;
@@ -499,14 +497,6 @@ async function deleteOsintDataRows(rows = []) {
 
   if (!ids.length) return 0;
 
-  await OsintDataScore.destroy({
-    where: {
-      osint_id: {
-        [Op.in]: ids,
-      },
-    },
-  });
-
   const deleted = await OsintData.destroy({
     where: {
       osint_id: {
@@ -872,45 +862,12 @@ function mapCorrelationToOsintData(xPayload, bmkgPayload, correlation) {
   };
 }
 
-async function upsertOsintScore(osintRecord, keywordRows = []) {
-  const plain = osintRecord.get ? osintRecord.get({ plain: true }) : osintRecord;
-  const score = calculateOsintScore(plain, keywordRows);
-
-  const existingScore = await OsintDataScore.findOne({
-    where: {
-      osint_id: plain.osint_id,
-    },
-  });
-
-  const payload = {
-    osint_id: plain.osint_id,
-    ...score,
-    last_updated_by: "system",
-    last_update_date: new Date(),
-  };
-
-  if (existingScore) {
-    await existingScore.update(payload);
-    return "updated";
-  }
-
-  await OsintDataScore.create({
-    ...payload,
-    created_by: "system",
-    creation_date: new Date(),
-  });
-
-  return "created";
-}
-
-async function upsertOsintData(payload, keywordRows = []) {
+async function upsertOsintData(payload) {
   const existing = await OsintData.findOne({
     where: {
       osint_external_key: payload.osint_external_key,
     },
   });
-
-  let record;
 
   if (existing) {
     await existing.update({
@@ -918,23 +875,15 @@ async function upsertOsintData(payload, keywordRows = []) {
       last_update_date: new Date(),
     });
 
-    record = await OsintData.findOne({
-      where: {
-        osint_id: existing.osint_id,
-      },
-    });
-
-    await upsertOsintScore(record, keywordRows);
     return "updated";
   }
 
-  record = await OsintData.create({
+  await OsintData.create({
     ...payload,
     creation_date: new Date(),
     last_update_date: new Date(),
   });
 
-  await upsertOsintScore(record, keywordRows);
   return "created";
 }
 
@@ -950,11 +899,11 @@ async function syncOsintData({
   includeRecords = false,
   enableCorrelation = true,
 } = {}) {
-  if (!OsintData || !OsintDataScore || !OsintDataX || !OsintDataBmkg) {
+  if (!OsintData || !OsintDataX || !OsintDataBmkg) {
     return {
       ok: false,
       message:
-        "Model osint_data, osint_data_score, osint_data_x, atau osint_data_bmkg belum terdaftar.",
+        "Model osint_data, osint_data_x, atau osint_data_bmkg belum terdaftar.",
     };
   }
 
@@ -1060,7 +1009,7 @@ async function syncOsintData({
       continue;
     }
 
-    const status = await upsertOsintData(mapped.payload, keywordRows);
+    const status = await upsertOsintData(mapped.payload);
 
     if (status === "created") xCreated += 1;
     if (status === "updated") xUpdated += 1;
@@ -1096,7 +1045,7 @@ async function syncOsintData({
       continue;
     }
 
-    const status = await upsertOsintData(mapped.payload, keywordRows);
+    const status = await upsertOsintData(mapped.payload);
 
     if (status === "created") bmkgCreated += 1;
     if (status === "updated") bmkgUpdated += 1;
@@ -1133,7 +1082,7 @@ async function syncOsintData({
         bestMatch.correlation
       );
 
-      const status = await upsertOsintData(correlationPayload, keywordRows);
+      const status = await upsertOsintData(correlationPayload);
 
       if (status === "created") correlationCreated += 1;
       if (status === "updated") correlationUpdated += 1;
@@ -1163,6 +1112,9 @@ async function syncOsintData({
 
   const result = {
     ok: true,
+    scoring_enabled: false,
+    scoring_note:
+      "Scoring OSINT angka dinonaktifkan. Data hanya disimpan ke osint_data.",
     max_data_age_days: OSINT_MAX_DATA_AGE_DAYS,
     keyword_source: "data_keyword",
     keyword_match_mode: "flexible_token",
@@ -1201,46 +1153,6 @@ async function syncOsintData({
   return result;
 }
 
-async function recalculateOsintScore(osintId) {
-  const keywordRows = await getKeywordRows();
-  const keywordTerms = getKeywordTerms(keywordRows);
-
-  if (!keywordTerms.length) {
-    return {
-      ok: false,
-      message:
-        "Tabel data_keyword kosong atau tidak memiliki kolom keyword yang terbaca. Recalculate score dibatalkan.",
-      keyword_count: 0,
-    };
-  }
-
-  const row = await OsintData.findOne({
-    where: {
-      osint_id: osintId,
-    },
-  });
-
-  if (!row) return null;
-
-  await upsertOsintScore(row, keywordRows);
-
-  const score = await OsintDataScore.findOne({
-    where: {
-      osint_id: osintId,
-    },
-  });
-
-  return {
-    ok: true,
-    keyword_source: "data_keyword",
-    keyword_match_mode: "flexible_token",
-    keyword_count: keywordTerms.length,
-    osint_data: row,
-    osint_score: score,
-  };
-}
-
 module.exports = {
   syncOsintData,
-  recalculateOsintScore,
 };

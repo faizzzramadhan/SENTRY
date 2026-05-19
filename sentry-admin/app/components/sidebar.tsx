@@ -241,7 +241,7 @@ export default function Sidebar({ open, onClose }: Props) {
       "/geoint/peta-sebaran-osint",
       "/master-data",
     ];
-    const adminOnlyPaths = ["/manage-staff", "/log", "/profile"];
+    const adminOnlyPaths = ["/manage-staff", "/log"];
 
     const isStaffOnlyPath = staffOnlyPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
     const isAdminOnlyPath = adminOnlyPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -339,7 +339,7 @@ export default function Sidebar({ open, onClose }: Props) {
         </nav>
 
         <div className={styles.bottom}>
-          {userRole === "admin" ? (
+          {userRole === "admin" || userRole === "staff" ? (
             <Link
               href="/profile"
               onClick={handleNavClick}

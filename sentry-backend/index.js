@@ -16,6 +16,7 @@ const editLaporanRoutes = require("./src/routes/humint/edit_laporan");
 const { startTikTokScheduler } = require("./src/jobs/tiktokScheduler");
 const { startXScheduler } = require("./src/jobs/xScheduler");
 const { startBmkgScheduler } = require("./src/jobs/bmkgScheduler");
+const { startOsintDataScheduler } = require("./src/jobs/osintDataScheduler");
 
 const { autoLogAktivitas } = require("./src/utils/activityLogger");
 
@@ -48,9 +49,9 @@ app.use("/api/humint", editLaporanRoutes);
 app.listen(5555, () => {
   console.log("server run on port 5555");
 
-  // startTikTokScheduler();
   startXScheduler();
   startBmkgScheduler();
+  startOsintDataScheduler();
 
   console.log("server run on http://localhost:5555");
 });
