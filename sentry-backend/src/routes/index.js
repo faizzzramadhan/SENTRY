@@ -17,8 +17,6 @@ const logAktivitasRoutes = require("./logAktivitasRoutes");
 
 const dataKelurahanRoutes = require("./data_kelurahan");
 const dataKecamatanRoutes = require("./data_kecamatan");
-const jenisBencanaRoutes = require("./jenis_bencana");
-const namaBencanaRoutes = require("./nama_bencana");
 
 router.use("/user", userRoutes);
 router.use("/osint", osintRoutes);
