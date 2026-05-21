@@ -27,13 +27,41 @@ export default function ConfirmReportPage() {
   const router = useRouter()
   const [draft, setDraft] = useState<any>(null)
   const [loading, setLoading] = useState(false)
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error'
+    message: string
+  } | null>(null)
+
+  const normalizePrakiraanKerugian = (value: any) => {
+    if (value === undefined || value === null || value === '') return ''
+
+    const cleaned = String(value).replace(/[^0-9]/g, '')
+
+    if (!cleaned) return ''
+
+    const numberValue = Number(cleaned)
+
+    if (!Number.isFinite(numberValue) || numberValue < 0) return ''
+
+    return String(Math.round(numberValue))
+  }
+
+  const formatRupiah = (value: any) => {
+    const normalized = normalizePrakiraanKerugian(value)
+
+    if (!normalized) return '-'
+
+    return `Rp ${Number(normalized).toLocaleString('id-ID')}`
+  }
 
   useEffect(() => {
     const saved = sessionStorage.getItem(DRAFT_STORAGE_KEY)
 
     if (!saved) {
-      setNotification({ type: 'error', message: 'Data laporan belum tersedia. Silakan isi formulir terlebih dahulu.' })
+      setNotification({
+        type: 'error',
+        message: 'Data laporan belum tersedia. Silakan isi formulir terlebih dahulu.',
+      })
       window.setTimeout(() => router.push('/humint/addreport'), 900)
       return
     }
@@ -48,12 +76,18 @@ export default function ConfirmReportPage() {
   }
 
   const getBrowserGpsLat = () => {
-    if (!draft?.is_camera_capture && draft?.foto_kejadian_source !== 'WEB_CAMERA') return ''
+    if (!draft?.is_camera_capture && draft?.foto_kejadian_source !== 'WEB_CAMERA') {
+      return ''
+    }
+
     return draft?.browser_gps_lat ?? draft?.browser_latitude ?? ''
   }
 
   const getBrowserGpsLng = () => {
-    if (!draft?.is_camera_capture && draft?.foto_kejadian_source !== 'WEB_CAMERA') return ''
+    if (!draft?.is_camera_capture && draft?.foto_kejadian_source !== 'WEB_CAMERA') {
+      return ''
+    }
+
     return draft?.browser_gps_lng ?? draft?.browser_longitude ?? ''
   }
 
@@ -64,11 +98,23 @@ export default function ConfirmReportPage() {
       setLoading(true)
 
       const formData = new FormData()
-      const form = draft.form
+      const form = draft.form || {}
 
       Object.entries(form).forEach(([key, value]: any) => {
-        formData.append(key, value || '')
+        const finalValue =
+          key === 'prakiraan_kerugian'
+            ? normalizePrakiraanKerugian(value)
+            : value
+
+        formData.append(key, finalValue || '')
       })
+
+      if (!formData.has('prakiraan_kerugian')) {
+        formData.append(
+          'prakiraan_kerugian',
+          normalizePrakiraanKerugian(form.prakiraan_kerugian)
+        )
+      }
 
       formData.append('latitude', String(draft.lat ?? ''))
       formData.append('longitude', String(draft.lng ?? ''))
@@ -98,7 +144,10 @@ export default function ConfirmReportPage() {
 
       if (draft.fotoKerusakanBase64?.length > 0) {
         for (let i = 0; i < draft.fotoKerusakanBase64.length; i += 1) {
-          const file = await base64ToFile(draft.fotoKerusakanBase64[i], `foto-kerusakan-${i + 1}.jpg`)
+          const file = await base64ToFile(
+            draft.fotoKerusakanBase64[i],
+            `foto-kerusakan-${i + 1}.jpg`
+          )
           formData.append('foto_kerusakan', file)
         }
       }
@@ -118,7 +167,10 @@ export default function ConfirmReportPage() {
       setNotification({ type: 'success', message: 'Laporan berhasil dikirim.' })
       window.setTimeout(() => router.push('/humint'), 900)
     } catch (error: any) {
-      setNotification({ type: 'error', message: error.message || 'Laporan gagal dikirim. Silakan periksa kembali data konfirmasi.' })
+      setNotification({
+        type: 'error',
+        message: error.message || 'Laporan gagal dikirim. Silakan periksa kembali data konfirmasi.',
+      })
     } finally {
       setLoading(false)
     }
@@ -138,12 +190,23 @@ export default function ConfirmReportPage() {
   const hasBrowserGps = browserLat !== '' && browserLng !== ''
   const isCameraCapture = draft.is_camera_capture || draft.foto_kejadian_source === 'WEB_CAMERA'
 
+  const kerusakanVerifikasi =
+    form.kerusakan_verifikasi || form.kerusakan_identifikasi || '-'
+
+  const terdampakVerifikasi =
+    form.terdampak_verifikasi || form.terdampak_identifikasi || '-'
+
+  const penyebabVerifikasi =
+    form.penyebab_verifikasi || form.penyebab_identifikasi || '-'
+
   return (
     <div className={styles.container}>
       {notification && (
         <div className={styles.notificationOverlay}>
           <div className={notification.type === 'success' ? styles.notificationSuccess : styles.notificationError}>
-            <div className={styles.notificationIcon}>{notification.type === 'success' ? '✓' : '!'}</div>
+            <div className={styles.notificationIcon}>
+              {notification.type === 'success' ? '✓' : '!'}
+            </div>
             <div>
               <strong>{notification.type === 'success' ? 'Berhasil' : 'Perhatian'}</strong>
               <span>{notification.message}</span>
@@ -151,6 +214,7 @@ export default function ConfirmReportPage() {
           </div>
         </div>
       )}
+
       <header className={styles.header}>
         <Link href="/humint/addreport" className={styles.backLink}>
           ← Kembali ke Form
@@ -244,7 +308,9 @@ export default function ConfirmReportPage() {
           </div>
           <div className={styles.infoRow}>
             <span className={styles.label}>Koordinat Lokasi Kejadian</span>
-            <span className={styles.value}>{draft.lat ?? '-'}, {draft.lng ?? '-'}</span>
+            <span className={styles.value}>
+              {draft.lat ?? '-'}, {draft.lng ?? '-'}
+            </span>
           </div>
           <div className={styles.infoRow}>
             <span className={styles.label}>Sumber Foto Kejadian</span>
@@ -267,15 +333,19 @@ export default function ConfirmReportPage() {
           <div className={styles.sectionBody}>
             <div className={styles.infoRow}>
               <span className={styles.label}>Kerusakan</span>
-              <span className={styles.value}>{form.kerusakan_identifikasi || '-'}</span>
+              <span className={styles.value}>{kerusakanVerifikasi}</span>
             </div>
             <div className={styles.infoRow}>
               <span className={styles.label}>Terdampak</span>
-              <span className={styles.value}>{form.terdampak_identifikasi || '-'}</span>
+              <span className={styles.value}>{terdampakVerifikasi}</span>
             </div>
             <div className={styles.infoRow}>
               <span className={styles.label}>Penyebab</span>
-              <span className={styles.value}>{form.penyebab_identifikasi || '-'}</span>
+              <span className={styles.value}>{penyebabVerifikasi}</span>
+            </div>
+            <div className={styles.infoRow}>
+              <span className={styles.label}>Prakiraan Kerugian</span>
+              <span className={styles.value}>{formatRupiah(form.prakiraan_kerugian)}</span>
             </div>
             <div className={styles.infoRow}>
               <span className={styles.label}>Tindak Lanjut</span>
@@ -294,11 +364,14 @@ export default function ConfirmReportPage() {
             ) : (
               draft.korbanPayload.map((item: any, index: number) => (
                 <div key={index} className={styles.statLine}>
-                  <span>{getLabelJenisKorban(item.jenis_korban)} - {item.jenis_kelamin} - {item.kelompok_umur}</span>
+                  <span>
+                    {getLabelJenisKorban(item.jenis_korban)} - {item.jenis_kelamin} - {item.kelompok_umur}
+                  </span>
                   <strong>{item.jumlah}</strong>
                 </div>
               ))
             )}
+
             <div className={styles.totalLine}>
               <span>Total Korban</span>
               <strong>{draft.totalSemuaKorban || 0} Orang</strong>
@@ -323,6 +396,7 @@ export default function ConfirmReportPage() {
                 <p>-</p>
               )}
             </div>
+
             <div>
               <p className={styles.label}>Foto Kerusakan</p>
               {draft.fotoKerusakanBase64?.length > 0 ? (
@@ -345,7 +419,9 @@ export default function ConfirmReportPage() {
       </div>
 
       <div className={styles.footerActions}>
-        <Link href="/humint/addreport" className={styles.btnSecondary}>Edit Data</Link>
+        <Link href="/humint/addreport" className={styles.btnSecondary}>
+          Edit Data
+        </Link>
         <button className={styles.btnPrimary} onClick={handleKirimLaporan} disabled={loading}>
           {loading ? 'Mengirim...' : 'Kirim Laporan'}
         </button>

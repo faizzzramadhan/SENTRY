@@ -222,14 +222,34 @@ export default function DetailLaporanPage() {
     return status
   }
 
-  const handleDownloadPDF = () => {
-    if (!laporanId || laporanId === 'undefined') {
-      alert('ID laporan tidak ditemukan')
-      return
+  const handleDownloadPDF = async () => {
+  if (!laporanId || laporanId === 'undefined') {
+    alert('ID laporan tidak ditemukan')
+    return
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/download/${laporanId}`)
+
+    if (!res.ok) {
+      throw new Error('Gagal mengunduh laporan')
     }
 
-    window.open(`${API_URL}/download/${laporanId}`, '_blank')
+    const blob = await res.blob()
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = downloadUrl
+    link.download = `laporan-${laporanId}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(downloadUrl)
+  } catch (error) {
+    console.error('Gagal mengunduh laporan:', error)
+    alert('Gagal mengunduh laporan')
   }
+}
 
   if (loading) {
     return (

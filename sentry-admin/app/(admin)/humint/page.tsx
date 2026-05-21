@@ -376,11 +376,32 @@ export default function HumintPage() {
     setShowDownloadModal(false);
   };
 
-  const handleDownloadRekapBulanan = () => {
-    const url = `${API_URL}/rekap-bulanan/download?year=${selectedYear}&month=${selectedMonth}`;
-    window.open(url, "_blank");
+  const handleDownloadRekapBulanan = async () => {
+  const url = `${API_URL}/rekap-bulanan/download?year=${selectedYear}&month=${selectedMonth}`;
+
+  try {
+    const res = await fetch(url);
+
+    if (!res.ok) {
+      throw new Error('Gagal mengunduh rekap laporan');
+    }
+
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = downloadUrl;
+    link.download = `rekap-laporan-${selectedYear}-${selectedMonth}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
     setShowDownloadModal(false);
-  };
+  } catch (error) {
+    console.error('Gagal mengunduh rekap laporan:', error);
+    alert('Gagal mengunduh rekap laporan');
+  }
+};
 
   return (
     <div className={styles.container}>

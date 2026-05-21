@@ -187,7 +187,21 @@ const getLoggedInStaff = () => {
 
   return { name: '', id: '' }
 }
+const normalizePrakiraanKerugian = (value: any) => {
+  if (value === null || value === undefined) return ''
 
+  const normalized = String(value)
+    .replace(/,/g, '.')
+    .replace(/[^0-9.]/g, '')
+
+  if (!normalized) return ''
+
+  const numberValue = Number(normalized)
+
+  if (!Number.isFinite(numberValue) || numberValue < 0) return ''
+
+  return String(Math.round(numberValue))
+}
 export default function EditLaporanPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -271,10 +285,9 @@ export default function EditLaporanPage() {
           kerusakan_verifikasi: verifikasi.kerusakan_verifikasi || '',
           terdampak_verifikasi: verifikasi.terdampak_verifikasi || '',
           penyebab_verifikasi: verifikasi.penyebab_verifikasi || '',
-          prakiraan_kerugian:
-            verifikasi.prakiraan_kerugian != null
-              ? String(verifikasi.prakiraan_kerugian)
-              : '',
+          prakiraan_kerugian: normalizePrakiraanKerugian(
+            verifikasi.prakiraan_kerugian
+          ),
           tindak_lanjut: verifikasi.tindak_lanjut || '',
           petugas_trc: verifikasi.petugas_trc || '',
           staff_puskodal:
@@ -346,18 +359,22 @@ export default function EditLaporanPage() {
     fetchDetail()
   }, [laporanId])
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value } = e.target
+ const handleChange = (
+  e: React.ChangeEvent<
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  >
+) => {
+  const { name, value } = e.target
+  const finalValue =
+    name === 'prakiraan_kerugian'
+      ? normalizePrakiraanKerugian(value)
+      : value
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
+  setForm((prev) => ({
+    ...prev,
+    [name]: finalValue,
+  }))
+}
 
   const handlePrioritasManualToggle = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -591,7 +608,7 @@ export default function EditLaporanPage() {
         kerusakan_verifikasi: form.kerusakan_verifikasi,
         terdampak_verifikasi: form.terdampak_verifikasi,
         penyebab_verifikasi: form.penyebab_verifikasi,
-        prakiraan_kerugian: form.prakiraan_kerugian,
+        prakiraan_kerugian: normalizePrakiraanKerugian(form.prakiraan_kerugian),
         tindak_lanjut: form.tindak_lanjut,
         petugas_trc: form.petugas_trc,
         staff_puskodal: staffPuskodal,

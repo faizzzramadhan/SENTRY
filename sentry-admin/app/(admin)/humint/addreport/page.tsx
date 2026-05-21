@@ -181,7 +181,7 @@ export default function AddReportAdmin() {
     nama_pelapor: '',
     no_hp: '',
     alamat_pelapor: '',
-    status_laporan: 'IDENTIFIKASI',
+    status_laporan: 'TERVERIFIKASI',
     petugas_trc: '',
     id_jenis: '',
     id_bencana: '',
@@ -191,9 +191,10 @@ export default function AddReportAdmin() {
     kronologi: '',
     jenis_lokasi: '',
     alamat_lengkap_kejadian: '',
-    kerusakan_identifikasi: '',
-    terdampak_identifikasi: '',
-    penyebab_identifikasi: '',
+    kerusakan_verifikasi: '',
+    terdampak_verifikasi: '',
+    penyebab_verifikasi: '',
+    prakiraan_kerugian: '',
     tindak_lanjut: '',
   })
 
@@ -231,6 +232,18 @@ export default function AddReportAdmin() {
 
   const limitText = (value: string) => value.slice(0, MAX_TEXT_LENGTH)
 
+  const normalizePrakiraanKerugian = (value: string) => {
+    const cleaned = value.replace(/[^0-9]/g, '')
+
+    if (!cleaned) return ''
+
+    const numberValue = Number(cleaned)
+
+    if (!Number.isFinite(numberValue) || numberValue < 0) return ''
+
+    return String(Math.round(numberValue))
+  }
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -242,10 +255,12 @@ export default function AddReportAdmin() {
     }
 
     const nextValue =
-      e.target instanceof HTMLTextAreaElement ||
-      ['kronologi', 'alamat_pelapor', 'alamat_lengkap_kejadian', 'kerusakan_identifikasi', 'terdampak_identifikasi', 'penyebab_identifikasi', 'tindak_lanjut'].includes(name)
-        ? limitText(value)
-        : value
+      name === 'prakiraan_kerugian'
+        ? normalizePrakiraanKerugian(value)
+        : e.target instanceof HTMLTextAreaElement ||
+          ['kronologi', 'alamat_pelapor', 'alamat_lengkap_kejadian', 'kerusakan_verifikasi', 'terdampak_verifikasi', 'penyebab_verifikasi', 'tindak_lanjut'].includes(name)
+          ? limitText(value)
+          : value
 
     setForm((prev) => ({ ...prev, [name]: nextValue }))
   }
@@ -337,9 +352,9 @@ export default function AddReportAdmin() {
       { key: 'id_kelurahan', label: 'Kelurahan' },
       { key: 'jenis_lokasi', label: 'Jenis Lokasi' },
       { key: 'alamat_lengkap_kejadian', label: 'Alamat Lengkap Kejadian' },
-      { key: 'kerusakan_identifikasi', label: 'Kerusakan Bangunan' },
-      { key: 'terdampak_identifikasi', label: 'Terdampak' },
-      { key: 'penyebab_identifikasi', label: 'Penyebab' },
+      { key: 'kerusakan_verifikasi', label: 'Kerusakan Bangunan' },
+      { key: 'terdampak_verifikasi', label: 'Terdampak' },
+      { key: 'penyebab_verifikasi', label: 'Penyebab' },
       { key: 'tindak_lanjut', label: 'Tindak Lanjut Petugas' },
     ]
 
@@ -975,16 +990,20 @@ export default function AddReportAdmin() {
             <h3>Assessment Dampak</h3>
             <div className={styles.inputGroup}>
               <label className={styles.fieldLabel}>Kerusakan Bangunan</label>
-              <textarea name="kerusakan_identifikasi" value={form.kerusakan_identifikasi} onChange={handleChange} placeholder="Masukkan deskripsi kerusakan" rows={2} maxLength={MAX_TEXT_LENGTH} />
+              <textarea name="kerusakan_verifikasi" value={form.kerusakan_verifikasi} onChange={handleChange} placeholder="Masukkan deskripsi kerusakan" rows={2} maxLength={MAX_TEXT_LENGTH} />
+            </div>
+            <div className={styles.inputGroup}>
+              <label className={styles.fieldLabel}>Prakiraan Kerugian</label>
+              <input name="prakiraan_kerugian" value={form.prakiraan_kerugian} onChange={handleChange} type="number" min="0" step="1" inputMode="numeric" placeholder="Contoh: 5000000" />
             </div>
             <div className={styles.rowFields}>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Terdampak</label>
-                <input name="terdampak_identifikasi" value={form.terdampak_identifikasi} onChange={handleChange} type="text" placeholder="Contoh: 15 KK" maxLength={MAX_TEXT_LENGTH} />
+                <input name="terdampak_verifikasi" value={form.terdampak_verifikasi} onChange={handleChange} type="text" placeholder="Contoh: 15 KK" maxLength={MAX_TEXT_LENGTH} />
               </div>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Penyebab</label>
-                <input name="penyebab_identifikasi" value={form.penyebab_identifikasi} onChange={handleChange} type="text" placeholder="Masukkan faktor penyebab" maxLength={MAX_TEXT_LENGTH} />
+                <input name="penyebab_verifikasi" value={form.penyebab_verifikasi} onChange={handleChange} type="text" placeholder="Masukkan faktor penyebab" maxLength={MAX_TEXT_LENGTH} />
               </div>
             </div>
           </div>
