@@ -127,7 +127,7 @@ export default function LoginPage() {
         </div>
 
         <p className={styles.org}>BPBD Kota Malang</p>
-        <h1 className={styles.title}>Sign In</h1>
+        <h1 className={styles.title}>Log In</h1>
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.label}>
@@ -157,7 +157,7 @@ export default function LoginPage() {
           {errorMsg ? <p className={styles.error}>{errorMsg}</p> : null}
 
           <button className={styles.button} type="submit" disabled={loading}>
-            {loading ? "Loading..." : "Sign In"}
+            {loading ? "Loading..." : "Log In"}
           </button>
         </form>
       </section>
