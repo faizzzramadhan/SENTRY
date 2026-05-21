@@ -157,7 +157,7 @@ export default function LoginPage() {
           {errorMsg ? <p className={styles.error}>{errorMsg}</p> : null}
 
           <button className={styles.button} type="submit" disabled={loading}>
-            {loading ? "Loading..." : "Sign In"}
+            {loading ? "Loading..." : "Log In"}
           </button>
         </form>
       </section>
