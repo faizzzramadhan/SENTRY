@@ -13,9 +13,17 @@ type Props = {
 
 type NavItem = {
   label: string;
-  href: string;
+  href?: string;
   icon: React.ReactNode;
+
+  children?: {
+    label: string;
+    href: string;
+    icon: React.ReactNode;
+  }[];
 };
+
+
 
 type UserRole = "staff" | "admin" | null;
 
@@ -140,6 +148,7 @@ export default function Sidebar({ open, onClose }: Props) {
 
   const [isMobile, setIsMobile] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>(null);
+  const [openGeoInt,setOpenGeoInt] = useState(false);
 
   const isActive = (href: string) => pathname === href;
 
@@ -168,13 +177,81 @@ export default function Sidebar({ open, onClose }: Props) {
     }
   }, [pathname]);
 
-  const staffNav: NavItem[] = [
-    { label: "Dashboard", href: "/dashboard", icon: <IconBox /> },
-    { label: "Laporan HUMINT", href: "/humint", icon: <IconStack /> },
-    { label: "Monitoring OSINT", href: "/osint", icon: <IconGlobe /> },
-    { label: "Monitoring Spasial", href: "/geoint", icon: <IconMap /> },
-    { label: "Pengaturan Master", href: "/master-data", icon: <IconMaster /> },
-  ];
+const staffNav: NavItem[] = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: <IconBox />
+  },
+
+  {
+    label: "Laporan HUMINT",
+    href: "/humint",
+    icon: <IconStack />
+  },
+
+  {
+    label: "Monitoring OSINT",
+    href: "/osint",
+    icon: <IconGlobe />
+  },
+
+  {
+    label: "Monitoring Spasial",
+    icon: <IconMap />,
+
+    children: [
+
+      {
+        label: "Peta Sebaran Laporan",
+        href: "/geoint/laporan/humint",
+        icon: <IconMap />
+      },
+
+      {
+        label: "Peta Sebaran OSINT",
+        href: "/geoint/laporan/osint",
+        icon: <IconGlobe />
+      },
+
+      {
+        label: "Peta Fusion",
+        href: "/geoint/laporan/fusion",
+        icon: <IconStack />
+      },
+
+      {
+        label: "Zona Rawan Banjir",
+        href: "/geoint/zona-rawan/banjir",
+        icon: <IconMap />
+      },
+
+      {
+        label: "Zona Rawan Longsor",
+        href: "/geoint/zona-rawan/longsor",
+        icon: <IconMap />
+      },
+
+      {
+        label: "Zona Rawan Gempa",
+        href: "/geoint/zona-rawan/gempa",
+        icon: <IconMap />
+      },
+
+      {
+        label: "Manajemen Zona Rawan",
+        href: "/geoint/manajemen-zona-rawan",
+        icon: <IconMap />
+      }
+    ]
+  },
+
+  {
+    label: "Pengaturan Master",
+    href: "/master-data",
+    icon: <IconMaster />
+  },
+];
 
   const adminNav: NavItem[] = [
     { label: "Log Aktivitas", href: "/log", icon: <IconList /> },
@@ -237,22 +314,120 @@ export default function Sidebar({ open, onClose }: Props) {
           </button>
         </div>
 
-        <nav className={styles.nav}>
-          {nav.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={handleNavClick}
-                className={`${styles.navItem} ${active ? styles.active : ""}`}
-              >
-                <span className={styles.navIcon}>{item.icon}</span>
-                <span className={styles.navLabel}>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+       
+<nav className={styles.nav}>
+
+  {nav.map((item, index) => {
+
+    const active =
+      item.href
+      &&
+      pathname === item.href
+
+    return (
+
+      <div key={index}>
+
+        {/* MAIN MENU */}
+
+       {item.href ? (
+
+  <Link
+    href={item.href}
+    onClick={handleNavClick}
+    className={`${styles.navItem} ${active ? styles.active : ""}`}
+  >
+
+    <span className={styles.navIcon}>
+      {item.icon}
+    </span>
+
+    <span className={styles.navLabel}>
+      {item.label}
+    </span>
+
+  </Link>
+
+) : (
+
+  <button
+
+    type="button"
+
+    className={styles.navItem}
+
+    onClick={() =>
+      setOpenGeoInt(
+        !openGeoInt
+      )
+    }
+  >
+
+    <span className={styles.navIcon}>
+      {item.icon}
+    </span>
+
+    <span className={styles.navLabel}>
+      {item.label}
+    </span>
+
+   <span className={styles.expandIcon}>
+
+  {openGeoInt ? '▼' : '▶'}
+
+</span>
+
+  </button>
+
+)}
+
+        {/* SUB MENU */}
+
+        {item.children && openGeoInt &&(
+
+          <div className={styles.subMenuContainer}>
+
+            {item.children.map((child) => {
+
+              const childActive =
+                pathname === child.href
+
+              return (
+
+                <Link
+                  key={child.href}
+                  href={child.href || "#"}
+                  className={`${styles.subMenuItem} ${
+                    childActive
+                      ? styles.subMenuActive
+                      : ""
+                  }`}
+                >
+
+                  <span className={styles.subMenuIcon}>
+                    {child.icon}
+                  </span>
+
+                  <span>
+                    {child.label}
+                  </span>
+
+                </Link>
+
+              )
+            })}
+
+          </div>
+
+        )}
+
+      </div>
+    )
+  })}
+
+</nav>
+
+
 
         <div className={styles.bottom}>
           <Link

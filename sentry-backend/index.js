@@ -21,6 +21,13 @@ const { startBmkgScheduler } = require("./src/jobs/bmkgScheduler");
 
 const { autoLogAktivitas } = require("./src/utils/activityLogger");
 
+const humintMapRoute = require('./src/routes/geoint/humintMap')
+const osintMapRoute = require('./src/routes/geoint/osintMap')
+//const fusionMapRoute = require('./src/routes/geoint/fusionMap')
+const riskMapRoute = require('./src/routes/geoint/riskMap')
+const osintFeedRoute = require('./src/routes/geoint/osintFeed') 
+const zonaRawanRoute = require('./src/routes/geoint/zonaRawan')
+
 /* ================= MIDDLEWARE ================= */
 app.use(cors());
 app.use(express.json());
@@ -53,6 +60,16 @@ app.use("/nama-bencana", namaBencanaRoutes);
 app.use("/api/humint", humintLaporanRoutes);
 app.use("/api/humint", detailLaporanRoutes);
 app.use("/api/humint", editLaporanRoutes);
+
+
+app.use('/api/geoint/humint', humintMapRoute)
+app.use('/api/geoint/osint', osintMapRoute)
+app.use('/api/geoint/humint-map', humintMapRoute)
+app.use('/api/geoint/osint-map', osintMapRoute)
+app.use('/api/geoint/osint-feed', osintFeedRoute)
+//app.use('/api/geoint/fusion', fusionMapRoute)
+app.use('/api/geoint/risk', riskMapRoute)
+app.use('/api/geoint/zona-rawan',zonaRawanRoute)
 
 /* ================= SERVER ================= */
 app.listen(5555, () => {

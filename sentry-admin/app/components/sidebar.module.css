@@ -1,43 +1,94 @@
-/* overlay untuk mobile */
+/* =========================
+   OVERLAY MOBILE
+========================= */
+
 .overlay {
   position: fixed;
+
   inset: 0;
+
   background: rgba(0,0,0,0.55);
+
   z-index: 45;
+
   opacity: 0;
+
   pointer-events: none;
+
   transition: opacity 0.2s ease;
 }
 
 .overlayShow {
   opacity: 1;
+
   pointer-events: auto;
 }
 
-/* sidebar fixed dan tidak bisa discroll */
+/* =========================
+   SIDEBAR
+========================= */
+
 .sidebar {
   width: 250px;
+
   height: 100vh;
+
   position: fixed;
+
   top: 0;
   left: 0;
+
   z-index: 50;
 
-  background: #3a3a3a;
+  background:
+    linear-gradient(
+      180deg,
+      #3b3b3b,
+      #2d2d2d
+    );
+
   padding: 18px 14px;
 
   display: flex;
+
   flex-direction: column;
+
   gap: 16px;
 
-  border-right: 1px solid rgba(255,255,255,0.08);
+  border-right:
+    1px solid rgba(255,255,255,0.08);
 
-  /* ✅ tidak bisa discroll */
-  overflow: hidden;
+  overflow-y: auto;
+
+  overflow-x: hidden;
+
+  scrollbar-width: thin;
+
   overscroll-behavior: contain;
 
   transition: transform 0.22s ease;
 }
+
+/* =========================
+   SCROLLBAR
+========================= */
+
+.sidebar::-webkit-scrollbar {
+
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+
+  background:
+    rgba(255,255,255,0.14);
+
+  border-radius: 999px;
+}
+
+/* =========================
+   OPEN CLOSE
+========================= */
 
 .open {
   transform: translateX(0);
@@ -47,174 +98,456 @@
   transform: translateX(-110%);
 }
 
+/* =========================
+   BRAND
+========================= */
+
 .brandRow {
   display: flex;
+
   align-items: center;
+
   justify-content: space-between;
+
   gap: 10px;
 }
 
 .brand {
   display: flex;
+
   align-items: center;
+
   gap: 10px;
+
   padding: 6px 6px 10px 6px;
 }
 
 .brandIcon {
   width: 34px;
+
   height: 34px;
+
   border-radius: 10px;
+
   display: grid;
+
   place-items: center;
-  background: rgba(0,0,0,0.25);
+
+  background:
+    rgba(0,0,0,0.25);
 }
 
 .brandText {
-  color: rgba(255,255,255,0.9);
+  color:
+    rgba(255,255,255,0.92);
+
   font-weight: 800;
+
   letter-spacing: 0.8px;
+
   font-size: 20px;
 }
 
+/* =========================
+   CLOSE BUTTON
+========================= */
+
 .closeBtn {
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.25);
-  color: rgba(255,255,255,0.9);
+  border:
+    1px solid rgba(255,255,255,0.18);
+
+  background:
+    rgba(0,0,0,0.25);
+
+  color:
+    rgba(255,255,255,0.9);
+
   width: 40px;
+
   height: 40px;
+
   border-radius: 12px;
+
   cursor: pointer;
-  display: none; /* desktop: hidden */
+
+  display: none;
+
   align-items: center;
+
   justify-content: center;
 }
 
+/* =========================
+   NAVIGATION
+========================= */
+
 .nav {
   display: flex;
+
   flex-direction: column;
+
   gap: 10px;
 }
+
+/* =========================
+   MAIN MENU ITEM
+========================= */
 
 .navItem {
   display: flex;
+
   align-items: center;
+
   gap: 10px;
-  padding: 12px 12px;
-  border-radius: 12px;
-  background: rgba(0,0,0,0.28);
-  color: rgba(255,255,255,0.9);
+
+  padding: 12px;
+
+  border-radius: 14px;
+
+  background:
+    rgba(0,0,0,0.28);
+
+  color:
+    rgba(255,255,255,0.92);
+
   text-decoration: none;
-  border: 1px solid rgba(255,255,255,0.06);
+
+  border:
+    1px solid rgba(255,255,255,0.06);
+
   transition: 0.2s ease;
 }
+
 .navItem:hover {
-  background: rgba(255,255,255,0.08);
+
+  background:
+    rgba(255,255,255,0.08);
+
+  transform: translateX(2px);
 }
+
+/* =========================
+   NAV ICON
+========================= */
 
 .navIcon {
   width: 34px;
+
   height: 34px;
+
   border-radius: 10px;
+
   display: grid;
+
   place-items: center;
-  background: rgba(255,255,255,0.92);
+
+  background:
+    rgba(255,255,255,0.92);
+
   color: #242424;
+
+  flex-shrink: 0;
 }
+
+/* =========================
+   NAV LABEL
+========================= */
 
 .navLabel {
   font-weight: 600;
+
   font-size: 14px;
 }
 
+/* =========================
+   ACTIVE MENU
+========================= */
+
 .active {
-  background: #ff7f75;
+  background:
+    linear-gradient(
+      90deg,
+      #ff7f75,
+      #ff9f96
+    );
+
   color: #1f1f1f;
-  border: 1px solid rgba(0,0,0,0.15);
+
+  border:
+    1px solid rgba(0,0,0,0.15);
 }
 
 .active .navIcon {
-  background: rgba(0,0,0,0.25);
-  color: #ffffff;
+
+  background:
+    rgba(0,0,0,0.25);
+
+  color: white;
 }
+
+/* =========================
+   SUB MENU CONTAINER
+========================= */
+
+.subMenu {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 10px;
+
+  margin-top: 10px;
+
+  margin-left: 14px;
+
+  margin-bottom: 18px;
+
+  padding: 14px;
+
+  border-radius: 18px;
+
+  background:
+    rgba(255,255,255,0.03);
+
+  border:
+    1px solid rgba(255,255,255,0.05);
+}
+
+/* =========================
+   SUB MENU ITEM
+========================= */
+
+.subMenuItem {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 12px;
+
+  border-radius: 12px;
+
+  text-decoration: none;
+
+  color: #cbd5e1;
+
+  font-size: 13px;
+
+  font-weight: 500;
+
+  transition: 0.2s;
+}
+
+.subMenuItem:hover {
+
+  background:
+    rgba(255,255,255,0.06);
+
+  color: white;
+
+  transform: translateX(4px);
+}
+
+/* =========================
+   ACTIVE SUB MENU
+========================= */
+
+.subMenuActive {
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(251,113,133,0.25),
+      rgba(251,113,133,0.06)
+    );
+
+  border:
+    1px solid rgba(251,113,133,0.28);
+
+  color: white;
+
+  font-weight: 700;
+}
+
+/* =========================
+   BOTTOM
+========================= */
 
 .bottom {
   margin-top: auto;
+
   display: flex;
+
   flex-direction: column;
+
   gap: 10px;
+
   padding-top: 10px;
 }
 
+/* =========================
+   PROFILE BUTTON
+========================= */
+
 .profileBtn {
   display: flex;
+
   align-items: center;
+
   gap: 10px;
-  padding: 12px 12px;
+
+  padding: 12px;
+
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.06);
-  background: rgba(0,0,0,0.28);
-  color: rgba(255,255,255,0.9);
+
+  border:
+    1px solid rgba(255,255,255,0.06);
+
+  background:
+    rgba(0,0,0,0.28);
+
+  color:
+    rgba(255,255,255,0.9);
+
   cursor: pointer;
+
   font-weight: 600;
+
+  text-decoration: none;
 }
 
 .profileIcon {
   width: 34px;
+
   height: 34px;
+
   border-radius: 10px;
+
   display: grid;
+
   place-items: center;
-  background: rgba(255,255,255,0.92);
+
+  background:
+    rgba(255,255,255,0.92);
+
   color: #242424;
 }
 
+/* =========================
+   LOGOUT
+========================= */
+
 .logoutBtn {
   display: flex;
+
   align-items: center;
+
   gap: 10px;
-  padding: 12px 12px;
+
+  padding: 12px;
+
   border-radius: 12px;
+
   border: 0;
-  background: rgba(255,255,255,0.9);
+
+  background:
+    rgba(255,255,255,0.9);
+
   color: #1f1f1f;
+
   cursor: pointer;
+
   font-weight: 700;
 }
 
 .logoutIcon {
   width: 34px;
+
   height: 34px;
+
   border-radius: 10px;
+
   display: grid;
+
   place-items: center;
-  background: rgba(0,0,0,0.12);
+
+  background:
+    rgba(0,0,0,0.12);
 }
 
+/* =========================
+   ACTIVE PROFILE
+========================= */
+
 .profileActive {
-  background: #ff7f75;
+
+  background:
+    #ff7f75;
+
   color: #1f1f1f;
-  border: 1px solid rgba(0,0,0,0.15);
+
+  border:
+    1px solid rgba(0,0,0,0.15);
 }
 
 .profileActive .profileIcon {
-  background: rgba(0,0,0,0.25);
-  color: #ffffff;
+
+  background:
+    rgba(0,0,0,0.25);
+
+  color: white;
 }
 
-/* Desktop behavior: sidebar selalu tampil, overlay off, closeBtn off */
+/* =========================
+   DESKTOP
+========================= */
+
 @media (min-width: 981px) {
+
   .overlay {
     display: none !important;
   }
+
   .sidebar {
     transform: translateX(0) !important;
   }
 }
 
-/* Mobile behavior: close button tampil */
+/* =========================
+   MOBILE
+========================= */
+
 @media (max-width: 980px) {
+
   .closeBtn {
     display: flex;
   }
+
+  .sidebar {
+
+    width: 280px;
+  }
+}
+
+/* =========================
+   EXPAND ICON
+========================= */
+
+.expandIcon {
+
+  margin-left: auto;
+
+  font-size: 10px;
+
+  transition: 0.25s ease;
+
+  opacity: 0.7;
+}
+
+.expandOpen {
+
+  transform: rotate(90deg);
+
+  opacity: 1;
 }
