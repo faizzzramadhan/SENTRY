@@ -127,6 +127,32 @@
   line-height: 1.5;
 }
 
+
+.victimCompactList {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.victimCompactItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: #111;
+  border: 1px solid #333;
+  color: #ddd;
+  font-size: 12px;
+}
+
+.victimCompactItem strong {
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* ================= VIEW ================= */
 
 .viewValue {

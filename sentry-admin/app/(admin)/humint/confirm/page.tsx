@@ -27,13 +27,14 @@ export default function ConfirmReportPage() {
   const router = useRouter()
   const [draft, setDraft] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   useEffect(() => {
     const saved = sessionStorage.getItem(DRAFT_STORAGE_KEY)
 
     if (!saved) {
-      alert('Data laporan belum ada. Silakan isi form terlebih dahulu.')
-      router.push('/humint/addreport')
+      setNotification({ type: 'error', message: 'Data laporan belum tersedia. Silakan isi formulir terlebih dahulu.' })
+      window.setTimeout(() => router.push('/humint/addreport'), 900)
       return
     }
 
@@ -114,10 +115,10 @@ export default function ConfirmReportPage() {
       }
 
       sessionStorage.removeItem(DRAFT_STORAGE_KEY)
-      alert('Laporan berhasil dikirim')
-      router.push('/humint')
+      setNotification({ type: 'success', message: 'Laporan berhasil dikirim.' })
+      window.setTimeout(() => router.push('/humint'), 900)
     } catch (error: any) {
-      alert(error.message || 'Gagal mengirim laporan')
+      setNotification({ type: 'error', message: error.message || 'Laporan gagal dikirim. Silakan periksa kembali data konfirmasi.' })
     } finally {
       setLoading(false)
     }
@@ -139,6 +140,17 @@ export default function ConfirmReportPage() {
 
   return (
     <div className={styles.container}>
+      {notification && (
+        <div className={styles.notificationOverlay}>
+          <div className={notification.type === 'success' ? styles.notificationSuccess : styles.notificationError}>
+            <div className={styles.notificationIcon}>{notification.type === 'success' ? '✓' : '!'}</div>
+            <div>
+              <strong>{notification.type === 'success' ? 'Berhasil' : 'Perhatian'}</strong>
+              <span>{notification.message}</span>
+            </div>
+          </div>
+        </div>
+      )}
       <header className={styles.header}>
         <Link href="/humint/addreport" className={styles.backLink}>
           ← Kembali ke Form
@@ -178,7 +190,7 @@ export default function ConfirmReportPage() {
               <span className={styles.statusBadge}>{form.status_laporan || '-'}</span>
             </div>
             <div className={styles.infoRow}>
-              <span className={styles.label}>Petugas TRC</span>
+              <span className={styles.label}>Petugas yang Ditugaskan</span>
               <span className={styles.value}>{form.petugas_trc || '-'}</span>
             </div>
           </div>

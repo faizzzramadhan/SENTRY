@@ -10,7 +10,7 @@ const NamaBencana = models.nama_bencana;
 const JenisBencana = models.jenis_bencana;
 
 async function validateJenis(jenis_id) {
-  const row = await JenisBencana.findOne({ where: { jenis_id } });
+  const row = await JenisBencana.findOne({ where: { jenis_id }, attributes: ["jenis_id"] });
   if (!row) {
     throw new Error("jenis_id tidak ditemukan di jenis_bencana");
   }
@@ -42,7 +42,7 @@ router.get("/", auth, requireRole("staff", "admin"), async (req, res) => {
         {
           model: JenisBencana,
           as: "jenis_bencana",
-          attributes: ["jenis_id", "nama_jenis", "icon_marker"],
+          attributes: ["jenis_id", "nama_jenis"],
           required: false,
         },
       ],
@@ -65,7 +65,7 @@ router.get("/:bencana_id", auth, requireRole("staff", "admin"), async (req, res)
         {
           model: JenisBencana,
           as: "jenis_bencana",
-          attributes: ["jenis_id", "nama_jenis", "icon_marker"],
+          attributes: ["jenis_id", "nama_jenis"],
           required: false,
         },
       ],
@@ -122,7 +122,7 @@ router.post("/", auth, requireRole("staff", "admin"), async (req, res) => {
         {
           model: JenisBencana,
           as: "jenis_bencana",
-          attributes: ["jenis_id", "nama_jenis", "icon_marker"],
+          attributes: ["jenis_id", "nama_jenis"],
           required: false,
         },
       ],
@@ -183,7 +183,7 @@ router.put("/:bencana_id", auth, requireRole("staff", "admin"), async (req, res)
         {
           model: JenisBencana,
           as: "jenis_bencana",
-          attributes: ["jenis_id", "nama_jenis", "icon_marker"],
+          attributes: ["jenis_id", "nama_jenis"],
           required: false,
         },
       ],

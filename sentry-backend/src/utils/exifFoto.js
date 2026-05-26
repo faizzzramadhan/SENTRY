@@ -2,17 +2,6 @@ const fs = require("fs");
 const exifr = require("exifr");
 const geolib = require("geolib");
 
-/**
- * Ambil koordinat dari EXIF foto.
- *
- * Catatan rule terbaru:
- * - Upload file biasa hanya memakai metadata EXIF.
- * - GPS browser hanya boleh dipakai sebagai fallback kalau foto benar-benar
- *   diambil langsung dari kamera web.
- * - Supaya tidak mengganggu pemanggilan lama, parameter kedua tetap ada,
- *   tetapi fallback browser hanya aktif jika browserGps.isCameraCapture === true
- *   atau browserGps.source === "WEB_CAMERA".
- */
 async function extractExifLocation(filePath, browserGps = {}) {
   const browserLat =
     browserGps.latitude != null ? Number(browserGps.latitude) : null;
@@ -126,10 +115,6 @@ async function extractExifLocation(filePath, browserGps = {}) {
   }
 }
 
-/**
- * Hitung validasi lokasi foto terhadap titik laporan.
- * Batas default dibuat 10 meter sesuai rule kredibilitas terbaru.
- */
 function hitungValidasiLokasi({
   laporanLatitude,
   laporanLongitude,

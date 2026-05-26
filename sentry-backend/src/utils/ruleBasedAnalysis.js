@@ -8,60 +8,6 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-function normalizeJenisKorban(value) {
-  if (!value) return "TIDAK_ADA";
-
-  const text = String(value).trim().toUpperCase();
-
-  if (text === "LUKA" || text === "SAKIT") return "LUKA_SAKIT";
-  if (text === "LUKA/SAKIT") return "LUKA_SAKIT";
-  if (text === "SAKIT/LUKA") return "LUKA_SAKIT";
-  if (text === "TIDAK ADA") return "TIDAK_ADA";
-
-  const allowed = [
-    "TIDAK_ADA",
-    "TERDAMPAK",
-    "MENINGGAL",
-    "HILANG",
-    "MENGUNGSI",
-    "LUKA_SAKIT",
-  ];
-
-  return allowed.includes(text) ? text : "TIDAK_ADA";
-}
-
-function normalizeJenisLokasi(value) {
-  if (!value) return "AREA_TIDAK_PADAT";
-
-  const text = String(value).trim().toUpperCase();
-
-  if (text === "PEMUKIMAN") return "PEMUKIMAN";
-  if (text === "FASILITAS_UMUM" || text === "FASILITAS UMUM") {
-    return "FASILITAS_UMUM";
-  }
-  if (text === "JALAN_RAYA" || text === "JALAN RAYA") {
-    return "JALAN_RAYA";
-  }
-  if (text === "AREA_TIDAK_PADAT" || text === "AREA TIDAK PADAT") {
-    return "AREA_TIDAK_PADAT";
-  }
-
-  return text;
-}
-
-function normalizeTingkatResiko(value) {
-  if (!value) return "TIDAK_RAWAN";
-
-  const text = String(value).trim().toUpperCase();
-
-  if (text === "RENDAH") return "RENDAH";
-  if (text === "SEDANG") return "SEDANG";
-  if (text === "TINGGI") return "TINGGI";
-  if (text === "TIDAK_RAWAN" || text === "TIDAK RAWAN") return "TIDAK_RAWAN";
-
-  return "TIDAK_RAWAN";
-}
-
 function getJenisKorbanFromDetail(detailKorban = []) {
   if (!Array.isArray(detailKorban)) return "TIDAK_ADA";
 
@@ -75,7 +21,7 @@ function getJenisKorbanFromDetail(detailKorban = []) {
 
   const available = detailKorban
     .filter((item) => Number(item?.jumlah || 0) > 0)
-    .map((item) => normalizeJenisKorban(item?.jenis_korban));
+    .map((item) => item?.jenis_korban || "TIDAK_ADA");
 
   for (const jenis of order) {
     if (available.includes(jenis)) return jenis;
@@ -85,9 +31,7 @@ function getJenisKorbanFromDetail(detailKorban = []) {
 }
 
 function isZonaRawanNaikPrioritas(tingkatResiko) {
-  const resiko = normalizeTingkatResiko(tingkatResiko);
-
-  return resiko === "SEDANG" || resiko === "TINGGI";
+  return tingkatResiko === "SEDANG" || tingkatResiko === "TINGGI";
 }
 
 function calculateKredibilitas({ metadataFoto = null, osintReference = null } = {}) {
@@ -134,9 +78,9 @@ function calculateKredibilitas({ metadataFoto = null, osintReference = null } = 
 }
 
 function calculatePrioritas({ jenisKorban, jenisLokasi, tingkatResiko } = {}) {
-  const korban = normalizeJenisKorban(jenisKorban);
-  const lokasi = normalizeJenisLokasi(jenisLokasi);
-  const resiko = normalizeTingkatResiko(tingkatResiko);
+  const korban = jenisKorban || "TIDAK_ADA";
+  const lokasi = jenisLokasi || "AREA_TIDAK_PADAT";
+  const resiko = tingkatResiko || "TIDAK_RAWAN";
 
   if (["MENINGGAL", "HILANG", "MENGUNGSI", "LUKA_SAKIT"].includes(korban)) {
     return {
@@ -233,18 +177,15 @@ function calculateRuleBasedAnalysis({
   tingkatResiko = null,
   osintReference = null,
 } = {}) {
-  const jenisKorbanIdentifikasi = normalizeJenisKorban(
-    identifikasi?.jenis_korban
-  );
+  const jenisKorbanIdentifikasi = identifikasi?.jenis_korban || "TIDAK_ADA";
   const jenisKorbanDetail = getJenisKorbanFromDetail(detailKorban);
   const jenisKorban =
     jenisKorbanDetail !== "TIDAK_ADA"
       ? jenisKorbanDetail
       : jenisKorbanIdentifikasi;
 
-  const tingkatResikoValue = normalizeTingkatResiko(
-    tingkatResiko?.tingkat_resiko
-  );
+  const tingkatResikoValue = tingkatResiko?.tingkat_resiko || "TIDAK_RAWAN";
+  const jenisLokasiValue = laporan?.jenis_lokasi || "AREA_TIDAK_PADAT";
 
   const kredibilitas = calculateKredibilitas({
     metadataFoto,
@@ -253,7 +194,7 @@ function calculateRuleBasedAnalysis({
 
   const prioritas = calculatePrioritas({
     jenisKorban,
-    jenisLokasi: laporan?.jenis_lokasi,
+    jenisLokasi: jenisLokasiValue,
     tingkatResiko: tingkatResikoValue,
   });
 
@@ -263,7 +204,7 @@ function calculateRuleBasedAnalysis({
     alasan_kredibilitas: kredibilitas.alasan_kredibilitas,
     alasan_prioritas: prioritas.alasan_prioritas,
     jenis_korban: jenisKorban,
-    jenis_lokasi: normalizeJenisLokasi(laporan?.jenis_lokasi),
+    jenis_lokasi: jenisLokasiValue,
     tingkat_resiko: tingkatResikoValue,
     is_zona_rawan: tingkatResikoValue !== "TIDAK_RAWAN",
     kredibilitas_detail: kredibilitas,
@@ -281,7 +222,4 @@ module.exports = {
   calculateRuleBasedAnalysis,
   calculateKredibilitas,
   calculatePrioritas,
-  normalizeJenisKorban,
-  normalizeJenisLokasi,
-  normalizeTingkatResiko,
 };

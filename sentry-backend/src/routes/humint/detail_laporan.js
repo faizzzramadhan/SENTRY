@@ -203,8 +203,20 @@ router.get("/detail/:id", async (req, res) => {
         dk.nama_kecamatan,
         dl.nama_kelurahan,
 
-        i.jenis_korban,
+        CASE
+          WHEN COALESCE(i.jumlah_meninggal, 0) > 0 THEN 'MENINGGAL'
+          WHEN COALESCE(i.jumlah_hilang, 0) > 0 THEN 'HILANG'
+          WHEN COALESCE(i.jumlah_luka_sakit, 0) > 0 THEN 'LUKA_SAKIT'
+          WHEN COALESCE(i.jumlah_mengungsi, 0) > 0 THEN 'MENGUNGSI'
+          WHEN COALESCE(i.jumlah_terdampak, 0) > 0 THEN 'TERDAMPAK'
+          ELSE 'TIDAK_ADA'
+        END AS jenis_korban,
         i.jumlah_korban_identifikasi,
+        i.jumlah_terdampak,
+        i.jumlah_meninggal,
+        i.jumlah_hilang,
+        i.jumlah_mengungsi,
+        i.jumlah_luka_sakit,
         i.kerusakan_identifikasi,
         i.terdampak_identifikasi,
         i.penyebab_identifikasi,
@@ -394,6 +406,11 @@ router.get("/detail/:id", async (req, res) => {
         identifikasi: {
           jenis_korban: item.jenis_korban,
           jumlah_korban_identifikasi: item.jumlah_korban_identifikasi,
+          jumlah_terdampak: item.jumlah_terdampak,
+          jumlah_meninggal: item.jumlah_meninggal,
+          jumlah_hilang: item.jumlah_hilang,
+          jumlah_mengungsi: item.jumlah_mengungsi,
+          jumlah_luka_sakit: item.jumlah_luka_sakit,
           kerusakan_identifikasi: item.kerusakan_identifikasi,
           terdampak_identifikasi: item.terdampak_identifikasi,
           penyebab_identifikasi: item.penyebab_identifikasi,

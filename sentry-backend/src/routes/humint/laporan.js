@@ -191,7 +191,6 @@ router.post(
       await identifikasi.create(
         {
           id_laporan: laporanBaru.laporan_id,
-          jenis_korban: body.jenis_korban || body.jenisKorban || "TIDAK_ADA",
           jumlah_korban_identifikasi:
             body.jumlah_korban_identifikasi || body.total_korban || 0,
           kerusakan_identifikasi: body.kerusakan_identifikasi || null,
@@ -454,15 +453,15 @@ router.get("/dashboard", async (req, res) => {
     const osintSourceRows = await sequelize.query(
       `
       SELECT
-        UPPER(COALESCE(osint_source, 'LAINNYA')) AS source,
-        COUNT(*) AS total
-      FROM osint_data
-      WHERE
-        COALESCE(osint_created_at, creation_date, last_update_date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-        AND COALESCE(osint_created_at, creation_date, last_update_date) < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
-      GROUP BY UPPER(COALESCE(osint_source, 'LAINNYA'))
-      `,
-      {
+      UPPER(COALESCE(osint_source, 'LAINNYA')) AS source,
+      COUNT(*) AS total
+    FROM osint_data
+    WHERE
+      COALESCE(osint_event_time, osint_post_time, creation_date, last_update_date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+      AND COALESCE(osint_event_time, osint_post_time, creation_date, last_update_date) < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+    GROUP BY UPPER(COALESCE(osint_source, 'LAINNYA'))
+    `,
+    {
         type: sequelize.QueryTypes.SELECT,
       }
     ).catch((error) => {

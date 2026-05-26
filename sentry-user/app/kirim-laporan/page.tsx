@@ -7,11 +7,48 @@ import styles from './kirim-laporan.module.css'
 import Navbar from '../components/navbar'
 import LocationSearch from '../components/LocationSearch'
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/humint'
+const RAW_API_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/api/humint'
+
+const API_URL = RAW_API_URL
+  .replace(/\/$/, '')
+  .replace(/\/humint$/i, '/api/humint')
+  .replace(/\/api$/i, '/api/humint')
+
+
+const getMaxDateTimeLocal = () => {
+  const now = new Date()
+  const offsetMs = now.getTimezoneOffset() * 60 * 1000
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16)
+}
+
+const isFutureDateTime = (value: string) => {
+  if (!value) return false
+
+  const selectedDate = new Date(value)
+  if (Number.isNaN(selectedDate.getTime())) return false
+
+  return selectedDate.getTime() > Date.now()
+}
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const MAX_FOTO_KERUSAKAN = 2
+const MAX_KRONOLOGI_LENGTH = 250
+
+const isValidPhoneNumber = (value: string) => {
+  return /^\d{11,12}$/.test(value)
+}
+
+const normalizePhoneInput = (value: string) => {
+  return value.replace(/\D/g, '').slice(0, 12)
+}
+
+const limitKronologiText = (value: string) => {
+  return value.slice(0, MAX_KRONOLOGI_LENGTH)
+}
+
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg']
+const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg']
 
 const MapPicker = dynamic(() => import('../components/MapPicker'), {
   ssr: false,
@@ -23,6 +60,13 @@ const MapPicker = dynamic(() => import('../components/MapPicker'), {
 type JenisLaporan = 'NON_ASSESSMENT' | 'ASSESSMENT'
 type UploadTarget = 'kejadian' | 'kerusakan' | null
 type FotoKejadianSource = 'FILE_UPLOAD' | 'WEB_CAMERA' | null
+type JenisKorbanValue =
+  | 'TIDAK_ADA'
+  | 'TERDAMPAK'
+  | 'MENINGGAL'
+  | 'HILANG'
+  | 'MENGUNGSI'
+  | 'LUKA_SAKIT'
 
 const JENIS_KORBAN_OPTIONS = [
   { value: 'TIDAK_ADA', label: 'Tidak Ada Korban' },
@@ -31,7 +75,35 @@ const JENIS_KORBAN_OPTIONS = [
   { value: 'HILANG', label: 'Hilang' },
   { value: 'MENGUNGSI', label: 'Mengungsi' },
   { value: 'LUKA_SAKIT', label: 'Luka/Sakit' },
-]
+] as Array<{ value: JenisKorbanValue; label: string }>
+
+const createEmptyKorbanByJenis = () => {
+  return JENIS_KORBAN_OPTIONS.reduce((acc, item) => {
+    acc[item.value] = ''
+    return acc
+  }, {} as Record<JenisKorbanValue, string>)
+}
+
+const toNonNegativeIntegerText = (value: string) => {
+  const cleanValue = value.replace(/\D/g, '')
+  if (!cleanValue) return ''
+  return String(Math.max(0, Number(cleanValue)))
+}
+
+const buildKorbanPayloadFromMap = (data: Record<JenisKorbanValue, string>) => {
+  return JENIS_KORBAN_OPTIONS
+    .map((item) => ({
+      jenis_korban: item.value,
+      jenis_kelamin: 'TIDAK_DIKETAHUI',
+      kelompok_umur: 'TIDAK_DIKETAHUI',
+      jumlah: Number(data[item.value] || 0),
+    }))
+    .filter((item) => item.jumlah > 0)
+}
+
+const getPrimaryJenisKorban = (payload: Array<{ jenis_korban: string; jumlah: number }>) => {
+  return payload.find((item) => item.jumlah > 0)?.jenis_korban || 'TIDAK_ADA'
+}
 
 export default function KirimLaporanPage() {
   const router = useRouter()
@@ -57,6 +129,8 @@ export default function KirimLaporanPage() {
   const [kecamatanList, setKecamatanList] = useState<any[]>([])
   const [kelurahanList, setKelurahanList] = useState<any[]>([])
   const [jenisList, setJenisList] = useState<any[]>([])
+  const [korbanByJenis, setKorbanByJenis] =
+    useState<Record<JenisKorbanValue, string>>(createEmptyKorbanByJenis)
 
   const [selectedKec, setSelectedKec] = useState('')
 
@@ -66,7 +140,12 @@ export default function KirimLaporanPage() {
   const [previewKerusakan, setPreviewKerusakan] = useState<string[]>([])
 
   const [loading, setLoading] = useState(false)
+  const [maxDateTime, setMaxDateTime] = useState(getMaxDateTimeLocal())
   const [gpsLoading, setGpsLoading] = useState(false)
+  const [popupNotif, setPopupNotif] = useState<{
+    type: 'success' | 'error'
+    message: string
+  } | null>(null)
   const [uploadModalTarget, setUploadModalTarget] = useState<UploadTarget>(null)
   const [browserGpsCoords, setBrowserGpsCoords] = useState<{
     lat: number
@@ -104,10 +183,53 @@ export default function KirimLaporanPage() {
   ) => {
     const { name, value } = e.target
 
+    if (name === 'no_hp') {
+      setForm((prev) => ({
+        ...prev,
+        no_hp: normalizePhoneInput(value),
+      }))
+      return
+    }
+
+    if (name === 'kronologi') {
+      setForm((prev) => ({
+        ...prev,
+        kronologi: limitKronologiText(value),
+      }))
+      return
+    }
+
     setForm((prev) => ({
       ...prev,
       [name]: value,
     }))
+  }
+
+
+  const handleKorbanByJenisChange = (jenis: JenisKorbanValue, value: string) => {
+    const jumlah = toNonNegativeIntegerText(value)
+
+    setKorbanByJenis((prev) => ({
+      ...prev,
+      [jenis]: jumlah,
+    }))
+  }
+
+  const showPopup = (type: 'success' | 'error', message: string) => {
+    setPopupNotif({ type, message })
+
+    window.setTimeout(() => {
+      setPopupNotif(null)
+    }, 2600)
+  }
+
+  const isValidImageFormat = (file: File) => {
+    const extension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`
+
+    return (
+      ALLOWED_IMAGE_TYPES.includes(file.type) &&
+      ALLOWED_IMAGE_EXTENSIONS.includes(extension)
+    )
   }
 
   const isValidImageSize = (file: File) => {
@@ -129,15 +251,40 @@ export default function KirimLaporanPage() {
     return new File([blob], filename, { type: blob.type })
   }
 
-  const fetchJson = async (url: string) => {
-    const res = await fetch(url, { cache: 'no-store' })
-
-    if (!res.ok) {
-      throw new Error(`Gagal memuat data dari ${url}`)
-    }
-
-    return res.json()
+const getArrayFromResponse = (data: any, keys: string[]) => {
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key]
   }
+
+  if (Array.isArray(data)) return data
+
+  return []
+}
+
+const fetchJson = async (url: string) => {
+  const res = await fetch(url, { cache: 'no-store' })
+  const text = await res.text()
+
+  if (!text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+    throw new Error(`Endpoint tidak mengembalikan JSON: ${url}`)
+  }
+
+  const data = JSON.parse(text)
+
+  if (!res.ok) {
+    throw new Error(data?.message || `Gagal memuat data dari ${url}`)
+  }
+
+  return data
+}
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setMaxDateTime(getMaxDateTimeLocal())
+    }, 60_000)
+
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     const savedDraft = sessionStorage.getItem('draft_laporan_user')
@@ -176,6 +323,24 @@ export default function KirimLaporanPage() {
         if (parsed.form.id_kecamatan) {
           setSelectedKec(String(parsed.form.id_kecamatan))
         }
+
+        const restoredKorban = createEmptyKorbanByJenis()
+
+        if (Array.isArray(parsed.korbanPayload)) {
+          parsed.korbanPayload.forEach((item: any) => {
+            const jenis = item?.jenis_korban as JenisKorbanValue
+            if (jenis && jenis in restoredKorban) {
+              restoredKorban[jenis] = item?.jumlah ? String(item.jumlah) : ''
+            }
+          })
+        } else if (parsed.form.jenis_korban) {
+          const jenis = parsed.form.jenis_korban as JenisKorbanValue
+          if (jenis && jenis in restoredKorban) {
+            restoredKorban[jenis] = parsed.form.jumlah_korban_identifikasi || ''
+          }
+        }
+
+        setKorbanByJenis(restoredKorban)
       }
 
       if (parsed?.lat && parsed?.lng) {
@@ -241,14 +406,14 @@ export default function KirimLaporanPage() {
 
   useEffect(() => {
     fetchJson(`${API_URL}/data-kecamatan`)
-      .then((data) => setKecamatanList(data.data || []))
+      .then((data) => setKecamatanList(getArrayFromResponse(data, ['data', 'kecamatan', 'data_kecamatan'])))
       .catch((err) => {
         console.error('Gagal ambil kecamatan:', err)
         setKecamatanList([])
       })
 
     fetchJson(`${API_URL}/jenis-bencana`)
-      .then((data) => setJenisList(data.data || []))
+      .then((data) => setJenisList(getArrayFromResponse(data, ['data', 'jenis_bencana'])))
       .catch((err) => {
         console.error('Gagal ambil jenis bencana:', err)
         setJenisList([])
@@ -262,7 +427,7 @@ export default function KirimLaporanPage() {
     }
 
     fetchJson(`${API_URL}/data-kelurahan?kecamatan_id=${selectedKec}`)
-      .then((data) => setKelurahanList(data.data || []))
+      .then((data) => setKelurahanList(getArrayFromResponse(data, ['data', 'kelurahan', 'data_kelurahan'])))
       .catch((err) => {
         console.error('Gagal ambil kelurahan:', err)
         setKelurahanList([])
@@ -296,7 +461,7 @@ export default function KirimLaporanPage() {
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert('Browser tidak mendukung GPS/geolocation')
+      showPopup('error', 'Browser tidak mendukung GPS/geolocation')
       return
     }
 
@@ -336,7 +501,7 @@ export default function KirimLaporanPage() {
       },
       () => {
         setGpsLoading(false)
-        alert('Gagal mengambil lokasi. Pastikan izin lokasi/GPS sudah diaktifkan.')
+        showPopup('error', 'Gagal mengambil lokasi. Pastikan izin lokasi/GPS sudah diaktifkan.')
       },
       {
         enableHighAccuracy: true,
@@ -359,6 +524,7 @@ export default function KirimLaporanPage() {
         penyebab_identifikasi: '',
       }))
 
+      setKorbanByJenis(createEmptyKorbanByJenis())
       previewKerusakan.forEach((src) => URL.revokeObjectURL(src))
       setFotoKerusakan([])
       setPreviewKerusakan([])
@@ -373,8 +539,13 @@ export default function KirimLaporanPage() {
 
     if (!file) return
 
+    if (!isValidImageFormat(file)) {
+      showPopup('error', 'File foto harus berformat PNG, JPG, atau JPEG.')
+      return
+    }
+
     if (!isValidImageSize(file)) {
-      alert('Ukuran foto kejadian maksimal 10MB')
+      showPopup('error', 'Ukuran file foto tidak boleh lebih dari 10 MB.')
       return
     }
 
@@ -401,12 +572,17 @@ export default function KirimLaporanPage() {
     )
 
     if (fotoKerusakan.length + selectedFiles.length > MAX_FOTO_KERUSAKAN) {
-      alert('Foto kerusakan maksimal 2 foto')
+      showPopup('error', 'Foto kerusakan maksimal 2 foto.')
+      return
+    }
+
+    if (nextFiles.some((file) => !isValidImageFormat(file))) {
+      showPopup('error', 'File foto harus berformat PNG, JPG, atau JPEG.')
       return
     }
 
     if (nextFiles.some((file) => !isValidImageSize(file))) {
-      alert('Setiap foto kerusakan maksimal 10MB')
+      showPopup('error', 'Ukuran file foto tidak boleh lebih dari 10 MB.')
       return
     }
 
@@ -727,62 +903,81 @@ export default function KirimLaporanPage() {
       setLoading(true)
 
       if (!form.nama_pelapor) {
-        alert('Nama pelapor wajib diisi')
+        showPopup('error', 'Nama pelapor wajib diisi')
         return
       }
 
       if (!form.no_hp) {
-        alert('Nomor HP wajib diisi')
+        showPopup('error', 'Nomor HP wajib diisi')
+        return
+      }
+
+      if (!isValidPhoneNumber(form.no_hp)) {
+        showPopup('error', 'Nomor HP harus terdiri dari 11 sampai 12 digit angka.')
         return
       }
 
       if (!form.alamat_pelapor) {
-        alert('Alamat pelapor wajib diisi')
+        showPopup('error', 'Alamat pelapor wajib diisi')
         return
       }
 
       if (!form.id_jenis) {
-        alert('Jenis bencana wajib dipilih')
+        showPopup('error', 'Jenis bencana wajib dipilih')
         return
       }
 
       if (!form.waktu_kejadian) {
-        alert('Waktu kejadian wajib diisi')
+        showPopup('error', 'Waktu kejadian wajib diisi')
+        return
+      }
+
+      if (isFutureDateTime(form.waktu_kejadian)) {
+        showPopup('error', 'Waktu kejadian tidak boleh melebihi waktu saat ini.')
         return
       }
 
       if (!form.jenis_lokasi) {
-        alert('Jenis lokasi wajib dipilih')
+        showPopup('error', 'Jenis lokasi wajib dipilih')
         return
       }
 
       if (!form.kronologi) {
-        alert('Kronologi wajib diisi')
+        showPopup('error', 'Kronologi wajib diisi')
+        return
+      }
+
+      if (form.kronologi.length > MAX_KRONOLOGI_LENGTH) {
+        showPopup('error', 'Kronologi maksimal 250 karakter.')
         return
       }
 
       if (!form.id_kecamatan) {
-        alert('Kecamatan wajib dipilih')
+        showPopup('error', 'Kecamatan wajib dipilih')
         return
       }
 
       if (!form.id_kelurahan) {
-        alert('Kelurahan wajib dipilih')
+        showPopup('error', 'Kelurahan wajib dipilih')
         return
       }
 
       if (!form.alamat_lengkap_kejadian) {
-        alert('Alamat lengkap kejadian wajib diisi')
+        showPopup('error', 'Alamat lengkap kejadian wajib diisi')
         return
       }
 
-      if (jenisLaporan === 'ASSESSMENT' && !form.jenis_korban) {
-        alert('Jenis korban wajib dipilih')
-        return
-      }
+      const korbanPayload = jenisLaporan === 'ASSESSMENT'
+        ? buildKorbanPayloadFromMap(korbanByJenis)
+        : []
+
+      const totalSemuaKorban = korbanPayload.reduce(
+        (total, item) => total + Number(item.jumlah || 0),
+        0
+      )
 
       if (!fotoKejadian) {
-        alert('Foto kejadian wajib diupload')
+        showPopup('error', 'Foto kejadian wajib diupload')
         return
       }
 
@@ -810,11 +1005,9 @@ export default function KirimLaporanPage() {
       const cleanForm = {
         ...form,
         jenis_korban:
-          jenisLaporan === 'ASSESSMENT' ? form.jenis_korban : '',
+          jenisLaporan === 'ASSESSMENT' ? getPrimaryJenisKorban(korbanPayload) : '',
         jumlah_korban_identifikasi:
-          jenisLaporan === 'ASSESSMENT'
-            ? form.jumlah_korban_identifikasi
-            : '',
+          jenisLaporan === 'ASSESSMENT' ? String(totalSemuaKorban) : '',
         kerusakan_identifikasi:
           jenisLaporan === 'ASSESSMENT' ? form.kerusakan_identifikasi : '',
         terdampak_identifikasi:
@@ -829,21 +1022,9 @@ export default function KirimLaporanPage() {
         lat,
         lng,
         position,
-        korbanPayload:
-          jenisLaporan === 'ASSESSMENT' && Number(form.jumlah_korban_identifikasi || 0) > 0
-            ? [
-                {
-                  jenis_korban: form.jenis_korban || 'TIDAK_ADA',
-                  jenis_kelamin: 'TIDAK_DIKETAHUI',
-                  kelompok_umur: 'TIDAK_DIKETAHUI',
-                  jumlah: Number(form.jumlah_korban_identifikasi || 0),
-                },
-              ]
-            : [],
-        totalSemuaKorban:
-          jenisLaporan === 'ASSESSMENT'
-            ? Number(form.jumlah_korban_identifikasi || 0)
-            : 0,
+        korbanPayload,
+        korbanByJenis,
+        totalSemuaKorban,
         fotoKejadianBase64,
         fotoKerusakanBase64,
         selectedKecamatanName,
@@ -865,7 +1046,7 @@ export default function KirimLaporanPage() {
       sessionStorage.setItem('draft_laporan_user', JSON.stringify(draft))
       router.push('/kirim-laporan/confirm')
     } catch (error: any) {
-      alert(error.message || 'Gagal membuka halaman konfirmasi')
+      showPopup('error', error.message || 'Gagal membuka halaman konfirmasi')
     } finally {
       setLoading(false)
     }
@@ -875,11 +1056,25 @@ export default function KirimLaporanPage() {
     <main className={styles.mainWrapper}>
       <Navbar />
 
+      {popupNotif && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/25 px-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white px-7 py-6 text-center text-slate-900 shadow-2xl">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 text-2xl font-black text-orange-600">
+              !
+            </div>
+            <h2 className="mb-2 text-xl font-extrabold text-slate-900">
+              {popupNotif.type === 'error' ? 'Data Belum Valid' : 'Berhasil'}
+            </h2>
+            <p className="text-sm leading-6 text-slate-600">{popupNotif.message}</p>
+          </div>
+        </div>
+      )}
+
       <input
         ref={fotoKejadianUploadRef}
         className={styles.fileInputHidden}
         type="file"
-        accept="image/*"
+        accept=".png,.jpg,.jpeg"
         onChange={(e) => {
           handleFotoKejadianFiles(e.target.files, 'FILE_UPLOAD')
           e.target.value = ''
@@ -890,7 +1085,7 @@ export default function KirimLaporanPage() {
         ref={fotoKejadianCameraRef}
         className={styles.fileInputHidden}
         type="file"
-        accept="image/*"
+        accept=".png,.jpg,.jpeg"
         capture="environment"
         onChange={(e) => {
           handleFotoKejadianFiles(e.target.files, 'WEB_CAMERA')
@@ -902,7 +1097,7 @@ export default function KirimLaporanPage() {
         ref={fotoKerusakanUploadRef}
         className={styles.fileInputHidden}
         type="file"
-        accept="image/*"
+        accept=".png,.jpg,.jpeg"
         multiple
         onChange={(e) => {
           handleFotoKerusakanFiles(e.target.files)
@@ -914,7 +1109,7 @@ export default function KirimLaporanPage() {
         ref={fotoKerusakanCameraRef}
         className={styles.fileInputHidden}
         type="file"
-        accept="image/*"
+        accept=".png,.jpg,.jpeg"
         capture="environment"
         onChange={(e) => {
           handleFotoKerusakanFiles(e.target.files)
@@ -1059,7 +1254,11 @@ export default function KirimLaporanPage() {
                       value={form.no_hp}
                       onChange={handleChange}
                       placeholder="08..."
+                    
+                      inputMode="numeric"
+                      maxLength={12}
                     />
+                    <small>Nomor HP harus 11 sampai 12 digit angka.</small>
                   </div>
                 </div>
 
@@ -1096,11 +1295,16 @@ export default function KirimLaporanPage() {
                           ? 'Memuat jenis bencana...'
                           : 'Pilih jenis bencana'}
                       </option>
-                      {jenisList.map((item) => (
-                        <option key={item.jenis_id} value={String(item.jenis_id)}>
-                          {item.nama_jenis}
-                        </option>
-                      ))}
+                      {jenisList.map((item) => {
+                        const jenisId = item.jenis_id ?? item.id_jenis
+                        const namaJenis = item.nama_jenis ?? item.jenis_bencana ?? item.nama ?? '-'
+
+                        return (
+                          <option key={jenisId} value={String(jenisId)}>
+                            {namaJenis}
+                          </option>
+                        )
+                      })}
                     </select>
                   </div>
 
@@ -1110,6 +1314,7 @@ export default function KirimLaporanPage() {
                       type="datetime-local"
                       name="waktu_kejadian"
                       value={form.waktu_kejadian}
+                      max={maxDateTime}
                       onChange={handleChange}
                     />
                   </div>
@@ -1140,7 +1345,10 @@ export default function KirimLaporanPage() {
                     onChange={handleChange}
                     placeholder="Ceritakan kronologi kejadian"
                     rows={4}
-                  />
+                  
+                      maxLength={MAX_KRONOLOGI_LENGTH}
+                    />
+                    <small>{form.kronologi.length}/{MAX_KRONOLOGI_LENGTH} karakter</small>
                 </div>
 
                 <h3>Lokasi Kejadian</h3>
@@ -1258,30 +1466,27 @@ export default function KirimLaporanPage() {
                     <h3>Data Assessment</h3>
 
                     <div className={styles.inputGroup}>
-                      <label>Jenis Korban</label>
-                      <select
-                        name="jenis_korban"
-                        value={form.jenis_korban}
-                        onChange={handleChange}
-                      >
-                        <option value="">Pilih jenis korban</option>
-                        {JENIS_KORBAN_OPTIONS.map((item) => (
-                          <option key={item.value} value={item.value}>
-                            {item.label}
-                          </option>
+                      <label>Jenis Korban dan Jumlah Korban</label>
+                      <div className={styles.formRow}>
+                        {JENIS_KORBAN_OPTIONS.filter((item) => item.value !== 'TIDAK_ADA').map((item) => (
+                          <div className={styles.inputGroup} key={item.value}>
+                            <label>{item.label}</label>
+                            <input
+                              type="number"
+                              min="0"
+                              inputMode="numeric"
+                              value={korbanByJenis[item.value]}
+                              onChange={(e) =>
+                                handleKorbanByJenisChange(item.value, e.target.value)
+                              }
+                              placeholder="0"
+                            />
+                          </div>
                         ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.inputGroup}>
-                      <label>Jumlah Korban</label>
-                      <input
-                        type="number"
-                        name="jumlah_korban_identifikasi"
-                        value={form.jumlah_korban_identifikasi}
-                        onChange={handleChange}
-                        placeholder="Masukkan jumlah korban"
-                      />
+                      </div>
+                      <small>
+                        Bisa dikosongkan jika tidak ada korban. Jika ada, boleh mengisi lebih dari satu jenis korban. Contoh: Mengungsi 5 orang dan Luka/Sakit 5 orang.
+                      </small>
                     </div>
 
                     <div className={styles.inputGroup}>

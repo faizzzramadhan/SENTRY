@@ -10,7 +10,6 @@ const requireRole = require("../../middlewares/requireRole");
 
 const {
   syncOsintData,
-  recalculateOsintScore,
 } = require("../../services/osint/osintDataIntegrator");
 
 const {
@@ -18,7 +17,6 @@ const {
 } = require("../../services/osint/osintReferenceIntegrator");
 
 const OsintData = models.osint_data;
-const OsintDataScore = models.osint_data_score;
 const OsintReference = models.osint_reference;
 
 const VALID_REFERENCE_STATUS = ["MATCHED", "REVIEW"];
@@ -136,24 +134,6 @@ async function applyHumintRelatedWhere(baseWhere, humintRelatedQuery) {
   }
 
   return baseWhere;
-}
-
-async function getScoreMap(osintIds) {
-  if (!osintIds.length) return {};
-
-  const scores = await OsintDataScore.findAll({
-    where: {
-      osint_id: {
-        [Op.in]: osintIds,
-      },
-    },
-    raw: true,
-  });
-
-  return scores.reduce((acc, item) => {
-    acc[item.osint_id] = item;
-    return acc;
-  }, {});
 }
 
 async function countRelatedHumint(baseWhere) {
@@ -309,8 +289,6 @@ router.get("/", auth, requireRole("staff", "admin"), async (req, res) => {
 
     const plainRows = rows.rows.map((row) => row.get({ plain: true }));
     const osintIds = plainRows.map((row) => row.osint_id).filter(Boolean);
-
-    const scoreMap = await getScoreMap(osintIds);
     const referenceMap = await getReferencesForOsintIds(osintIds);
 
     const osintData = plainRows.map((row) => {
@@ -318,8 +296,6 @@ router.get("/", auth, requireRole("staff", "admin"), async (req, res) => {
 
       return {
         ...row,
-        osint_score: scoreMap[row.osint_id] || null,
-
         osint_reference_count: references.length,
         humint_related: references.length > 0,
         humint_label: references.length > 0 ? "Ada Data HUMINT" : "Tidak Ada",
@@ -334,6 +310,7 @@ router.get("/", auth, requireRole("staff", "admin"), async (req, res) => {
       limit: Number(limit || 50),
       offset: Number(offset || 0),
       summary,
+      scoring_enabled: false,
       osint_data: osintData,
     });
   } catch (error) {
@@ -496,8 +473,6 @@ router.put("/public/x-verification/:id", async (req, res) => {
   }
 });
 
-// delete
-
 router.delete("/bulk", auth, requireRole("staff", "admin"), async (req, res) => {
   try {
     const ids = Array.isArray(req.body?.ids)
@@ -507,16 +482,6 @@ router.delete("/bulk", auth, requireRole("staff", "admin"), async (req, res) => 
     if (!ids.length) {
       return res.status(400).json({
         message: "ids wajib berupa array dan tidak boleh kosong.",
-      });
-    }
-
-    if (OsintDataScore) {
-      await OsintDataScore.destroy({
-        where: {
-          osint_id: {
-            [Op.in]: ids,
-          },
-        },
       });
     }
 
@@ -575,14 +540,6 @@ router.delete("/:id", auth, requireRole("staff", "admin"), async (req, res) => {
       });
     }
 
-    if (OsintDataScore) {
-      await OsintDataScore.destroy({
-        where: {
-          osint_id: osintId,
-        },
-      });
-    }
-
     if (models.osint_reference) {
       await models.osint_reference.destroy({
         where: {
@@ -623,13 +580,6 @@ router.get("/:id", auth, requireRole("staff", "admin"), async (req, res) => {
 
     const plainOsintData = osintData.get({ plain: true });
 
-    const score = await OsintDataScore.findOne({
-      where: {
-        osint_id: req.params.id,
-      },
-      raw: true,
-    });
-
     const referenceMap = await getReferencesForOsintIds([req.params.id]);
     const references =
       referenceMap[req.params.id] ||
@@ -637,6 +587,7 @@ router.get("/:id", auth, requireRole("staff", "admin"), async (req, res) => {
       [];
 
     return res.json({
+      scoring_enabled: false,
       osint_data: {
         ...plainOsintData,
 
@@ -645,7 +596,6 @@ router.get("/:id", auth, requireRole("staff", "admin"), async (req, res) => {
         humint_label: references.length > 0 ? "Ada Data HUMINT" : "Tidak Ada",
         osint_references: references,
       },
-      osint_score: score || null,
     });
   } catch (error) {
     console.error("[osint-data-detail] error:", error);
@@ -700,13 +650,24 @@ router.put("/:id/verify", auth, requireRole("staff", "admin"), async (req, res) 
       });
     }
 
+    let nextAnalysisStatus = existing.osint_analysis_status;
+
+    if (verificationStatus === "DITOLAK") {
+      nextAnalysisStatus = "REJECTED";
+    }
+
+    if (verificationStatus === "TERVERIFIKASI_MANUAL") {
+      nextAnalysisStatus = "PROCESSED";
+    }
+
+    if (verificationStatus === "TERVERIFIKASI_OTOMATIS") {
+      nextAnalysisStatus = "PROCESSED";
+    }
+
     await existing.update({
       osint_verification_status: verificationStatus,
       osint_priority_level: priorityLevel,
-      osint_analysis_status:
-        verificationStatus === "DITOLAK"
-          ? "REJECTED"
-          : existing.osint_analysis_status,
+      osint_analysis_status: nextAnalysisStatus,
       last_updated_by:
         req.user?.usr_nama_lengkap || req.user?.usr_email || "system",
       last_update_date: new Date(),
@@ -720,6 +681,7 @@ router.put("/:id/verify", auth, requireRole("staff", "admin"), async (req, res) 
 
     return res.json({
       message: "Status verifikasi OSINT berhasil diperbarui",
+      scoring_enabled: false,
       osint_data: updated,
     });
   } catch (error) {
@@ -731,35 +693,5 @@ router.put("/:id/verify", auth, requireRole("staff", "admin"), async (req, res) 
     });
   }
 });
-
-router.post(
-  "/:id/recalculate-score",
-  auth,
-  requireRole("staff", "admin"),
-  async (req, res) => {
-    try {
-      const result = await recalculateOsintScore(req.params.id);
-
-      if (!result) {
-        return res.status(404).json({
-          message: "Data OSINT tidak ditemukan",
-        });
-      }
-
-      return res.json({
-        message: "Recalculate score OSINT berhasil",
-        osint_data: result.osint_data,
-        osint_score: result.osint_score,
-      });
-    } catch (error) {
-      console.error("[osint-recalculate-score] error:", error);
-
-      return res.status(500).json({
-        message: "Gagal recalculate score OSINT",
-        error: error.message,
-      });
-    }
-  }
-);
 
 module.exports = router;

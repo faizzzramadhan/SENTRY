@@ -45,11 +45,70 @@ function normalizeRekomendasiToList(value: any): string[] {
   return []
 }
 
+
+function parsePossibleJsonArray(value: any): any[] {
+  if (Array.isArray(value)) return value
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+
+    if (!trimmed) return []
+
+    try {
+      const parsed = JSON.parse(trimmed)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  return []
+}
+
+function getLabelJenisKorban(value: any) {
+  const key = String(value || '').toUpperCase()
+
+  const labels: Record<string, string> = {
+    TIDAK_ADA: 'Tidak Ada Korban',
+    TERDAMPAK: 'Terdampak',
+    MENINGGAL: 'Meninggal',
+    HILANG: 'Hilang',
+    MENGUNGSI: 'Mengungsi',
+    LUKA_SAKIT: 'Luka/Sakit',
+  }
+
+  return labels[key] || String(value || '-')
+}
+
+function normalizeDetailKorban(value: any): any[] {
+  return parsePossibleJsonArray(value)
+    .map((item) => ({
+      jenis_korban: item?.jenis_korban || item?.jenisKorban || '',
+      jenis_kelamin: item?.jenis_kelamin || item?.jenisKelamin || 'TIDAK_DIKETAHUI',
+      kelompok_umur: item?.kelompok_umur || item?.kelompokUmur || 'TIDAK_DIKETAHUI',
+      jumlah: Number(item?.jumlah || 0),
+    }))
+    .filter((item) => item.jumlah > 0)
+}
+
 function getPrioritasText(prioritas?: string) {
   if (prioritas === 'PRIORITAS TINGGI') return 'Prioritas Tinggi'
   if (prioritas === 'PRIORITAS SEDANG') return 'Prioritas Sedang'
   if (prioritas === 'PRIORITAS RENDAH') return 'Prioritas Rendah'
   return 'Prioritas Rendah'
+}
+
+// ─── helper badge warna korban ─────────────────────────────────────
+const korbanColors: Record<string, string> = {
+  MENINGGAL: '#ef4444',
+  HILANG: '#f97316',
+  LUKA_SAKIT: '#eab308',
+  TERDAMPAK: '#3b82f6',
+  MENGUNGSI: '#8b5cf6',
+}
+
+function getKorbanColor(jenis: string) {
+  return korbanColors[String(jenis).toUpperCase()] || '#6b7280'
 }
 
 export default function DetailLaporanPage() {
@@ -208,7 +267,51 @@ export default function DetailLaporanPage() {
   const metadata = detail.metadata_foto || {}
   const osint = detail.osint
   const geoint = detail.geoint || {}
-  const detailKorban = detail.detail_korban || []
+  const detailKorban = normalizeDetailKorban(
+    detail.detail_korban ||
+      detail.detailKorban ||
+      identifikasi.detail_korban ||
+      identifikasi.detailKorban ||
+      laporan.detail_korban ||
+      laporan.detailKorban ||
+      []
+  )
+
+  const getJumlahIdentifikasi = (fieldName: string) => {
+    const valueFromIdentifikasi = Number(identifikasi?.[fieldName] || 0)
+
+    return Number.isFinite(valueFromIdentifikasi) ? valueFromIdentifikasi : 0
+  }
+
+  // ─── Data identifikasi angka korban hanya dari tabel identifikasi ───────
+  // Tidak mengambil fallback dari detail_korban agar data masyarakat dan data petugas tetap terpisah.
+  // Semua kategori ditampilkan, termasuk yang jumlahnya 0.
+  const jumlahTerdampak = getJumlahIdentifikasi('jumlah_terdampak')
+  const jumlahMeninggal = getJumlahIdentifikasi('jumlah_meninggal')
+  const jumlahHilang = getJumlahIdentifikasi('jumlah_hilang')
+  const jumlahMengungsi = getJumlahIdentifikasi('jumlah_mengungsi')
+  const jumlahLukaSakit = getJumlahIdentifikasi('jumlah_luka_sakit')
+
+  const totalKorbanKategoriIdentifikasi =
+    jumlahTerdampak +
+    jumlahMeninggal +
+    jumlahHilang +
+    jumlahMengungsi +
+    jumlahLukaSakit
+
+  const jumlahKorbanIdentifikasi = Number(
+    identifikasi.jumlah_korban_identifikasi ||
+      totalKorbanKategoriIdentifikasi ||
+      0
+  )
+
+  const korbanRincianData = [
+    { label: 'Terdampak', value: jumlahTerdampak, jenis: 'TERDAMPAK' },
+    { label: 'Meninggal', value: jumlahMeninggal, jenis: 'MENINGGAL' },
+    { label: 'Hilang', value: jumlahHilang, jenis: 'HILANG' },
+    { label: 'Mengungsi', value: jumlahMengungsi, jenis: 'MENGUNGSI' },
+    { label: 'Luka/Sakit', value: jumlahLukaSakit, jenis: 'LUKA_SAKIT' },
+  ]
 
   const fotoKejadianUrl = getFileUrl(laporan.foto_kejadian)
 
@@ -454,17 +557,42 @@ export default function DetailLaporanPage() {
             </div>
           </div>
 
+          {/* ═══════════════════════════════════════════════════════
+              CARD IDENTIFIKASI KORBAN — LENGKAP
+          ════════════════════════════════════════════════════════ */}
           <div className={styles.card}>
             <h3>Data Identifikasi Masyarakat</h3>
 
+            {/* ── Total Korban ── */}
             <div className={styles.customTable}>
               <div className={styles.tableRow}>
-                <div className={styles.tableLabel}>Jumlah Korban</div>
+                <div className={styles.tableLabel}>Total Korban Dilaporkan</div>
                 <div className={styles.tableValue}>
-                  {identifikasi.jumlah_korban_identifikasi ?? 0} Orang
+                  <strong style={{ fontSize: '1.05rem' }}>
+                    {jumlahKorbanIdentifikasi} Orang
+                  </strong>
                 </div>
               </div>
+            </div>
 
+            {/* ── Rincian korban hanya dari tabel identifikasi. Semua kategori tampil. ── */}
+            <span className={styles.subLabel} style={{ display: 'block', marginBottom: 10 }}>
+              Rincian Kategori Korban (Input Masyarakat)
+            </span>
+            <div className={styles.victimCompactList}>
+              {korbanRincianData.map((item) => (
+                <div
+                  key={item.jenis}
+                  className={styles.victimCompactItem}
+                >
+                  <span>{item.label}</span>
+                  <strong>{Number(item.value || 0)} orang</strong>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Narasi teks identifikasi ── */}
+            <div className={styles.customTable}>
               <div className={styles.tableRow}>
                 <div className={styles.tableLabel}>Kerusakan</div>
                 <div className={styles.tableValue}>
@@ -849,7 +977,7 @@ export default function DetailLaporanPage() {
                 {detailKorban.map((item: any, index: number) => (
                   <div className={styles.tableRow} key={index}>
                     <div className={styles.tableLabel}>
-                      {item.jenis_korban || '-'}
+                      {getLabelJenisKorban(item.jenis_korban)}
                     </div>
 
                     <div className={styles.tableValue}>

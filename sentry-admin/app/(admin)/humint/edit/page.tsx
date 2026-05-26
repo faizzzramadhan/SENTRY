@@ -40,6 +40,7 @@ const customIcon = new L.Icon({
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/api/humint'
 const BASE_URL = 'http://localhost:5555'
+const MAX_TEXT_LENGTH = 250
 
 type JenisKorbanKey =
   | 'MENINGGAL'
@@ -92,6 +93,18 @@ const jenisKorbanLabel: Record<JenisKorbanKey, string> = {
   MENGUNGSI: 'Mengungsi',
 }
 
+// ─── Warna per kategori korban ────────────────────────────────────
+const korbanColors: Record<string, string> = {
+  MENINGGAL: '#ef4444',
+  HILANG: '#f97316',
+  LUKA_SAKIT: '#eab308',
+  TERDAMPAK: '#3b82f6',
+  MENGUNGSI: '#8b5cf6',
+}
+
+function getKorbanColor(jenis: string) {
+  return korbanColors[String(jenis).toUpperCase()] || '#6b7280'
+}
 
 type LoginStaff = {
   usr_id?: string | number
@@ -460,9 +473,33 @@ export default function EditLaporanPage() {
       .filter((item) => item.total > 0 || item.jenis === selectedJenisKorban)
   }, [korbanByJenis, selectedJenisKorban])
 
-  const totalKorbanMasyarakat = useMemo(() => {
-    return Number(detail?.identifikasi?.jumlah_korban_identifikasi || 0)
+  // ─── Data identifikasi masyarakat (read-only) ─────────────────────
+  const korbanIdentifikasiData = useMemo(() => {
+    const idnt = detail?.identifikasi || {}
+
+    return [
+      { label: 'Terdampak', value: Number(idnt.jumlah_terdampak || 0), jenis: 'TERDAMPAK' },
+      { label: 'Meninggal', value: Number(idnt.jumlah_meninggal || 0), jenis: 'MENINGGAL' },
+      { label: 'Hilang', value: Number(idnt.jumlah_hilang || 0), jenis: 'HILANG' },
+      { label: 'Mengungsi', value: Number(idnt.jumlah_mengungsi || 0), jenis: 'MENGUNGSI' },
+      { label: 'Luka/Sakit', value: Number(idnt.jumlah_luka_sakit || 0), jenis: 'LUKA_SAKIT' },
+    ]
   }, [detail])
+
+  const totalKorbanMasyarakat = useMemo(() => {
+    const totalFromIdentifikasi = Number(
+      detail?.identifikasi?.jumlah_korban_identifikasi || 0
+    )
+
+    if (totalFromIdentifikasi > 0) {
+      return totalFromIdentifikasi
+    }
+
+    return korbanIdentifikasiData.reduce(
+      (total, item) => total + Number(item.value || 0),
+      0
+    )
+  }, [detail, korbanIdentifikasiData])
 
   const buildDetailKorbanPayload = () => {
     const rows: {
@@ -588,7 +625,7 @@ export default function EditLaporanPage() {
         throw new Error(result.message || 'Gagal memperbarui laporan')
       }
 
-      showNotification('success', 'Data berhasil diperbarui')
+      showNotification('success', 'Data laporan berhasil diperbarui.')
 
       window.setTimeout(() => {
         router.push(`/humint/detail/${laporanId}`)
@@ -712,18 +749,18 @@ export default function EditLaporanPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(15, 23, 42, 0.18)',
+            background: 'rgba(0, 0, 0, 0.42)',
             backdropFilter: 'blur(2px)',
           }}
         >
           <div
             style={{
               width: 'min(420px, calc(100% - 32px))',
-              background: '#ffffff',
+              background: '#111827',
               borderRadius: '22px',
               padding: '26px 24px',
               textAlign: 'center',
-              boxShadow: '0 24px 60px rgba(15, 23, 42, 0.22)',
+              boxShadow: '0 24px 70px rgba(0, 0, 0, 0.55)',
               transition: 'all 0.25s ease',
             }}
           >
@@ -750,7 +787,7 @@ export default function EditLaporanPage() {
               style={{
                 fontSize: '20px',
                 fontWeight: 900,
-                color: '#111827',
+                color: '#ffffff',
                 marginBottom: '8px',
               }}
             >
@@ -761,7 +798,7 @@ export default function EditLaporanPage() {
               style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: '#4b5563',
+                color: 'rgba(255, 255, 255, 0.82)',
                 lineHeight: 1.5,
               }}
             >
@@ -786,6 +823,7 @@ export default function EditLaporanPage() {
 
       <section className={styles.mainGrid}>
         <div>
+          {/* ── Card Data Laporan Masyarakat ── */}
           <div className={styles.card}>
             <div className={styles.cardTitle}>Data Laporan Masyarakat</div>
 
@@ -824,14 +862,33 @@ export default function EditLaporanPage() {
             <div className={styles.viewValue}>{detail.kronologi || '-'}</div>
           </div>
 
+          {/* ══════════════════════════════════════════════════════════
+              CARD IDENTIFIKASI KORBAN MASYARAKAT — LENGKAP (READ-ONLY)
+          ═══════════════════════════════════════════════════════════ */}
           <div className={styles.card}>
-            <div className={styles.cardTitle}>Data Assessment Masyarakat</div>
+            <div className={styles.cardTitle}>Data Identifikasi Korban Masyarakat</div>
 
-            <span className={styles.viewLabel}>Jumlah Korban Dilaporkan</span>
-            <div className={styles.viewValue}>
+            {/* Total keseluruhan */}
+            <span className={styles.viewLabel}>Total Korban Dilaporkan</span>
+            <div className={styles.viewValue} style={{ fontWeight: 700, fontSize: '1.05rem' }}>
               {totalKorbanMasyarakat} Orang
             </div>
 
+            {/* Kartu rincian per kategori */}
+            <span className={styles.viewLabel} style={{ display: 'block', marginTop: 14, marginBottom: 10 }}>
+              Rincian per Kategori Korban
+            </span>
+
+            <div className={styles.identificationVictimList}>
+              {korbanIdentifikasiData.map((item) => (
+                <div key={item.jenis} className={styles.identificationVictimItem}>
+                  <span>{item.label}</span>
+                  <strong>{item.value} orang</strong>
+                </div>
+              ))}
+            </div>
+
+            {/* Narasi identifikasi */}
             <span className={styles.viewLabel}>Kerusakan Dilaporkan</span>
             <div className={styles.viewValue}>
               {identifikasi.kerusakan_identifikasi || '-'}
@@ -860,7 +917,7 @@ export default function EditLaporanPage() {
                 value={form.kerusakan_verifikasi}
                 onChange={handleChange}
                 rows={4}
-                placeholder="Masukkan hasil verifikasi kerusakan"
+                placeholder="Masukkan hasil verifikasi kerusakan" maxLength={MAX_TEXT_LENGTH}
               />
             </div>
 
@@ -871,7 +928,7 @@ export default function EditLaporanPage() {
                 value={form.terdampak_verifikasi}
                 onChange={handleChange}
                 rows={3}
-                placeholder="Masukkan data terdampak hasil verifikasi"
+                placeholder="Masukkan data terdampak hasil verifikasi" maxLength={MAX_TEXT_LENGTH}
               />
             </div>
 
@@ -881,7 +938,7 @@ export default function EditLaporanPage() {
                 name="penyebab_verifikasi"
                 value={form.penyebab_verifikasi}
                 onChange={handleChange}
-                placeholder="Masukkan penyebab hasil verifikasi"
+                placeholder="Masukkan penyebab hasil verifikasi" maxLength={MAX_TEXT_LENGTH}
               />
             </div>
 
@@ -889,6 +946,9 @@ export default function EditLaporanPage() {
               <label>Prakiraan Kerugian</label>
               <input
                 type="number"
+                min={0}
+                step={1}
+                onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()}
                 name="prakiraan_kerugian"
                 value={form.prakiraan_kerugian}
                 onChange={handleChange}
@@ -903,17 +963,17 @@ export default function EditLaporanPage() {
                 value={form.tindak_lanjut}
                 onChange={handleChange}
                 rows={4}
-                placeholder="Masukkan tindak lanjut"
+                placeholder="Masukkan tindak lanjut penanganan" maxLength={MAX_TEXT_LENGTH}
               />
             </div>
 
             <div className={styles.inputGroup}>
-              <label>Petugas TRC</label>
+              <label>Nama Petugas yang Ditugaskan</label>
               <input
                 name="petugas_trc"
                 value={form.petugas_trc}
                 onChange={handleChange}
-                placeholder="Masukkan nama petugas yang terjun ke lapangan"
+                placeholder="Masukkan nama petugas yang ditugaskan di lapangan" maxLength={MAX_TEXT_LENGTH}
               />
             </div>
 
@@ -1265,6 +1325,8 @@ export default function EditLaporanPage() {
                     <input
                       type="number"
                       min={0}
+                      step={1}
+                      onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()}
                       value={activeKorban.anakL}
                       onChange={(e) =>
                         handleKorbanChange('anakL', e.target.value)
@@ -1276,6 +1338,8 @@ export default function EditLaporanPage() {
                     <input
                       type="number"
                       min={0}
+                      step={1}
+                      onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()}
                       value={activeKorban.dewasaL}
                       onChange={(e) =>
                         handleKorbanChange('dewasaL', e.target.value)
@@ -1287,6 +1351,8 @@ export default function EditLaporanPage() {
                     <input
                       type="number"
                       min={0}
+                      step={1}
+                      onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()}
                       value={activeKorban.lansiaL}
                       onChange={(e) =>
                         handleKorbanChange('lansiaL', e.target.value)
@@ -1302,6 +1368,8 @@ export default function EditLaporanPage() {
                     <input
                       type="number"
                       min={0}
+                      step={1}
+                      onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()}
                       value={activeKorban.anakP}
                       onChange={(e) =>
                         handleKorbanChange('anakP', e.target.value)
@@ -1313,6 +1381,8 @@ export default function EditLaporanPage() {
                     <input
                       type="number"
                       min={0}
+                      step={1}
+                      onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()}
                       value={activeKorban.dewasaP}
                       onChange={(e) =>
                         handleKorbanChange('dewasaP', e.target.value)
@@ -1324,6 +1394,8 @@ export default function EditLaporanPage() {
                     <input
                       type="number"
                       min={0}
+                      step={1}
+                      onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()}
                       value={activeKorban.lansiaP}
                       onChange={(e) =>
                         handleKorbanChange('lansiaP', e.target.value)

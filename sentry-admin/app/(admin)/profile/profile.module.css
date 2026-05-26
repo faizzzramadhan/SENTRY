@@ -98,6 +98,10 @@
 
 .statusBlock {
   margin-top: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 42px;
+  flex-wrap: wrap;
 }
 
 .statusLabel {
@@ -159,4 +163,21 @@
     grid-template-columns: 1fr;
     gap: 16px;
   }
+}
+
+.input:disabled {
+  background: rgba(255,255,255,0.72);
+  color: rgba(0,0,0,0.72);
+  cursor: not-allowed;
+}
+
+.readOnlyNotice {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 127, 117, 0.42);
+  background: rgba(255, 127, 117, 0.13);
+  color: rgba(255,255,255,0.92);
+  font-weight: 700;
+  line-height: 1.45;
 }

@@ -4,17 +4,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./master-data.module.css";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+const RAW_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+
+const API_BASE_URL = RAW_API_BASE_URL
+  .replace(/\/$/, "")
+  .replace(/\/api\/humint$/i, "")
+  .replace(/\/humint$/i, "")
+  .replace(/\/api$/i, "");
 
 const ENDPOINTS = {
-  kelurahan: `${API_BASE_URL}/osint/kelurahan`,
-  kecamatan: `${API_BASE_URL}/osint/kecamatan`,
+  kelurahan: `${API_BASE_URL}/kelurahan`,
+  kecamatan: `${API_BASE_URL}/kecamatan`,
   jenisBencana: `${API_BASE_URL}/jenis-bencana`,
   namaBencana: `${API_BASE_URL}/nama-bencana`,
 };
 
 type TabKey = "kelurahan" | "kecamatan" | "jenis_bencana" | "nama_bencana";
 type SortType = "newest" | "oldest";
+type NotificationType = "success" | "error";
 
 type KelurahanItem = {
   kelurahan_id: number;
@@ -38,7 +46,6 @@ type KecamatanItem = {
 type JenisBencanaItem = {
   jenis_id: number;
   nama_jenis: string;
-  icon_marker?: string | null;
   created_by: string;
   last_update_date: string;
 };
@@ -52,11 +59,9 @@ type NamaBencanaItem = {
   jenis_bencana?: {
     jenis_id: number;
     nama_jenis: string;
-    icon_marker?: string | null;
   } | null;
 };
 
-// decode
 function decodeJwtPayload(token: string): any | null {
   try {
     const payload = token.split(".")[1];
@@ -211,7 +216,7 @@ function TextModal({
         <button
           type="button"
           className={styles.modalSaveButton}
-          onClick={onSave}
+          onClick={() => onSave()}
           disabled={saving}
         >
           {saving ? "Saving..." : "Save"}
@@ -245,6 +250,28 @@ export default function MasterDataPage() {
 
   const [modalSaving, setModalSaving] = useState(false);
   const [modalErrorMsg, setModalErrorMsg] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    action: null | (() => Promise<void> | void);
+  }>({
+    open: false,
+    title: "",
+    message: "",
+    confirmText: "Lanjutkan",
+    action: null,
+  });
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    type: NotificationType;
+    message: string;
+  }>({
+    open: false,
+    type: "success",
+    message: "",
+  });
 
   const [kelurahanModalOpen, setKelurahanModalOpen] = useState(false);
   const [kecamatanModalOpen, setKecamatanModalOpen] = useState(false);
@@ -271,11 +298,8 @@ export default function MasterDataPage() {
   });
 
   const [jenisForm, setJenisForm] = useState({
-  nama_jenis: "",
-  icon_marker_file: null as File | null,
-  icon_marker_file_name: "",
-  existing_icon_marker: "",
-});
+    nama_jenis: "",
+  });
 
   const [namaBencanaForm, setNamaBencanaForm] = useState({
     nama_bencana: "",
@@ -286,6 +310,18 @@ export default function MasterDataPage() {
     () => (typeof window !== "undefined" ? localStorage.getItem("token") : null),
     []
   );
+
+  const showNotification = (type: NotificationType, message: string) => {
+    setNotification({
+      open: true,
+      type,
+      message,
+    });
+  };
+
+  const closeNotification = () => {
+    setNotification((prev) => ({ ...prev, open: false }));
+  };
 
   useEffect(() => {
     const payload = token ? decodeJwtPayload(token) : null;
@@ -389,7 +425,6 @@ export default function MasterDataPage() {
       jenisRows.map((item) => ({
         id: item.jenis_id,
         nama: item.nama_jenis,
-        iconMarker: item.icon_marker || "-",
         createdBy: item.created_by,
         updatedAt: item.last_update_date,
         raw: item,
@@ -484,6 +519,45 @@ export default function MasterDataPage() {
 
   const resetModalError = () => setModalErrorMsg("");
 
+  const openConfirmDialog = ({
+    title,
+    message,
+    confirmText = "Lanjutkan",
+    action,
+  }: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    action: () => Promise<void> | void;
+  }) => {
+    setConfirmDialog({
+      open: true,
+      title,
+      message,
+      confirmText,
+      action,
+    });
+  };
+
+  const closeConfirmDialog = () => {
+    setConfirmDialog({
+      open: false,
+      title: "",
+      message: "",
+      confirmText: "Lanjutkan",
+      action: null,
+    });
+  };
+
+  const executeConfirmDialog = async () => {
+    const action = confirmDialog.action;
+    closeConfirmDialog();
+
+    if (action) {
+      await action();
+    }
+  };
+
   const openAddModal = () => {
     resetModalError();
 
@@ -505,10 +579,7 @@ export default function MasterDataPage() {
       setEditingJenisId(null);
       setJenisForm({
         nama_jenis: "",
-        icon_marker_file: null,
-        icon_marker_file_name: "",
-        existing_icon_marker: "",
-    });
+      });
       setJenisModalOpen(true);
     } else {
       setEditingNamaBencanaId(null);
@@ -542,9 +613,6 @@ export default function MasterDataPage() {
       setEditingJenisId(row.raw.jenis_id);
       setJenisForm({
         nama_jenis: row.raw.nama_jenis || "",
-        icon_marker_file: null,
-        icon_marker_file_name: "",
-        existing_icon_marker: row.raw.icon_marker || "",
       });
       setJenisModalOpen(true);
     } else {
@@ -557,11 +625,24 @@ export default function MasterDataPage() {
     }
   };
 
-  const saveKelurahan = async () => {
+  const saveKelurahan = async (confirmed = false) => {
     if (!token) return;
 
     if (!kelurahanForm.nama_kelurahan.trim()) {
       setModalErrorMsg("Nama kelurahan wajib diisi.");
+      return;
+    }
+
+    if (!confirmed) {
+      const isEditAction = Boolean(editingKelurahanId);
+      openConfirmDialog({
+        title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+        message: isEditAction
+          ? "Apakah Anda yakin ingin menyimpan perubahan data kelurahan?"
+          : "Apakah Anda yakin ingin menambahkan data kelurahan?",
+        confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+        action: () => saveKelurahan(true),
+      });
       return;
     }
 
@@ -589,20 +670,28 @@ export default function MasterDataPage() {
 
       const data = await parseApiResponse(res);
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data kelurahan.");
+        const message = data?.message || "Gagal menyimpan data kelurahan.";
+        setModalErrorMsg(message);
+        showNotification("error", message);
         return;
       }
 
       setKelurahanModalOpen(false);
       await fetchAllData(false);
+      showNotification(
+        "success",
+        isEdit ? "Data kelurahan berhasil diperbarui." : "Data kelurahan berhasil ditambahkan."
+      );
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan kelurahan.");
+      const message = err?.message || "Terjadi error saat menyimpan kelurahan.";
+      setModalErrorMsg(message);
+      showNotification("error", message);
     } finally {
       setModalSaving(false);
     }
   };
 
-  const saveKecamatan = async () => {
+  const saveKecamatan = async (confirmed = false) => {
     if (!token) return;
 
     if (!kecamatanForm.nama_kecamatan.trim()) {
@@ -612,6 +701,19 @@ export default function MasterDataPage() {
 
     if (!editingKecamatanId && !kecamatanForm.geojson_file) {
       setModalErrorMsg("File geojson wajib diupload.");
+      return;
+    }
+
+    if (!confirmed) {
+      const isEditAction = Boolean(editingKecamatanId);
+      openConfirmDialog({
+        title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+        message: isEditAction
+          ? "Apakah Anda yakin ingin menyimpan perubahan data kecamatan?"
+          : "Apakah Anda yakin ingin menambahkan data kecamatan?",
+        confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+        action: () => saveKecamatan(true),
+      });
       return;
     }
 
@@ -643,67 +745,92 @@ export default function MasterDataPage() {
 
       const data = await parseApiResponse(res);
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data kecamatan.");
+        const message = data?.message || "Gagal menyimpan data kecamatan.";
+        setModalErrorMsg(message);
+        showNotification("error", message);
         return;
       }
 
       setKecamatanModalOpen(false);
       await fetchAllData(false);
+      showNotification(
+        "success",
+        isEdit ? "Data kecamatan berhasil diperbarui." : "Data kecamatan berhasil ditambahkan."
+      );
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan kecamatan.");
+      const message = err?.message || "Terjadi error saat menyimpan kecamatan.";
+      setModalErrorMsg(message);
+      showNotification("error", message);
     } finally {
       setModalSaving(false);
     }
   };
 
-  const saveJenis = async () => {
-  if (!token) return;
+  const saveJenis = async (confirmed = false) => {
+    if (!token) return;
 
-  if (!jenisForm.nama_jenis.trim()) {
-    setModalErrorMsg("Nama jenis bencana wajib diisi.");
-    return;
-  }
-
-  try {
-    setModalSaving(true);
-    setModalErrorMsg("");
-
-    const isEdit = Boolean(editingJenisId);
-    const url = isEdit
-      ? `${ENDPOINTS.jenisBencana}/${editingJenisId}`
-      : ENDPOINTS.jenisBencana;
-
-    const formData = new FormData();
-    formData.append("nama_jenis", jenisForm.nama_jenis.trim());
-
-    if (jenisForm.icon_marker_file) {
-      formData.append("icon_marker_file", jenisForm.icon_marker_file);
-    }
-
-    const res = await fetch(url, {
-      method: isEdit ? "PUT" : "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    const data = await parseApiResponse(res);
-    if (!res.ok) {
-      setModalErrorMsg(data?.message || "Gagal menyimpan data jenis bencana.");
+    if (!jenisForm.nama_jenis.trim()) {
+      setModalErrorMsg("Nama jenis bencana wajib diisi.");
       return;
     }
 
-    setJenisModalOpen(false);
-    await fetchAllData(false);
-  } catch (err: any) {
-    setModalErrorMsg(err?.message || "Terjadi error saat menyimpan jenis bencana.");
-  } finally {
-    setModalSaving(false);
-  }
-};
+    if (!confirmed) {
+      const isEditAction = Boolean(editingJenisId);
+      openConfirmDialog({
+        title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+        message: isEditAction
+          ? "Apakah Anda yakin ingin menyimpan perubahan data jenis bencana?"
+          : "Apakah Anda yakin ingin menambahkan data jenis bencana?",
+        confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+        action: () => saveJenis(true),
+      });
+      return;
+    }
 
-  const saveNamaBencana = async () => {
+    try {
+      setModalSaving(true);
+      setModalErrorMsg("");
+
+      const isEdit = Boolean(editingJenisId);
+      const url = isEdit
+        ? `${ENDPOINTS.jenisBencana}/${editingJenisId}`
+        : ENDPOINTS.jenisBencana;
+
+      const res = await fetch(url, {
+        method: isEdit ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nama_jenis: jenisForm.nama_jenis.trim(),
+        }),
+      });
+
+      const data = await parseApiResponse(res);
+      if (!res.ok) {
+        const message = data?.message || "Gagal menyimpan data jenis bencana.";
+        setModalErrorMsg(message);
+        showNotification("error", message);
+        return;
+      }
+
+      setJenisModalOpen(false);
+      await fetchAllData(false);
+      showNotification(
+        "success",
+        isEdit ? "Data jenis bencana berhasil diperbarui." : "Data jenis bencana berhasil ditambahkan."
+      );
+    } catch (err: any) {
+      const message = err?.message || "Terjadi error saat menyimpan jenis bencana.";
+      setModalErrorMsg(message);
+      showNotification("error", message);
+    } finally {
+      setModalSaving(false);
+    }
+  };
+
+  const saveNamaBencana = async (confirmed = false) => {
     if (!token) return;
 
     if (!namaBencanaForm.nama_bencana.trim()) {
@@ -713,6 +840,19 @@ export default function MasterDataPage() {
 
     if (!namaBencanaForm.jenis_id) {
       setModalErrorMsg("Jenis bencana wajib dipilih.");
+      return;
+    }
+
+    if (!confirmed) {
+      const isEditAction = Boolean(editingNamaBencanaId);
+      openConfirmDialog({
+        title: isEditAction ? "Konfirmasi Perubahan Data" : "Konfirmasi Tambah Data",
+        message: isEditAction
+          ? "Apakah Anda yakin ingin menyimpan perubahan data nama bencana?"
+          : "Apakah Anda yakin ingin menambahkan data nama bencana?",
+        confirmText: isEditAction ? "Simpan Perubahan" : "Tambah Data",
+        action: () => saveNamaBencana(true),
+      });
       return;
     }
 
@@ -739,26 +879,41 @@ export default function MasterDataPage() {
 
       const data = await parseApiResponse(res);
       if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan data nama bencana.");
+        const message = data?.message || "Gagal menyimpan data nama bencana.";
+        setModalErrorMsg(message);
+        showNotification("error", message);
         return;
       }
 
       setNamaBencanaModalOpen(false);
       await fetchAllData(false);
+      showNotification(
+        "success",
+        isEdit ? "Data nama bencana berhasil diperbarui." : "Data nama bencana berhasil ditambahkan."
+      );
     } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan nama bencana.");
+      const message = err?.message || "Terjadi error saat menyimpan nama bencana.";
+      setModalErrorMsg(message);
+      showNotification("error", message);
     } finally {
       setModalSaving(false);
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = async (confirmed = false) => {
     if (!token) return;
     const ids = Array.from(currentSelection);
     if (ids.length === 0) return;
 
-    const confirmed = window.confirm(`Hapus ${ids.length} data terpilih?`);
-    if (!confirmed) return;
+    if (!confirmed) {
+      openConfirmDialog({
+        title: "Konfirmasi Hapus Data",
+        message: `Apakah Anda yakin ingin menghapus ${ids.length} data terpilih? Data yang dihapus tidak dapat dikembalikan.`,
+        confirmText: "Hapus Data",
+        action: () => handleBulkDelete(true),
+      });
+      return;
+    }
 
     let url = "";
     if (activeTab === "kelurahan") url = `${ENDPOINTS.kelurahan}/bulk-delete`;
@@ -781,14 +936,19 @@ export default function MasterDataPage() {
 
       const data = await parseApiResponse(res);
       if (!res.ok) {
-        setErrorMsg(data?.message || "Gagal menghapus data.");
+        const message = data?.message || "Gagal menghapus data.";
+        setErrorMsg(message);
+        showNotification("error", message);
         return;
       }
 
       setCurrentSelection(new Set());
       await fetchAllData(false);
+      showNotification("success", `${ids.length} data berhasil dihapus.`);
     } catch (err: any) {
-      setErrorMsg(err?.message || "Terjadi error saat menghapus data.");
+      const message = err?.message || "Terjadi error saat menghapus data.";
+      setErrorMsg(message);
+      showNotification("error", message);
     } finally {
       setLoading(false);
     }
@@ -909,7 +1069,6 @@ export default function MasterDataPage() {
               </th>
               <th>No</th>
               <th>Nama Jenis Bencana</th>
-              <th>Icon Marker</th>
               <th>Created By</th>
               <th>Last Updated Date</th>
               <th>Aksi</th>
@@ -929,17 +1088,6 @@ export default function MasterDataPage() {
                   </td>
                   <td>{(page - 1) * rowsPerPage + index + 1}</td>
                   <td>{row.nama}</td>
-                  <td>
-                    {row.iconMarker && row.iconMarker !== "-" ? (
-                        <img
-                        src={`${API_BASE_URL}${row.iconMarker}`}
-                        alt={row.nama}
-                        className={styles.iconMarkerImage}
-                        />
-                    ) : (
-                        "-"
-                    )}
-                    </td>
                   <td>{row.createdBy}</td>
                   <td>{formatDateTime(row.updatedAt)}</td>
                   <td>
@@ -951,7 +1099,7 @@ export default function MasterDataPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={7} className={styles.emptyState}>Data jenis bencana tidak ditemukan.</td>
+                <td colSpan={6} className={styles.emptyState}>Data jenis bencana tidak ditemukan.</td>
               </tr>
             )}
           </tbody>
@@ -1088,7 +1236,7 @@ export default function MasterDataPage() {
 
               <div className={styles.actionsGroup}>
                 {currentSelection.size > 0 ? (
-                  <button type="button" className={styles.dangerButton} onClick={handleBulkDelete}>
+                  <button type="button" className={styles.dangerButton} onClick={() => handleBulkDelete()}>
                     Hapus Terpilih ({currentSelection.size})
                   </button>
                 ) : null}
@@ -1163,55 +1311,55 @@ export default function MasterDataPage() {
         onClose={() => setKelurahanModalOpen(false)}
         onSave={saveKelurahan}
         fields={
-  <>
-    <div className={styles.formField}>
-      <label className={styles.modalLabel}>
-        Nama Kelurahan<span className={styles.modalRequired}>*</span>
-      </label>
-      <input
-        className={styles.modalInput}
-        value={kelurahanForm.nama_kelurahan}
-        onChange={(e) =>
-          setKelurahanForm((prev) => ({
-            ...prev,
-            nama_kelurahan: e.target.value,
-          }))
-        }
-        placeholder="isi data kelurahan disini...."
-      />
-    </div>
+          <>
+            <div className={styles.formField}>
+              <label className={styles.modalLabel}>
+                Nama Kelurahan<span className={styles.modalRequired}>*</span>
+              </label>
+              <input
+                className={styles.modalInput}
+                value={kelurahanForm.nama_kelurahan}
+                onChange={(e) =>
+                  setKelurahanForm((prev) => ({
+                    ...prev,
+                    nama_kelurahan: e.target.value,
+                  }))
+                }
+                placeholder="isi data kelurahan disini...."
+              />
+            </div>
 
-    <div className={styles.formField}>
-      <label className={styles.modalLabel}>Latitude</label>
-      <input
-        className={styles.modalInput}
-        value={kelurahanForm.latitude_center}
-        onChange={(e) =>
-          setKelurahanForm((prev) => ({
-            ...prev,
-            latitude_center: e.target.value,
-          }))
-        }
-        placeholder="contoh: -7.8028333"
-      />
-    </div>
+            <div className={styles.formField}>
+              <label className={styles.modalLabel}>Latitude</label>
+              <input
+                className={styles.modalInput}
+                value={kelurahanForm.latitude_center}
+                onChange={(e) =>
+                  setKelurahanForm((prev) => ({
+                    ...prev,
+                    latitude_center: e.target.value,
+                  }))
+                }
+                placeholder="contoh: -7.8028333"
+              />
+            </div>
 
-    <div className={styles.formField}>
-      <label className={styles.modalLabel}>Longitude</label>
-      <input
-        className={styles.modalInput}
-        value={kelurahanForm.longitude_center}
-        onChange={(e) =>
-          setKelurahanForm((prev) => ({
-            ...prev,
-            longitude_center: e.target.value,
-          }))
+            <div className={styles.formField}>
+              <label className={styles.modalLabel}>Longitude</label>
+              <input
+                className={styles.modalInput}
+                value={kelurahanForm.longitude_center}
+                onChange={(e) =>
+                  setKelurahanForm((prev) => ({
+                    ...prev,
+                    longitude_center: e.target.value,
+                  }))
+                }
+                placeholder="contoh: 110.374138"
+              />
+            </div>
+          </>
         }
-        placeholder="contoh: 110.374138"
-      />
-    </div>
-  </>
-}
       />
 
       <TextModal
@@ -1305,41 +1453,6 @@ export default function MasterDataPage() {
                 placeholder="isi nama jenis bencana..."
               />
             </div>
-
-            <div className={styles.formField}>
-              <label className={styles.modalLabel}>Icon Marker</label>
-              <input
-                className={styles.fileInput}
-                type="file"
-                accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setJenisForm((prev) => ({
-                    ...prev,
-                    icon_marker_file: file,
-                    icon_marker_file_name: file?.name || "",
-                  }));
-                }}
-              />
-
-              <div className={styles.fileHint}>
-                {jenisForm.icon_marker_file_name
-                  ? `File dipilih: ${jenisForm.icon_marker_file_name}`
-                  : editingJenisId
-                  ? "Kosongkan jika tidak ingin mengganti gambar icon marker."
-                  : "Upload gambar png/jpg/jpeg/webp/svg"}
-              </div>
-
-              {jenisForm.existing_icon_marker ? (
-                <div className={styles.imagePreviewWrap}>
-                  <img
-                    src={`${API_BASE_URL}${jenisForm.existing_icon_marker}`}
-                    alt="Preview icon marker"
-                    className={styles.iconMarkerPreview}
-                  />
-                </div>
-              ) : null}
-            </div>
           </>
         }
       />
@@ -1381,6 +1494,60 @@ export default function MasterDataPage() {
           </>
         }
       />
+
+      {confirmDialog.open ? (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmCard}>
+            <div className={styles.confirmIcon}>!</div>
+            <h3 className={styles.confirmTitle}>{confirmDialog.title}</h3>
+            <p className={styles.confirmMessage}>{confirmDialog.message}</p>
+
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.confirmCancelButton}
+                onClick={closeConfirmDialog}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className={styles.confirmSubmitButton}
+                onClick={executeConfirmDialog}
+              >
+                {confirmDialog.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {notification.open ? (
+        <div className={styles.notificationOverlay}>
+          <div className={styles.notificationCard}>
+            <div
+              className={`${styles.notificationIcon} ${
+                notification.type === "success"
+                  ? styles.notificationIconSuccess
+                  : styles.notificationIconError
+              }`}
+            >
+              {notification.type === "success" ? "✓" : "!"}
+            </div>
+            <h3 className={styles.notificationTitle}>
+              {notification.type === "success" ? "Berhasil" : "Gagal"}
+            </h3>
+            <p className={styles.notificationMessage}>{notification.message}</p>
+            <button
+              type="button"
+              className={styles.notificationButton}
+              onClick={closeNotification}
+            >
+              Oke
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

@@ -21,19 +21,6 @@ type SourceType = "X" | "BMKG" | "X_BMKG";
 type SourceFilterType = "Semua" | SourceType;
 type HumintFilterType = "Semua" | "Tidak Ada" | "Ada Data HUMINT";
 
-type OsintScoreApi = {
-  osint_data_score_id?: number;
-  osint_id?: number;
-  keyword_score?: number;
-  location_score?: number;
-  time_score?: number;
-  engagement_score?: number;
-  total_score?: number;
-  max_score?: number;
-  score_percentage?: string | number;
-  score_level?: "TIDAK_VALID" | "RENDAH" | "SEDANG" | "TINGGI";
-  score_status?: "VALID" | "NEED_REVIEW" | "LOW_CONFIDENCE" | "REJECTED";
-};
 
 type LaporanApi = {
   laporan_id?: number;
@@ -79,10 +66,8 @@ type OsintApiRow = {
   osint_warning_event?: string | null;
   osint_match_status?: string | null;
   osint_verification_status?: string | null;
-  osint_priority_level?: "RENDAH" | "SEDANG" | "TINGGI" | "KRITIS" | null;
   creation_date?: string | null;
   last_update_date?: string | null;
-  osint_score?: OsintScoreApi | null;
 
   osint_reference_count?: number;
   humint_related?: boolean;
@@ -96,7 +81,6 @@ type OsintListResponse = {
   offset: number;
   summary?: {
     total_data_osint?: number;
-    indikasi_darurat?: number;
     konten_kadaluarsa?: number;
     perlu_verifikasi?: number;
     terkait_humint?: number;
@@ -119,9 +103,7 @@ type OsintRow = {
   likes: number;
   comments: number;
   shares: number;
-  priority: string;
   verificationStatus: string;
-  scoreLabel: string;
 };
 
 function formatDateIndo(value?: string | null) {
@@ -199,11 +181,6 @@ function mapApiRow(row: OsintApiRow): OsintRow {
 
   const isBmkgOnly = row.osint_source === "BMKG";
 
-  const score = row.osint_score;
-  const scoreLabel = score
-    ? `${score.total_score ?? 0}/${score.max_score ?? 100} (${score.score_level || "-"})`
-    : "-";
-
   const references = Array.isArray(row.osint_references)
     ? row.osint_references
     : [];
@@ -231,9 +208,7 @@ function mapApiRow(row: OsintApiRow): OsintRow {
     likes: Number(row.osint_like_count || 0),
     comments: Number(row.osint_reply_count || 0),
     shares: Number(row.osint_share_count || 0),
-    priority: row.osint_priority_level || "-",
     verificationStatus: row.osint_verification_status || "-",
-    scoreLabel,
   };
 }
 
@@ -453,7 +428,6 @@ export default function MonitoringOsintPage() {
   const summaryCards = useMemo(
     () => [
       { title: "TOTAL DATA OSINT", value: summary?.total_data_osint ?? totalCount },
-      { title: "INDIKASI DARURAT", value: summary?.indikasi_darurat ?? 0 },
       { title: "KONTEN KADALUARSA", value: summary?.konten_kadaluarsa ?? 0 },
       { title: "PERLU VERIFIKASI", value: summary?.perlu_verifikasi ?? 0 },
       { title: "TERKAIT HUMINT", value: summary?.terkait_humint ?? 0 },
@@ -750,8 +724,6 @@ export default function MonitoringOsintPage() {
               <th>Konten/Snippet</th>
               <th>Lokasi Kejadian</th>
               <th>Waktu</th>
-              <th>Prioritas</th>
-              <th>Score</th>
               <th>Data HUMINT</th>
               <th>Engagement</th>
               <th>Aksi</th>
@@ -761,13 +733,13 @@ export default function MonitoringOsintPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={11} className={styles.emptyState}>
+                <td colSpan={9} className={styles.emptyState}>
                   Memuat data OSINT...
                 </td>
               </tr>
             ) : errorMessage ? (
               <tr>
-                <td colSpan={11} className={styles.emptyState}>
+                <td colSpan={9} className={styles.emptyState}>
                   {errorMessage}
                 </td>
               </tr>
@@ -790,8 +762,6 @@ export default function MonitoringOsintPage() {
                   <td>{row.snippet}</td>
                   <td>{row.location}</td>
                   <td>{row.postedAtLabel}</td>
-                  <td>{row.priority}</td>
-                  <td>{row.scoreLabel}</td>
                   <td>
                     {row.humintLabel === "Ada Data HUMINT" ? (
                       <button
@@ -840,7 +810,7 @@ export default function MonitoringOsintPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={11} className={styles.emptyState}>
+                <td colSpan={9} className={styles.emptyState}>
                   Data OSINT tidak ditemukan.
                 </td>
               </tr>

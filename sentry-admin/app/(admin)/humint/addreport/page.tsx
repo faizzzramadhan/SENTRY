@@ -7,12 +7,21 @@ import styles from './addreport.module.css'
 import LocationSearch from './LocationSearch'
 import Link from 'next/link'
 
-const API_URL =
+const RAW_API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/api/humint'
+
+const API_URL = RAW_API_URL
+  .replace(/\/$/, '')
+  .replace(/\/humint$/i, '/api/humint')
+  .replace(/\/api$/i, '/api/humint')
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024
 const MAX_FOTO_KERUSAKAN = 2
+const MAX_TEXT_LENGTH = 250
 const DRAFT_STORAGE_KEY = 'draft_laporan_admin'
+
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg']
+const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg']
 
 const MapPicker = dynamic(() => import('./MapPicker'), {
   ssr: false,
@@ -20,6 +29,34 @@ const MapPicker = dynamic(() => import('./MapPicker'), {
     <div style={{ height: '450px', background: '#111', borderRadius: '12px' }} />
   ),
 })
+
+const getArrayFromResponse = (data: any, keys: string[]) => {
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key]
+  }
+
+  if (Array.isArray(data)) return data
+
+  return []
+}
+
+const fetchJson = async (url: string) => {
+  const res = await fetch(url, { cache: 'no-store' })
+  const text = await res.text()
+
+  if (!text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+    throw new Error(`Endpoint tidak mengembalikan JSON: ${url}`)
+  }
+
+  const data = JSON.parse(text)
+
+  if (!res.ok) {
+    throw new Error(data?.message || `Gagal memuat data dari ${url}`)
+  }
+
+  return data
+}
+
 
 const emptyKorban = {
   anakL: 0,
@@ -179,11 +216,46 @@ export default function AddReportAdmin() {
     return mobileRegex.test(userAgent) || isIpadOs || hasTouch
   }
 
+  const getMaxDateTimeLocal = () => {
+    const now = new Date()
+    const offsetMs = now.getTimezoneOffset() * 60 * 1000
+    return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16)
+  }
+
+  const isFutureDateTime = (value: string) => {
+    if (!value) return false
+    const selectedDate = new Date(value)
+    if (Number.isNaN(selectedDate.getTime())) return false
+    return selectedDate.getTime() > Date.now()
+  }
+
+  const limitText = (value: string) => value.slice(0, MAX_TEXT_LENGTH)
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+
+    if (name === 'waktu_kejadian' && isFutureDateTime(value)) {
+      showToast('error', 'Waktu kejadian tidak boleh melebihi waktu saat ini.')
+      return
+    }
+
+    const nextValue =
+      e.target instanceof HTMLTextAreaElement ||
+      ['kronologi', 'alamat_pelapor', 'alamat_lengkap_kejadian', 'kerusakan_identifikasi', 'terdampak_identifikasi', 'penyebab_identifikasi', 'tindak_lanjut'].includes(name)
+        ? limitText(value)
+        : value
+
+    setForm((prev) => ({ ...prev, [name]: nextValue }))
+  }
+
+  const isAllowedImageFile = (file: File) => {
+    const fileName = file.name.toLowerCase()
+    const validMime = ALLOWED_IMAGE_TYPES.includes(file.type)
+    const validExtension = ALLOWED_IMAGE_EXTENSIONS.some((ext) => fileName.endsWith(ext))
+
+    return validMime || validExtension
   }
 
   const isValidImageSize = (file: File) => file.size <= MAX_FILE_SIZE
@@ -226,6 +298,31 @@ export default function AddReportAdmin() {
     })
   }
 
+  const normalizeAddressText = (value: string) =>
+    String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+
+  const isMapAddressConsistentWithSelectedArea = () => {
+    const selectedKecamatan = kecamatanList.find(
+      (item) => String(item.kecamatan_id) === String(form.id_kecamatan)
+    )
+    const selectedKelurahan = kelurahanList.find(
+      (item) => String(item.kelurahan_id) === String(form.id_kelurahan)
+    )
+
+    const mapText = normalizeAddressText(selectedMapAddress || form.alamat_lengkap_kejadian)
+    const kecamatanName = normalizeAddressText(selectedKecamatan?.nama_kecamatan || '')
+    const kelurahanName = normalizeAddressText(selectedKelurahan?.nama_kelurahan || '')
+
+    if (!mapText || !kecamatanName || !kelurahanName) return false
+
+    return mapText.includes(kecamatanName) && mapText.includes(kelurahanName)
+  }
+
   const validateBeforeConfirm = () => {
     const requiredFields: Array<{ key: keyof typeof form; label: string }> = [
       { key: 'nama_pelapor', label: 'Nama Pelapor' },
@@ -258,6 +355,11 @@ export default function AddReportAdmin() {
 
     if (!hasValidMapCoordinate) missingFields.push('Titik Koordinat Maps')
     if (!fotoKejadian) missingFields.push('Foto Kejadian Utama')
+
+    if (hasValidMapCoordinate && !isMapAddressConsistentWithSelectedArea()) {
+      showToast('error', 'Kecamatan dan kelurahan harus sesuai dengan alamat yang dipilih pada peta. Perbaiki pilihan kecamatan atau kelurahan terlebih dahulu.')
+      return false
+    }
 
     if (missingFields.length > 0) {
       const visibleFields = missingFields.slice(0, 4).join(', ')
@@ -361,8 +463,17 @@ export default function AddReportAdmin() {
     const file = files?.[0] || null
     if (!file) return
 
+    if (!isAllowedImageFile(file)) {
+      showToast('error', 'File harus berformat PNG, JPG, atau JPEG.')
+      setFotoKejadian(null)
+      setPreviewKejadian(null)
+      setFotoKejadianSource('FILE_UPLOAD')
+      setBrowserGpsCoords(null)
+      return
+    }
+
     if (!isValidImageSize(file)) {
-      showToast('error', 'Ukuran foto kejadian maksimal 3MB')
+      showToast('error', 'Ukuran foto kejadian maksimal 3 MB.')
       setFotoKejadian(null)
       setPreviewKejadian(null)
       setFotoKejadianSource('FILE_UPLOAD')
@@ -396,8 +507,15 @@ export default function AddReportAdmin() {
     const selectedFiles = Array.from(files || [])
     if (selectedFiles.length === 0) return
 
+    const invalidFormatFile = selectedFiles.find((file) => !isAllowedImageFile(file))
+
+    if (invalidFormatFile) {
+      showToast('error', 'File harus berformat PNG, JPG, atau JPEG.')
+      return
+    }
+
     if (fotoKerusakan.length + selectedFiles.length > MAX_FOTO_KERUSAKAN) {
-      showToast('error', 'Foto kerusakan maksimal 2 foto')
+      showToast('error', 'Foto kerusakan maksimal 2 foto.')
       return
     }
 
@@ -405,14 +523,14 @@ export default function AddReportAdmin() {
     const oversizedFile = combinedFiles.find((file) => !isValidImageSize(file))
 
     if (oversizedFile) {
-      showToast('error', 'Setiap foto kerusakan maksimal 3MB')
+      showToast('error', 'Setiap foto kerusakan maksimal 3 MB.')
       return
     }
 
     previewKerusakan.forEach((src) => URL.revokeObjectURL(src))
     setFotoKerusakan(combinedFiles)
     setPreviewKerusakan(combinedFiles.map((file) => URL.createObjectURL(file)))
-    showToast('success', 'Foto kerusakan berhasil dipilih')
+    showToast('success', 'Foto kerusakan berhasil dipilih.')
   }
 
   useEffect(() => {
@@ -490,14 +608,12 @@ export default function AddReportAdmin() {
   }, [])
 
   useEffect(() => {
-    fetch(`${API_URL}/data-kecamatan`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => setKecamatanList(data.data || []))
+    fetchJson(`${API_URL}/data-kecamatan`)
+      .then((data) => setKecamatanList(getArrayFromResponse(data, ['data', 'kecamatan', 'data_kecamatan'])))
       .catch(() => setKecamatanList([]))
 
-    fetch(`${API_URL}/jenis-bencana`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => setJenisList(data.data || []))
+    fetchJson(`${API_URL}/jenis-bencana`)
+      .then((data) => setJenisList(getArrayFromResponse(data, ['data', 'jenis_bencana'])))
       .catch(() => setJenisList([]))
   }, [])
 
@@ -507,9 +623,8 @@ export default function AddReportAdmin() {
       return
     }
 
-    fetch(`${API_URL}/data-kelurahan?kecamatan_id=${selectedKec}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => setKelurahanList(data.data || []))
+    fetchJson(`${API_URL}/data-kelurahan?kecamatan_id=${selectedKec}`)
+      .then((data) => setKelurahanList(getArrayFromResponse(data, ['data', 'kelurahan', 'data_kelurahan'])))
       .catch(() => setKelurahanList([]))
   }, [selectedKec])
 
@@ -519,9 +634,8 @@ export default function AddReportAdmin() {
       return
     }
 
-    fetch(`${API_URL}/nama-bencana?jenis_id=${selectedJenis}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => setBencanaList(data.data || []))
+    fetchJson(`${API_URL}/nama-bencana?jenis_id=${selectedJenis}`)
+      .then((data) => setBencanaList(getArrayFromResponse(data, ['data', 'nama_bencana'])))
       .catch(() => setBencanaList([]))
   }, [selectedJenis])
 
@@ -544,6 +658,19 @@ export default function AddReportAdmin() {
     setKorbanByJenis(updated)
     setJenisKorban(newJenis)
     setKorban(updated[newJenis] || emptyKorban)
+  }
+
+  const toNonNegativeInteger = (value: string) => {
+    const numberValue = Number(value)
+    if (!Number.isFinite(numberValue) || numberValue < 0) return 0
+    return Math.floor(numberValue)
+  }
+
+  const handleKorbanNumberChange = (key: keyof KorbanData, value: string) => {
+    setKorban((prev) => ({
+      ...prev,
+      [key]: toNonNegativeInteger(value),
+    }))
   }
 
   const getTotalByJenis = (data: any) => {
@@ -608,7 +735,7 @@ export default function AddReportAdmin() {
 
     setFotoKerusakan((prev) => prev.filter((_, i) => i !== index))
     setPreviewKerusakan((prev) => prev.filter((_, i) => i !== index))
-    showToast('success', 'Foto kerusakan dihapus')
+    showToast('success', 'Foto kerusakan berhasil dihapus.')
   }
 
   const handleSubmit = async () => {
@@ -659,10 +786,10 @@ export default function AddReportAdmin() {
       }
 
       sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft))
-      showToast('success', 'Laporan berhasil diproses. Membuka halaman konfirmasi...')
+      showToast('success', 'Data laporan berhasil diproses. Sistem akan membuka halaman konfirmasi.')
       window.setTimeout(() => router.push('/humint/confirm'), 750)
     } catch (error: any) {
-      showToast('error', error.message || 'Gagal mengirim laporan')
+      showToast('error', error.message || 'Laporan gagal diproses. Silakan periksa kembali data yang dimasukkan.')
     } finally {
       setLoading(false)
     }
@@ -673,7 +800,7 @@ export default function AddReportAdmin() {
       <header className={styles.header}>
         <div className={styles.titleSection}>
           <h1>TAMBAH LAPORAN HUMINT</h1>
-          <p>Portal Admin: Input & Assessment Data Kejadian Bencana</p>
+          <p>Portal Admin: Input dan Assessment Data Kejadian Bencana</p>
         </div>
         <Link href="/humint">
           <button className={styles.btnBack}>← Kembali</button>
@@ -681,8 +808,14 @@ export default function AddReportAdmin() {
       </header>
 
       {toast && (
-        <div className={toast.type === 'success' ? styles.toastSuccess : styles.toastError}>
-          {toast.message}
+        <div className={styles.toastOverlay}>
+          <div className={`${styles.toast} ${toast.type === 'success' ? styles.toastSuccess : styles.toastError}`}>
+            <div className={styles.toastIcon}>{toast.type === 'success' ? '✓' : '!'}</div>
+            <div>
+              <strong>{toast.type === 'success' ? 'Berhasil' : 'Perhatian'}</strong>
+              <span>{toast.message}</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -693,16 +826,16 @@ export default function AddReportAdmin() {
             <div className={styles.rowFields}>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Nama Pelapor</label>
-                <input name="nama_pelapor" value={form.nama_pelapor} onChange={handleChange} type="text" placeholder="Nama asli pelapor" />
+                <input name="nama_pelapor" value={form.nama_pelapor} onChange={handleChange} type="text" placeholder="Masukkan nama lengkap pelapor" maxLength={MAX_TEXT_LENGTH} />
               </div>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Nomor HP</label>
-                <input name="no_hp" value={form.no_hp} onChange={handleChange} type="tel" placeholder="08..." />
+                <input name="no_hp" value={form.no_hp} onChange={handleChange} type="tel" placeholder="Masukkan nomor HP pelapor" maxLength={20} />
               </div>
             </div>
             <div className={styles.inputGroup}>
               <label className={styles.fieldLabel}>Alamat Rumah Pelapor</label>
-              <textarea name="alamat_pelapor" value={form.alamat_pelapor} onChange={handleChange} placeholder="Alamat lengkap pelapor..." rows={3} />
+              <textarea name="alamat_pelapor" value={form.alamat_pelapor} onChange={handleChange} placeholder="Masukkan alamat lengkap pelapor" rows={3} maxLength={MAX_TEXT_LENGTH} />
             </div>
           </div>
 
@@ -721,7 +854,7 @@ export default function AddReportAdmin() {
               </div>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Penugasan Petugas</label>
-                <input name="petugas_trc" value={form.petugas_trc} onChange={handleChange} type="text" placeholder="Nama regu..." />
+                <input name="petugas_trc" value={form.petugas_trc} onChange={handleChange} type="text" placeholder="Nama petugas.." />
               </div>
             </div>
           </div>
@@ -743,28 +876,38 @@ export default function AddReportAdmin() {
                   }}
                 >
                   <option value="">Pilih jenis bencana...</option>
-                  {jenisList.map((item) => (
-                    <option key={item.jenis_id} value={String(item.jenis_id)}>{item.nama_jenis}</option>
-                  ))}
+                  {jenisList.map((item) => {
+                    const jenisId = item.jenis_id ?? item.id_jenis
+                    const namaJenis = item.nama_jenis ?? item.jenis_bencana ?? item.nama ?? '-'
+
+                    return (
+                      <option key={jenisId} value={String(jenisId)}>{namaJenis}</option>
+                    )
+                  })}
                 </select>
               </div>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Waktu Kejadian</label>
-                <input name="waktu_kejadian" value={form.waktu_kejadian} onChange={handleChange} type="datetime-local" />
+                <input name="waktu_kejadian" value={form.waktu_kejadian} onChange={handleChange} type="datetime-local" max={getMaxDateTimeLocal()} />
               </div>
             </div>
             <div className={styles.inputGroup}>
               <label className={styles.fieldLabel}>Nama Kejadian Spesifik</label>
               <select name="id_bencana" value={form.id_bencana} onChange={handleChange}>
                 <option value="">{selectedJenis ? 'Pilih kejadian...' : 'Pilih jenis bencana dulu'}</option>
-                {bencanaList.map((item) => (
-                  <option key={item.bencana_id} value={String(item.bencana_id)}>{item.nama_bencana}</option>
-                ))}
+                {bencanaList.map((item) => {
+                  const bencanaId = item.bencana_id ?? item.id_bencana
+                  const namaBencana = item.nama_bencana ?? item.nama ?? '-'
+
+                  return (
+                    <option key={bencanaId} value={String(bencanaId)}>{namaBencana}</option>
+                  )
+                })}
               </select>
             </div>
             <div className={styles.inputGroup} style={{ flexGrow: 1 }}>
               <label className={styles.fieldLabel}>Kronologi Kejadian</label>
-              <textarea name="kronologi" value={form.kronologi} onChange={handleChange} className={styles.textAreaFull} placeholder="Uraikan laporan lengkap masyarakat secara detail di sini..." />
+              <textarea name="kronologi" value={form.kronologi} onChange={handleChange} className={styles.textAreaFull} placeholder="Uraikan kronologi kejadian secara jelas dan ringkas" maxLength={MAX_TEXT_LENGTH} />
             </div>
           </div>
         </div>
@@ -821,8 +964,9 @@ export default function AddReportAdmin() {
                   handleChange(e)
                   if (e.target.value !== selectedMapAddress) setIsMapLocationSelected(false)
                 }}
-                placeholder="Detail lokasi (Jl, RT/RW)..."
+                placeholder="Masukkan alamat lengkap lokasi kejadian"
                 rows={2}
+                maxLength={MAX_TEXT_LENGTH}
               />
             </div>
           </div>
@@ -831,16 +975,16 @@ export default function AddReportAdmin() {
             <h3>Assessment Dampak</h3>
             <div className={styles.inputGroup}>
               <label className={styles.fieldLabel}>Kerusakan Bangunan</label>
-              <textarea name="kerusakan_identifikasi" value={form.kerusakan_identifikasi} onChange={handleChange} placeholder="Deskripsi kerusakan..." rows={2} />
+              <textarea name="kerusakan_identifikasi" value={form.kerusakan_identifikasi} onChange={handleChange} placeholder="Masukkan deskripsi kerusakan" rows={2} maxLength={MAX_TEXT_LENGTH} />
             </div>
             <div className={styles.rowFields}>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Terdampak</label>
-                <input name="terdampak_identifikasi" value={form.terdampak_identifikasi} onChange={handleChange} type="text" placeholder="Contoh: 15 KK" />
+                <input name="terdampak_identifikasi" value={form.terdampak_identifikasi} onChange={handleChange} type="text" placeholder="Contoh: 15 KK" maxLength={MAX_TEXT_LENGTH} />
               </div>
               <div className={styles.inputGroup}>
                 <label className={styles.fieldLabel}>Penyebab</label>
-                <input name="penyebab_identifikasi" value={form.penyebab_identifikasi} onChange={handleChange} type="text" placeholder="Faktor penyebab..." />
+                <input name="penyebab_identifikasi" value={form.penyebab_identifikasi} onChange={handleChange} type="text" placeholder="Masukkan faktor penyebab" maxLength={MAX_TEXT_LENGTH} />
               </div>
             </div>
           </div>
@@ -869,15 +1013,15 @@ export default function AddReportAdmin() {
           </div>
           <div className={styles.korbanRow}>
             <div className={styles.korbanLabel}>Laki-laki</div>
-            <input type="number" value={korban.anakL} onChange={(e) => setKorban({ ...korban, anakL: +e.target.value })} />
-            <input type="number" value={korban.dewasaL} onChange={(e) => setKorban({ ...korban, dewasaL: +e.target.value })} />
-            <input type="number" value={korban.lansiaL} onChange={(e) => setKorban({ ...korban, lansiaL: +e.target.value })} />
+            <input type="number" min={0} step={1} value={korban.anakL} onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()} onChange={(e) => handleKorbanNumberChange('anakL', e.target.value)} />
+            <input type="number" min={0} step={1} value={korban.dewasaL} onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()} onChange={(e) => handleKorbanNumberChange('dewasaL', e.target.value)} />
+            <input type="number" min={0} step={1} value={korban.lansiaL} onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()} onChange={(e) => handleKorbanNumberChange('lansiaL', e.target.value)} />
           </div>
           <div className={styles.korbanRow}>
             <div className={styles.korbanLabel}>Perempuan</div>
-            <input type="number" value={korban.anakP} onChange={(e) => setKorban({ ...korban, anakP: +e.target.value })} />
-            <input type="number" value={korban.dewasaP} onChange={(e) => setKorban({ ...korban, dewasaP: +e.target.value })} />
-            <input type="number" value={korban.lansiaP} onChange={(e) => setKorban({ ...korban, lansiaP: +e.target.value })} />
+            <input type="number" min={0} step={1} value={korban.anakP} onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()} onChange={(e) => handleKorbanNumberChange('anakP', e.target.value)} />
+            <input type="number" min={0} step={1} value={korban.dewasaP} onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()} onChange={(e) => handleKorbanNumberChange('dewasaP', e.target.value)} />
+            <input type="number" min={0} step={1} value={korban.lansiaP} onKeyDown={(e) => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()} onChange={(e) => handleKorbanNumberChange('lansiaP', e.target.value)} />
           </div>
           <div className={styles.totalText}>Total: <strong>{totalKorban} Orang</strong></div>
         </div>
@@ -902,10 +1046,10 @@ export default function AddReportAdmin() {
 
       <div className={styles.fullWidthCard}>
         <div className={styles.card}>
-          <h2 className={styles.cardTitle}>Tindakan Nyata (Real Action)</h2>
+          <h2 className={styles.cardTitle}>Tindak Lanjut Lapangan</h2>
           <div className={styles.actionGroup}>
             <label className={styles.fieldLabel}>TINDAK LANJUT PETUGAS</label>
-            <textarea name="tindak_lanjut" value={form.tindak_lanjut} onChange={handleChange} className={styles.textAreaAction} placeholder="Jelaskan tindakan yang telah diambil oleh tim di lapangan secara detail..." />
+            <textarea name="tindak_lanjut" value={form.tindak_lanjut} onChange={handleChange} className={styles.textAreaAction} placeholder="Jelaskan tindak lanjut yang telah dilakukan oleh petugas di lapangan" maxLength={MAX_TEXT_LENGTH} />
           </div>
         </div>
       </div>
@@ -944,10 +1088,10 @@ export default function AddReportAdmin() {
             </div>
 
             <div className={styles.uploadArea}>
-              <input ref={fotoKejadianUploadRef} type="file" accept="image/jpeg,image/jpg" style={{ display: 'none' }} onChange={(e) => handleFotoKejadianChange(e.target.files, 'FILE_UPLOAD')} />
-              <input ref={fotoKejadianCameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handleFotoKejadianChange(e.target.files, 'WEB_CAMERA')} />
-              <input ref={fotoKerusakanUploadRef} type="file" accept="image/jpeg,image/jpg" multiple style={{ display: 'none' }} onChange={(e) => handleFotoKerusakanChange(e.target.files)} />
-              <input ref={fotoKerusakanCameraRef} type="file" accept="image/*" capture="environment" multiple style={{ display: 'none' }} onChange={(e) => handleFotoKerusakanChange(e.target.files)} />
+              <input ref={fotoKejadianUploadRef} type="file" accept="image/png,image/jpeg,image/jpg" style={{ display: 'none' }} onChange={(e) => handleFotoKejadianChange(e.target.files, 'FILE_UPLOAD')} />
+              <input ref={fotoKejadianCameraRef} type="file" accept="image/png,image/jpeg,image/jpg" capture="environment" style={{ display: 'none' }} onChange={(e) => handleFotoKejadianChange(e.target.files, 'WEB_CAMERA')} />
+              <input ref={fotoKerusakanUploadRef} type="file" accept="image/png,image/jpeg,image/jpg" multiple style={{ display: 'none' }} onChange={(e) => handleFotoKerusakanChange(e.target.files)} />
+              <input ref={fotoKerusakanCameraRef} type="file" accept="image/png,image/jpeg,image/jpg" capture="environment" multiple style={{ display: 'none' }} onChange={(e) => handleFotoKerusakanChange(e.target.files)} />
 
               <div className={`${styles.uploadBox} ${styles.uploadCardCustom}`}>
                 <div className={styles.boxContent}>

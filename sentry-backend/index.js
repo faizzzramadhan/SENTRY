@@ -8,8 +8,6 @@ const app = express();
 
 /* ================= IMPORT ROUTES & JOBS ================= */
 const routes = require("./src/routes");
-const jenisBencanaRoutes = require("./src/routes/jenis_bencana");
-const namaBencanaRoutes = require("./src/routes/nama_bencana");
 
 const humintLaporanRoutes = require("./src/routes/humint/laporan");
 const detailLaporanRoutes = require("./src/routes/humint/detail_laporan");
@@ -18,6 +16,7 @@ const editLaporanRoutes = require("./src/routes/humint/edit_laporan");
 const { startTikTokScheduler } = require("./src/jobs/tiktokScheduler");
 const { startXScheduler } = require("./src/jobs/xScheduler");
 const { startBmkgScheduler } = require("./src/jobs/bmkgScheduler");
+const { startOsintDataScheduler } = require("./src/jobs/osintDataScheduler");
 
 const { autoLogAktivitas } = require("./src/utils/activityLogger");
 
@@ -48,14 +47,6 @@ app.use(
 /* ================= ROUTES UTAMA ================= */
 app.use("/", routes);
 
-/*
-  Route ini tetap dipasang di root karena frontend memakai:
-  /jenis-bencana
-  /nama-bencana
-*/
-app.use("/jenis-bencana", jenisBencanaRoutes);
-app.use("/nama-bencana", namaBencanaRoutes);
-
 /* ================= ROUTES HUMINT PUBLIC/API ================= */
 app.use("/api/humint", humintLaporanRoutes);
 app.use("/api/humint", detailLaporanRoutes);
@@ -75,9 +66,9 @@ app.use('/api/geoint/zona-rawan',zonaRawanRoute)
 app.listen(5555, () => {
   console.log("server run on port 5555");
 
-  // startTikTokScheduler();
   startXScheduler();
   startBmkgScheduler();
+  startOsintDataScheduler();
 
   console.log("server run on http://localhost:5555");
 });
