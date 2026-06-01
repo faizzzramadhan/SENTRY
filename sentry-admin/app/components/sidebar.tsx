@@ -11,17 +11,19 @@ type Props = {
   onClose: () => void;
 };
 
-type NavChildItem = {
-  label: string;
-  href: string;
-};
-
 type NavItem = {
   label: string;
-  href: string;
+  href?: string;
   icon: React.ReactNode;
-  children?: NavChildItem[];
+
+  children?: {
+    label: string;
+    href: string;
+    icon: React.ReactNode;
+  }[];
 };
+
+
 
 type UserRole = "staff" | "admin" | null;
 
@@ -140,29 +142,15 @@ function IconClose() {
   );
 }
 
-function IconChevronDown() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path
-        d="m6 9 6 6 6-6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export default function Sidebar({ open, onClose }: Props) {
   const pathname = usePathname();
   const router = useRouter();
 
   const [isMobile, setIsMobile] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>(null);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [openGeoInt,setOpenGeoInt] = useState(false);
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = (href: string) => pathname === href;
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 980px)");
@@ -189,69 +177,104 @@ export default function Sidebar({ open, onClose }: Props) {
     }
   }, [pathname]);
 
-  const staffNav: NavItem[] = useMemo(
-    () => [
-      { label: "Dashboard", href: "/dashboard", icon: <IconBox /> },
-      { label: "Laporan HUMINT", href: "/humint", icon: <IconStack /> },
-      { label: "Monitoring OSINT", href: "/osint", icon: <IconGlobe /> },
-      {
-        label: "Monitoring Spasial",
-        href: "/geoint",
-        icon: <IconMap />,
-        children: [
-          { label: "Peta Sebaran Laporan", href: "/geoint/peta-sebaran-laporan" },
-          { label: "Peta Sebaran OSINT", href: "/geoint/peta-sebaran-osint" },
-        ],
-      },
-      { label: "Pengaturan Master", href: "/master-data", icon: <IconMaster /> },
-    ],
-    []
-  );
+const staffNav: NavItem[] = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: <IconBox />
+  },
 
-  const adminNav: NavItem[] = useMemo(
-    () => [
-      { label: "Manage User", href: "/manage-staff", icon: <IconManageStaff /> },
-      { label: "Log Aktivitas", href: "/log", icon: <IconList /> },
-    ],
-    []
-  );
+  {
+    label: "Laporan HUMINT",
+    href: "/humint",
+    icon: <IconStack />
+  },
+
+  {
+    label: "Monitoring OSINT",
+    href: "/osint",
+    icon: <IconGlobe />
+  },
+
+  {
+    label: "Monitoring Spasial",
+    icon: <IconMap />,
+
+    children: [
+
+      {
+        label: "Peta Sebaran Laporan",
+        href: "/geoint/laporan/humint",
+        icon: <IconMap />
+      },
+
+      {
+        label: "Peta Sebaran OSINT",
+        href: "/geoint/laporan/osint",
+        icon: <IconGlobe />
+      },
+
+      {
+        label: "Peta Fusion",
+        href: "/geoint/laporan/fusion",
+        icon: <IconStack />
+      },
+
+      {
+        label: "Zona Rawan Banjir",
+        href: "/geoint/zona-rawan/banjir",
+        icon: <IconMap />
+      },
+
+      {
+        label: "Zona Rawan Longsor",
+        href: "/geoint/zona-rawan/longsor",
+        icon: <IconMap />
+      },
+
+      {
+        label: "Zona Rawan Gempa",
+        href: "/geoint/zona-rawan/gempa",
+        icon: <IconMap />
+      },
+
+      {
+        label: "Manajemen Zona Rawan",
+        href: "/geoint/manajemen-zona-rawan",
+        icon: <IconMap />
+      }
+    ]
+  },
+
+  {
+    label: "Pengaturan Master",
+    href: "/master-data",
+    icon: <IconMaster />
+  },
+];
+
+  const adminNav: NavItem[] = [
+    { label: "Log Aktivitas", href: "/log", icon: <IconList /> },
+    { label: "Manage Staff", href: "/manage-staff", icon: <IconManageStaff /> },
+  ];
 
   const nav = useMemo(() => {
     if (userRole === "admin") return adminNav;
     return staffNav;
-  }, [adminNav, staffNav, userRole]);
-
-  useEffect(() => {
-    const activeDropdown = nav.find((item) => item.children?.some((child) => pathname === child.href));
-
-    if (activeDropdown) {
-      setOpenDropdown(activeDropdown.href);
-    }
-  }, [pathname, nav]);
+  }, [userRole]);
 
   useEffect(() => {
     if (!userRole) return;
 
-    const staffOnlyPaths = [
-      "/dashboard",
-      "/humint",
-      "/osint",
-      "/geoint",
-      "/geoint/peta-sebaran-laporan",
-      "/geoint/peta-sebaran-osint",
-      "/master-data",
-    ];
+    const staffOnlyPaths = ["/dashboard", "/humint", "/osint", "/geoint", "/master-data"];
     const adminOnlyPaths = ["/manage-staff", "/log"];
 
-    const isStaffOnlyPath = staffOnlyPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-    const isAdminOnlyPath = adminOnlyPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-
-    if (userRole === "staff" && isAdminOnlyPath) {
+    if (userRole === "staff" && adminOnlyPaths.includes(pathname)) {
       router.replace("/dashboard");
       return;
     }
 
-    if (userRole === "admin" && isStaffOnlyPath) {
+    if (userRole === "admin" && staffOnlyPaths.includes(pathname)) {
       router.replace("/manage-staff");
     }
   }, [pathname, router, userRole]);
@@ -267,7 +290,10 @@ export default function Sidebar({ open, onClose }: Props) {
 
   return (
     <>
-      <div className={`${styles.overlay} ${open ? styles.overlayShow : ""}`} onClick={onClose} />
+      <div
+        className={`${styles.overlay} ${open ? styles.overlayShow : ""}`}
+        onClick={onClose}
+      />
 
       <aside className={`${styles.sidebar} ${open ? styles.open : styles.closed}`}>
         <div className={styles.brandRow}>
@@ -278,81 +304,142 @@ export default function Sidebar({ open, onClose }: Props) {
             <div className={styles.brandText}>SENTRY</div>
           </div>
 
-          <button className={styles.closeBtn} type="button" onClick={onClose} aria-label="Close sidebar">
+          <button
+            className={styles.closeBtn}
+            type="button"
+            onClick={onClose}
+            aria-label="Close sidebar"
+          >
             <IconClose />
           </button>
         </div>
 
-        <nav className={styles.nav}>
-          {nav.map((item) => {
-            const hasChildren = Boolean(item.children?.length);
-            const active = isActive(item.href);
-            const dropdownOpen = openDropdown === item.href;
+       
+<nav className={styles.nav}>
 
-            if (hasChildren) {
+  {nav.map((item, index) => {
+
+    const active =
+      item.href
+      &&
+      pathname === item.href
+
+    return (
+
+      <div key={index}>
+
+        {/* MAIN MENU */}
+
+       {item.href ? (
+
+  <Link
+    href={item.href}
+    onClick={handleNavClick}
+    className={`${styles.navItem} ${active ? styles.active : ""}`}
+  >
+
+    <span className={styles.navIcon}>
+      {item.icon}
+    </span>
+
+    <span className={styles.navLabel}>
+      {item.label}
+    </span>
+
+  </Link>
+
+) : (
+
+  <button
+
+    type="button"
+
+    className={styles.navItem}
+
+    onClick={() =>
+      setOpenGeoInt(
+        !openGeoInt
+      )
+    }
+  >
+
+    <span className={styles.navIcon}>
+      {item.icon}
+    </span>
+
+    <span className={styles.navLabel}>
+      {item.label}
+    </span>
+
+   <span className={styles.expandIcon}>
+
+  {openGeoInt ? '▼' : '▶'}
+
+</span>
+
+  </button>
+
+)}
+
+        {/* SUB MENU */}
+
+        {item.children && openGeoInt &&(
+
+          <div className={styles.subMenuContainer}>
+
+            {item.children.map((child) => {
+
+              const childActive =
+                pathname === child.href
+
               return (
-                <div key={item.href} className={styles.navGroup}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenDropdown((current) => (current === item.href ? null : item.href))}
-                    className={`${styles.navItem} ${active ? styles.active : ""}`}
-                  >
-                    <span className={styles.navIcon}>{item.icon}</span>
-                    <span className={styles.navLabel}>{item.label}</span>
-                    <span className={`${styles.chevron} ${dropdownOpen ? styles.chevronOpen : ""}`}>
-                      <IconChevronDown />
-                    </span>
-                  </button>
 
-                  <div className={`${styles.childMenu} ${dropdownOpen ? styles.childMenuOpen : ""}`}>
-                    {item.children?.map((child) => {
-                      const childActive = pathname === child.href;
+                <Link
+                  key={child.href}
+                  href={child.href || "#"}
+                  className={`${styles.subMenuItem} ${
+                    childActive
+                      ? styles.subMenuActive
+                      : ""
+                  }`}
+                >
 
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          onClick={handleNavClick}
-                          className={`${styles.childItem} ${childActive ? styles.childActive : ""}`}
-                        >
-                          {child.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            }
+                  <span className={styles.subMenuIcon}>
+                    {child.icon}
+                  </span>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={handleNavClick}
-                className={`${styles.navItem} ${active ? styles.active : ""}`}
-              >
-                <span className={styles.navIcon}>{item.icon}</span>
-                <span className={styles.navLabel}>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+                  <span>
+                    {child.label}
+                  </span>
+
+                </Link>
+
+              )
+            })}
+
+          </div>
+
+        )}
+
+      </div>
+    )
+  })}
+
+</nav>
+
+
 
         <div className={styles.bottom}>
-          {userRole === "admin" || userRole === "staff" ? (
-            <Link
-              href="/profile"
-              onClick={handleNavClick}
-              className={`${styles.profileBtn} ${
-                isActive("/profile") ? styles.profileActive : ""
-              }`}
-            >
-              <span className={styles.profileIcon}>
-                <IconUser />
-              </span>
-              <span>Profile</span>
-            </Link>
-          ) : null}
+          <Link
+            href="/profile"
+            onClick={handleNavClick}
+            className={`${styles.profileBtn} ${isActive("/profile") ? styles.profileActive : ""}`}
+          >
+            <span className={styles.profileIcon}>
+              <IconUser />
+            </span>
+            <span>Profile</span>
+          </Link>
 
           <button className={styles.logoutBtn} type="button" onClick={logout}>
             <span className={styles.logoutIcon}>
