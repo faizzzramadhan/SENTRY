@@ -164,11 +164,13 @@ async function fetchJson<T>(url: string, token: string): Promise<T> {
 }
 
 function mapApiRow(row: OsintApiRow): OsintRow {
+  // Kolom Waktu menampilkan waktu kejadian terlebih dahulu
+  // agar konsisten dengan sorting backend.
   const postedAt =
-    row.osint_post_time ||
     row.osint_event_time ||
-    row.last_update_date ||
+    row.osint_post_time ||
     row.creation_date ||
+    row.last_update_date ||
     "";
 
   const snippetSource =
