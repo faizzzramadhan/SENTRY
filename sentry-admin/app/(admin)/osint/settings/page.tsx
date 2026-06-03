@@ -3,8 +3,41 @@
 import styles from "./settings.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-// new
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555";
+
+const API_ROOT_URL = RAW_API_BASE_URL
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/api\/humint$/i, "")
+  .replace(/\/humint$/i, "")
+  .replace(/\/api$/i, "");
+
+function apiUrl(path: string) {
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_ROOT_URL}${cleanPath}`;
+}
+
+type ApiMessage = { message?: string };
+
+async function readApiJson<T>(res: Response): Promise<T & ApiMessage> {
+  const contentType = res.headers.get("content-type") || "";
+  const rawText = await res.text();
+
+  if (!contentType.includes("application/json")) {
+    const preview = rawText.trim().slice(0, 160);
+    throw new Error(
+      `Endpoint tidak mengembalikan JSON. Periksa route backend. Response awal: ${
+        preview || "kosong"
+      }`
+    );
+  }
+
+  try {
+    return JSON.parse(rawText) as T & ApiMessage;
+  } catch {
+    throw new Error("Response API bukan JSON yang valid.");
+  }
+}
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -17,12 +50,6 @@ function decodeJwtPayload(token: string): any | null {
 }
 
 type SortType = "newest" | "oldest";
-type MetricField =
-  | "set_jumlah_postingan"
-  | "set_jumlah_like"
-  | "set_jumlah_comment"
-  | "set_jumlah_share";
-
 type KeywordApiRow = {
   keyword_id: number;
   keyword: string;
@@ -32,20 +59,10 @@ type KeywordApiRow = {
   last_update_date: string;
 };
 
-type KpiApi = {
-  osint_kpi_id: number | null;
-  set_jumlah_postingan: number;
-  set_jumlah_like: number;
-  set_jumlah_comment: number;
-  set_jumlah_share: number;
-  last_updated_by: string | null;
-  last_update_date: string | null;
-};
-
 type FrontendSettingsResponse = {
   count_keyword: number;
   daftar_keyword: KeywordApiRow[];
-  nilai_kpi: KpiApi;
+  nilai_kpi?: unknown;
 };
 
 type KeywordRow = {
@@ -80,28 +97,6 @@ function getVisiblePages(currentPage: number, totalPages: number): Array<number 
   if (currentPage <= 2) return [1, 2, 3, "..."];
   if (currentPage >= totalPages - 1) return ["...", totalPages - 2, totalPages - 1, totalPages];
   return [currentPage - 1, currentPage, currentPage + 1, "..."];
-}
-
-function getMetricTitle(field: MetricField | null) {
-  switch (field) {
-    case "set_jumlah_postingan":
-      return "SET JUMLAH POSTINGAN";
-    case "set_jumlah_like":
-      return "SET JUMLAH SUKA";
-    case "set_jumlah_comment":
-      return "SET JUMLAH KOMENTAR";
-    case "set_jumlah_share":
-      return "SET JUMLAH BAGIKAN";
-    default:
-      return "";
-  }
-}
-
-function parseMetricInput(value: string) {
-  if (value.trim() === "") return 0;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) return null;
-  return parsed;
 }
 
 function BackIcon() {
@@ -175,56 +170,6 @@ function PencilIcon() {
         strokeLinejoin="round"
       />
       <path d="M13.5 7.5l3 3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function PostIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className={styles.metricIcon} aria-hidden="true">
-      <path d="M4 18a10 10 0 0 0-2-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M8 18a14 14 0 0 0-4-10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M12 18A18 18 0 0 0 6 6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      <circle cx="5" cy="18" r="1.6" fill="currentColor" />
-    </svg>
-  );
-}
-
-function HeartIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className={styles.metricIcon} aria-hidden="true">
-      <path
-        d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.4A4 4 0 0 1 19 10c0 5.65-7 10-7 10Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CommentIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className={styles.metricIcon} aria-hidden="true">
-      <path
-        d="M20 11.5A7.5 7.5 0 0 1 12.5 19H8l-4 3v-5A7.5 7.5 0 1 1 20 11.5Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ShareIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className={styles.metricIcon} aria-hidden="true">
-      <circle cx="18" cy="5" r="2.4" fill="none" stroke="currentColor" strokeWidth="2" />
-      <circle cx="6" cy="12" r="2.4" fill="none" stroke="currentColor" strokeWidth="2" />
-      <circle cx="18" cy="19" r="2.4" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M8.3 11l7.2-4.2M8.3 13l7.2 4.2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -318,88 +263,6 @@ function KeywordModal({
   );
 }
 
-function MetricModal({
-  open,
-  title,
-  value,
-  saving,
-  errorMsg,
-  onChange,
-  onDecrease,
-  onIncrease,
-  onClose,
-  onSave,
-}: {
-  open: boolean;
-  title: string;
-  value: string;
-  saving: boolean;
-  errorMsg: string;
-  onChange: (value: string) => void;
-  onDecrease: () => void;
-  onIncrease: () => void;
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  if (!open) return null;
-
-  return (
-    <div
-      className={styles.modalOverlay}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !saving) onClose();
-      }}
-    >
-      <div className={styles.metricModalCard}>
-        <div className={styles.metricModalTitle}>{title}</div>
-
-        <div className={styles.metricEditorRow}>
-          <button
-            type="button"
-            className={styles.metricStepButton}
-            onClick={onDecrease}
-            disabled={saving}
-            aria-label="Kurangi"
-          >
-            −
-          </button>
-
-          <input
-            className={styles.metricNumberInput}
-            type="number"
-            min="0"
-            inputMode="numeric"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            autoFocus
-          />
-
-          <button
-            type="button"
-            className={styles.metricStepButton}
-            onClick={onIncrease}
-            disabled={saving}
-            aria-label="Tambah"
-          >
-            +
-          </button>
-        </div>
-
-        {errorMsg ? <div className={styles.modalError}>{errorMsg}</div> : null}
-
-        <button
-          type="button"
-          className={styles.modalSaveButton}
-          onClick={onSave}
-          disabled={saving}
-        >
-          {saving ? "Saving..." : "Save"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function SettingsOsintPage() {
   const router = useRouter();
 
@@ -408,15 +271,6 @@ export default function SettingsOsintPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const [keywordRows, setKeywordRows] = useState<KeywordRow[]>([]);
-  const [kpiData, setKpiData] = useState<KpiApi>({
-    osint_kpi_id: null,
-    set_jumlah_postingan: 0,
-    set_jumlah_like: 0,
-    set_jumlah_comment: 0,
-    set_jumlah_share: 0,
-    last_updated_by: null,
-    last_update_date: null,
-  });
 
   const [keywordSearch, setKeywordSearch] = useState("");
   const [keywordSort, setKeywordSort] = useState<SortType>("newest");
@@ -428,8 +282,6 @@ export default function SettingsOsintPage() {
   const [keywordModalValue, setKeywordModalValue] = useState("");
   const [activeKeywordId, setActiveKeywordId] = useState<number | null>(null);
 
-  const [metricModalField, setMetricModalField] = useState<MetricField | null>(null);
-  const [metricModalValue, setMetricModalValue] = useState("0");
 
   const [modalSaving, setModalSaving] = useState(false);
   const [modalErrorMsg, setModalErrorMsg] = useState("");
@@ -463,13 +315,13 @@ export default function SettingsOsintPage() {
       try {
         if (withLoading) setLoading(true);
 
-        const res = await fetch(`${API_BASE_URL}/osint/kpi/frontend`, {
+        const res = await fetch(apiUrl("/osint/kpi/frontend"), {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        const data: FrontendSettingsResponse | { message?: string } = await res.json();
+        const data = await readApiJson<FrontendSettingsResponse>(res);
 
         if (!res.ok) {
           setErrorMsg((data as any)?.message || "Gagal mengambil data pengaturan OSINT");
@@ -487,15 +339,6 @@ export default function SettingsOsintPage() {
         }));
 
         setKeywordRows(mappedKeywordRows);
-        setKpiData({
-          osint_kpi_id: response.nilai_kpi?.osint_kpi_id ?? null,
-          set_jumlah_postingan: Number(response.nilai_kpi?.set_jumlah_postingan ?? 0),
-          set_jumlah_like: Number(response.nilai_kpi?.set_jumlah_like ?? 0),
-          set_jumlah_comment: Number(response.nilai_kpi?.set_jumlah_comment ?? 0),
-          set_jumlah_share: Number(response.nilai_kpi?.set_jumlah_share ?? 0),
-          last_updated_by: response.nilai_kpi?.last_updated_by ?? null,
-          last_update_date: response.nilai_kpi?.last_update_date ?? null,
-        });
       } catch (err: any) {
         setErrorMsg(err?.message || "Terjadi error saat mengambil data");
       } finally {
@@ -588,18 +431,6 @@ export default function SettingsOsintPage() {
     setModalErrorMsg("");
   };
 
-  const openMetricModal = (field: MetricField) => {
-    setMetricModalField(field);
-    setMetricModalValue(String(kpiData[field] ?? 0));
-    setModalErrorMsg("");
-  };
-
-  const closeMetricModal = () => {
-    if (modalSaving) return;
-    setMetricModalField(null);
-    setMetricModalValue("0");
-    setModalErrorMsg("");
-  };
 
   const saveKeyword = async () => {
     if (!token) {
@@ -619,8 +450,8 @@ export default function SettingsOsintPage() {
 
       const isEdit = Boolean(activeKeywordId);
       const url = isEdit
-        ? `${API_BASE_URL}/osint/keyword/${activeKeywordId}`
-        : `${API_BASE_URL}/osint/keyword`;
+        ? apiUrl(`/osint/keyword/${activeKeywordId}`)
+        : apiUrl("/osint/keyword");
 
       const res = await fetch(url, {
         method: isEdit ? "PUT" : "POST",
@@ -631,7 +462,7 @@ export default function SettingsOsintPage() {
         body: JSON.stringify({ keyword: trimmed }),
       });
 
-      const data = await res.json();
+      const data = await readApiJson<ApiMessage>(res);
 
       if (!res.ok) {
         setModalErrorMsg(data?.message || "Gagal menyimpan data keyword.");
@@ -663,7 +494,7 @@ export default function SettingsOsintPage() {
       setLoading(true);
       setErrorMsg("");
 
-      const res = await fetch(`${API_BASE_URL}/osint/keyword/bulk-delete`, {
+      const res = await fetch(apiUrl("/osint/keyword/bulk-delete"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -672,7 +503,7 @@ export default function SettingsOsintPage() {
         body: JSON.stringify({ ids }),
       });
 
-      const data = await res.json();
+      const data = await readApiJson<ApiMessage>(res);
 
       if (!res.ok) {
         setErrorMsg(data?.message || "Gagal menghapus data keyword.");
@@ -685,75 +516,6 @@ export default function SettingsOsintPage() {
       setErrorMsg(err?.message || "Terjadi error saat menghapus data keyword.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const saveMetric = async () => {
-    if (!token) {
-      window.location.href = "/login";
-      return;
-    }
-
-    if (!metricModalField) return;
-
-    const parsedValue = parseMetricInput(metricModalValue);
-    if (parsedValue === null) {
-      setModalErrorMsg("Nilai harus berupa angka bulat 0 atau lebih.");
-      return;
-    }
-
-    try {
-      setModalSaving(true);
-      setModalErrorMsg("");
-
-      const isUpdate = Boolean(kpiData.osint_kpi_id);
-      const url = isUpdate
-        ? `${API_BASE_URL}/osint/kpi/${kpiData.osint_kpi_id}`
-        : `${API_BASE_URL}/osint/kpi`;
-
-      const body = isUpdate
-        ? { [metricModalField]: parsedValue }
-        : {
-            set_jumlah_postingan:
-              metricModalField === "set_jumlah_postingan"
-                ? parsedValue
-                : kpiData.set_jumlah_postingan,
-            set_jumlah_like:
-              metricModalField === "set_jumlah_like"
-                ? parsedValue
-                : kpiData.set_jumlah_like,
-            set_jumlah_comment:
-              metricModalField === "set_jumlah_comment"
-                ? parsedValue
-                : kpiData.set_jumlah_comment,
-            set_jumlah_share:
-              metricModalField === "set_jumlah_share"
-                ? parsedValue
-                : kpiData.set_jumlah_share,
-          };
-
-      const res = await fetch(url, {
-        method: isUpdate ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setModalErrorMsg(data?.message || "Gagal menyimpan KPI.");
-        return;
-      }
-
-      closeMetricModal();
-      await fetchSettingsData(false);
-    } catch (err: any) {
-      setModalErrorMsg(err?.message || "Terjadi error saat menyimpan KPI.");
-    } finally {
-      setModalSaving(false);
     }
   };
 
@@ -787,80 +549,6 @@ export default function SettingsOsintPage() {
           <div className={styles.dataState}>Memuat data pengaturan OSINT...</div>
         ) : (
           <>
-            <div className={styles.metricGrid}>
-              <div className={styles.metricCard}>
-                <div className={styles.metricTitle}>SET JUMLAH POSTINGAN</div>
-                <div className={styles.metricContent}>
-                  <div className={styles.metricValueWrap}>
-                    <PostIcon />
-                    <span className={styles.metricValue}>{kpiData.set_jumlah_postingan ?? 0}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.editMiniButton}
-                    onClick={() => openMetricModal("set_jumlah_postingan")}
-                  >
-                    <span>Edit</span>
-                    <span className={styles.arrowMini}>→</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.metricCard}>
-                <div className={styles.metricTitle}>SET JUMLAH SUKA</div>
-                <div className={styles.metricContent}>
-                  <div className={styles.metricValueWrap}>
-                    <HeartIcon />
-                    <span className={styles.metricValue}>{kpiData.set_jumlah_like ?? 0}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.editMiniButton}
-                    onClick={() => openMetricModal("set_jumlah_like")}
-                  >
-                    <span>Edit</span>
-                    <span className={styles.arrowMini}>→</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.metricCard}>
-                <div className={styles.metricTitle}>SET JUMLAH KOMENTAR</div>
-                <div className={styles.metricContent}>
-                  <div className={styles.metricValueWrap}>
-                    <CommentIcon />
-                    <span className={styles.metricValue}>{kpiData.set_jumlah_comment ?? 0}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.editMiniButton}
-                    onClick={() => openMetricModal("set_jumlah_comment")}
-                  >
-                    <span>Edit</span>
-                    <span className={styles.arrowMini}>→</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.metricCard}>
-                <div className={styles.metricTitle}>SET JUMLAH BAGIKAN</div>
-                <div className={styles.metricContent}>
-                  <div className={styles.metricValueWrap}>
-                    <ShareIcon />
-                    <span className={styles.metricValue}>{kpiData.set_jumlah_share ?? 0}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.editMiniButton}
-                    onClick={() => openMetricModal("set_jumlah_share")}
-                  >
-                    <span>Edit</span>
-                    <span className={styles.arrowMini}>→</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
             <section className={styles.keywordOnlySection}>
               <div className={styles.panelToolbar}>
                 <div className={styles.searchBox}>
@@ -1020,34 +708,6 @@ export default function SettingsOsintPage() {
         onClose={closeKeywordModal}
         onSave={saveKeyword}
         isEdit={Boolean(activeKeywordId)}
-      />
-
-      <MetricModal
-        open={metricModalField !== null}
-        title={getMetricTitle(metricModalField)}
-        value={metricModalValue}
-        saving={modalSaving}
-        errorMsg={modalErrorMsg}
-        onChange={(value) => {
-          if (value === "") {
-            setMetricModalValue("");
-            return;
-          }
-
-          if (/^\d+$/.test(value)) {
-            setMetricModalValue(value);
-          }
-        }}
-        onDecrease={() => {
-          const current = parseMetricInput(metricModalValue) ?? 0;
-          setMetricModalValue(String(Math.max(0, current - 1)));
-        }}
-        onIncrease={() => {
-          const current = parseMetricInput(metricModalValue) ?? 0;
-          setMetricModalValue(String(current + 1));
-        }}
-        onClose={closeMetricModal}
-        onSave={saveMetric}
       />
     </>
   );

@@ -268,17 +268,21 @@ router.get("/", auth, requireRole("staff", "admin"), async (req, res) => {
     const where = await applyHumintRelatedWhere(baseWhere, humint_related);
 
     const order =
-      sort === "oldest"
-        ? [
-            ["last_update_date", "ASC"],
-            ["osint_event_time", "ASC"],
-            ["osint_post_time", "ASC"],
-          ]
-        : [
-            ["last_update_date", "DESC"],
-            ["osint_event_time", "DESC"],
-            ["osint_post_time", "DESC"],
-          ];
+    sort === "oldest"
+      ? [
+          ["osint_event_time", "ASC"],
+          ["osint_post_time", "ASC"],
+          ["creation_date", "ASC"],
+          ["last_update_date", "ASC"],
+          ["osint_id", "ASC"],
+        ]
+      : [
+          ["osint_event_time", "DESC"],
+          ["osint_post_time", "DESC"],
+          ["creation_date", "DESC"],
+          ["last_update_date", "DESC"],
+          ["osint_id", "DESC"],
+        ];
 
     const rows = await OsintData.findAndCountAll({
       where,
