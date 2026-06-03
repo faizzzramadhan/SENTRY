@@ -16,9 +16,7 @@ const MALANG_BOUNDS: [[number, number], [number, number]] = [
   [-7.88, 112.75],
 ]
 
-function isValidPosition(
-  position: [number, number] | undefined
-): position is [number, number] {
+function isValidPosition(position: [number, number] | undefined): position is [number, number] {
   return (
     Array.isArray(position) &&
     typeof position[0] === 'number' &&
@@ -112,7 +110,9 @@ export default function MapPicker({ position, onChange }: MapPickerProps) {
         mapElementRef.current.removeAttribute('class')
       }
     }
-
+    // Map sengaja dibuat sekali saja agar Leaflet tidak reuse container.
+    // Update posisi ditangani di useEffect terpisah di bawah.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
