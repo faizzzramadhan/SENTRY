@@ -14,6 +14,7 @@ import L from 'leaflet'
 
 import {
   useEffect,
+  useMemo,
   useState
 } from 'react'
 
@@ -132,6 +133,30 @@ export default function DisasterMap() {
 
   ] = useState<ReportItem[]>([])
 
+  const [
+
+    statusFilter,
+
+    setStatusFilter
+
+  ] = useState('SEMUA')
+
+  const [
+
+    prioritasFilter,
+
+    setPrioritasFilter
+
+  ] = useState('SEMUA')
+
+  const [
+
+    waktuFilter,
+
+    setWaktuFilter
+
+  ] = useState('SEMUA')
+
   // ======================
   // FETCH DATA
   // ======================
@@ -171,230 +196,614 @@ export default function DisasterMap() {
   }, [])
 
   // ======================
+  // FILTERED REPORTS
+  // ======================
+
+  const filteredReports =
+    useMemo(() => {
+
+      return reports.filter((item) => {
+
+        // ======================
+        // FILTER STATUS
+        // ======================
+
+        const itemStatus =
+          (
+            item.status_laporan || ''
+          ).toUpperCase()
+
+        if (
+          statusFilter !== 'SEMUA' &&
+          !itemStatus.includes(
+            statusFilter
+          )
+        ) {
+
+          return false
+        }
+
+        // ======================
+        // FILTER PRIORITAS
+        // ======================
+
+        const itemPrioritas =
+          (
+            item.prioritas || ''
+          ).toUpperCase()
+
+        if (
+          prioritasFilter !== 'SEMUA' &&
+          !itemPrioritas.includes(
+            prioritasFilter
+          )
+        ) {
+
+          return false
+        }
+
+        // ======================
+        // FILTER WAKTU
+        // ======================
+
+        if (
+          waktuFilter !== 'SEMUA'
+        ) {
+
+          const createdDate =
+            new Date(
+              item.created_at
+            )
+
+          const now =
+            new Date()
+
+          const diffTime =
+            now.getTime() -
+            createdDate.getTime()
+
+          const diffDays =
+            diffTime /
+            (
+              1000 *
+              60 *
+              60 *
+              24
+            )
+
+          if (
+            waktuFilter === 'HARI_INI' &&
+            createdDate.toDateString() !==
+              now.toDateString()
+          ) {
+
+            return false
+          }
+
+          if (
+            waktuFilter === '7_HARI' &&
+            diffDays > 7
+          ) {
+
+            return false
+          }
+
+          if (
+            waktuFilter === '30_HARI' &&
+            diffDays > 30
+          ) {
+
+            return false
+          }
+        }
+
+        return true
+      })
+
+    }, [
+      reports,
+      statusFilter,
+      prioritasFilter,
+      waktuFilter
+    ])
+
+  // ======================
   // RENDER
   // ======================
 
   return (
 
-    <div
-  style={{
-    width: '100%',
-    height: '700px',
-    borderRadius: '24px',
-    overflow: 'hidden',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.08)'
-  }}
->
+    <div>
 
-      <MapContainer
+      {/* ======================
+          FILTER PANEL
+      ====================== */}
 
-        center={[-7.98, 112.63]}
-
-        zoom={12}
+      <div
 
         style={{
 
           width: '100%',
 
-          height: '100%'
+          marginBottom: '20px',
+
+          padding: '20px',
+
+          borderRadius: '20px',
+
+          background:
+            'rgba(255,255,255,0.75)',
+
+          border:
+            '1px solid rgba(15,23,42,0.08)',
+
+          boxShadow:
+            '0 10px 30px rgba(15,23,42,0.06)',
+
+          display: 'flex',
+
+          gap: '14px',
+
+          alignItems: 'center',
+
+          flexWrap: 'wrap'
         }}
       >
 
+        <div
+
+          style={{
+
+            fontWeight: 800,
+
+            color: '#1e293b',
+
+            marginRight: '6px'
+          }}
+        >
+
+          Filter Laporan
+
+        </div>
+
         {/* ======================
-            MAP TILE
+            FILTER STATUS
         ====================== */}
 
-        <TileLayer
+        <select
 
-          attribution='&copy; OpenStreetMap'
+          value={
+            statusFilter
+          }
 
-          url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-        />
+          onChange={(e) =>
+            setStatusFilter(
+              e.target.value
+            )
+          }
+
+          style={{
+
+            padding:
+              '12px 14px',
+
+            borderRadius:
+              '12px',
+
+            border:
+              '1px solid rgba(15,23,42,0.12)',
+
+            background:
+              'white',
+
+            color:
+              '#0f172a',
+
+            fontWeight:
+              700,
+
+            outline:
+              'none'
+          }}
+        >
+
+          <option value='SEMUA'>
+            Semua Status
+          </option>
+
+          <option value='IDENTIFIKASI'>
+            Identifikasi
+          </option>
+
+          <option value='TERVERIFIKASI'>
+            Terverifikasi
+          </option>
+
+          <option value='DITANGANI'>
+            Ditangani
+          </option>
+
+          <option value='SELESAI'>
+            Selesai
+          </option>
+
+          <option value='FIKTIF'>
+            Fiktif
+          </option>
+
+        </select>
 
         {/* ======================
-            MARKERS
+            FILTER PRIORITAS
         ====================== */}
 
-        {
+        <select
 
-          reports.map((
+          value={
+            prioritasFilter
+          }
 
-            item,
+          onChange={(e) =>
+            setPrioritasFilter(
+              e.target.value
+            )
+          }
 
-            index
+          style={{
 
-          ) => {
+            padding:
+              '12px 14px',
 
-            const latitude =
-              Number(item.latitude)
+            borderRadius:
+              '12px',
 
-            const longitude =
-              Number(item.longitude)
+            border:
+              '1px solid rgba(15,23,42,0.12)',
 
-            // ======================
-            // VALIDATE COORDINATE
-            // ======================
+            background:
+              'white',
 
-            if (
+            color:
+              '#0f172a',
 
-              isNaN(latitude)
+            fontWeight:
+              700,
 
-              ||
+            outline:
+              'none'
+          }}
+        >
 
-              isNaN(longitude)
+          <option value='SEMUA'>
+            Semua Prioritas
+          </option>
 
-            ) {
+          <option value='TINGGI'>
+            Prioritas Tinggi
+          </option>
 
-              return null
-            }
+          <option value='SEDANG'>
+            Prioritas Sedang
+          </option>
 
-            const markerColor =
-              getMarkerColor(
-                item.prioritas
-              )
+          <option value='RENDAH'>
+            Prioritas Rendah
+          </option>
 
-            const markerIcon =
-              createIcon(
-                markerColor
-              )
+        </select>
 
-            return (
+        {/* ======================
+            FILTER WAKTU
+        ====================== */}
 
-              <div
-                key={`report-${item.laporan_id}-${index}`}
-              >
+        <select
 
-                {/* ======================
-                    AREA CIRCLE
-                ====================== */}
+          value={
+            waktuFilter
+          }
 
-                <Circle
+          onChange={(e) =>
+            setWaktuFilter(
+              e.target.value
+            )
+          }
 
-                  center={[
-                    latitude,
-                    longitude
-                  ]}
+          style={{
 
-                  radius={300}
+            padding:
+              '12px 14px',
 
-                  pathOptions={{
+            borderRadius:
+              '12px',
 
-                    color: markerColor,
+            border:
+              '1px solid rgba(15,23,42,0.12)',
 
-                    fillColor: markerColor,
+            background:
+              'white',
 
-                    fillOpacity: 0.2
-                  }}
-                />
+            color:
+              '#0f172a',
 
-                {/* ======================
-                    MARKER
-                ====================== */}
+            fontWeight:
+              700,
 
-                <Marker
+            outline:
+              'none'
+          }}
+        >
 
-                  position={[
-                    latitude,
-                    longitude
-                  ]}
+          <option value='SEMUA'>
+            Semua Waktu
+          </option>
 
-                  icon={markerIcon}
+          <option value='HARI_INI'>
+            Hari Ini
+          </option>
+
+          <option value='7_HARI'>
+            7 Hari Terakhir
+          </option>
+
+          <option value='30_HARI'>
+            30 Hari Terakhir
+          </option>
+
+        </select>
+
+        <div
+
+          style={{
+
+            marginLeft:
+              'auto',
+
+            color:
+              '#475569',
+
+            fontWeight:
+              700
+          }}
+        >
+
+          Total: {filteredReports.length} laporan
+
+        </div>
+
+      </div>
+
+      {/* ======================
+          MAP
+      ====================== */}
+
+      <div
+
+        style={{
+
+          width: '100%',
+
+          height: '700px',
+
+          borderRadius: '24px',
+
+          overflow: 'hidden',
+
+          boxShadow:
+            '0 10px 30px rgba(0,0,0,0.08)'
+        }}
+      >
+
+        <MapContainer
+
+          center={[-7.98, 112.63]}
+
+          zoom={12}
+
+          style={{
+
+            width: '100%',
+
+            height: '100%'
+          }}
+        >
+
+          {/* ======================
+              MAP TILE
+          ====================== */}
+
+          <TileLayer
+
+            attribution='&copy; OpenStreetMap'
+
+            url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          />
+
+          {/* ======================
+              MARKERS
+          ====================== */}
+
+          {
+
+            filteredReports.map((
+
+              item,
+
+              index
+
+            ) => {
+
+              const latitude =
+                Number(item.latitude)
+
+              const longitude =
+                Number(item.longitude)
+
+              // ======================
+              // VALIDATE COORDINATE
+              // ======================
+
+              if (
+
+                isNaN(latitude)
+
+                ||
+
+                isNaN(longitude)
+
+              ) {
+
+                return null
+              }
+
+              const markerColor =
+                getMarkerColor(
+                  item.prioritas
+                )
+
+              const markerIcon =
+                createIcon(
+                  markerColor
+                )
+
+              return (
+
+                <div
+                  key={`report-${item.laporan_id}-${index}`}
                 >
 
-                  <Popup>
+                  {/* ======================
+                      AREA CIRCLE
+                  ====================== */}
 
-                    <div
-                      style={{
-                        minWidth: '220px'
-                      }}
-                    >
+                  <Circle
 
-                      <h3>
+                    center={[
+                      latitude,
+                      longitude
+                    ]}
 
-                        {
-                          item.jenis_bencana
-                        }
+                    radius={300}
 
-                      </h3>
+                    pathOptions={{
 
-                      <hr />
+                      color: markerColor,
 
-                      <p>
+                      fillColor: markerColor,
 
-                        <strong>
-                          Status:
-                        </strong>
+                      fillOpacity: 0.2
+                    }}
+                  />
 
-                        {' '}
+                  {/* ======================
+                      MARKER
+                  ====================== */}
 
-                        {
-                          item.status_laporan
-                        }
+                  <Marker
 
-                      </p>
+                    position={[
+                      latitude,
+                      longitude
+                    ]}
 
-                      <p>
+                    icon={markerIcon}
+                  >
 
-                        <strong>
-                          Prioritas:
-                        </strong>
+                    <Popup>
 
-                        {' '}
+                      <div
+                        style={{
+                          minWidth: '220px'
+                        }}
+                      >
 
-                        {
-                          item.prioritas
-                            || '-'
-                        }
+                        <h3>
 
-                      </p>
+                          {
+                            item.jenis_bencana
+                          }
 
-                      <p>
+                        </h3>
 
-                        <strong>
-                          Pelapor:
-                        </strong>
+                        <hr />
 
-                        {' '}
+                        <p>
 
-                        {
-                          item.nama_pelapor
-                        }
+                          <strong>
+                            Status:
+                          </strong>
 
-                      </p>
+                          {' '}
 
-                      <p>
+                          {
+                            item.status_laporan
+                          }
 
-                        <strong>
-                          Waktu:
-                        </strong>
+                        </p>
 
-                        {' '}
+                        <p>
 
-                        {
+                          <strong>
+                            Prioritas:
+                          </strong>
 
-                          new Date(
-                            item.created_at
-                          )
+                          {' '}
 
-                          .toLocaleString(
-                            'id-ID'
-                          )
-                        }
+                          {
+                            item.prioritas
+                              || '-'
+                          }
 
-                      </p>
+                        </p>
 
-                    </div>
+                        <p>
 
-                  </Popup>
+                          <strong>
+                            Pelapor:
+                          </strong>
 
-                </Marker>
+                          {' '}
 
-              </div>
-            )
-          })
-        }
+                          {
+                            item.nama_pelapor
+                          }
 
-      </MapContainer>
+                        </p>
+
+                        <p>
+
+                          <strong>
+                            Waktu:
+                          </strong>
+
+                          {' '}
+
+                          {
+
+                            new Date(
+                              item.created_at
+                            )
+
+                              .toLocaleString(
+                                'id-ID'
+                              )
+                          }
+
+                        </p>
+
+                      </div>
+
+                    </Popup>
+
+                  </Marker>
+
+                </div>
+              )
+            })
+          }
+
+        </MapContainer>
+
+      </div>
 
     </div>
   )

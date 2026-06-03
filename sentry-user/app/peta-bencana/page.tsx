@@ -4,8 +4,6 @@ import dynamic from 'next/dynamic'
 
 import Navbar from '../components/navbar'
 
-import styles from '../page.module.css'
-
 // =========================
 // DYNAMIC IMPORT
 // =========================
@@ -39,41 +37,101 @@ export default function Page() {
           MAIN PAGE
       ========================= */}
 
-      <main className={styles.main}>
+      <main
+
+        style={{
+
+          minHeight:
+            '100vh',
+
+          background:
+            '#eef2ff',
+
+          color:
+            '#1e293b',
+
+          paddingTop:
+            '120px',
+
+          paddingBottom:
+            '80px'
+        }}
+      >
 
         {/* =========================
             HERO
         ========================= */}
 
         <section
+
           style={{
-            paddingTop: '140px',
-            textAlign: 'center'
+
+            textAlign:
+              'center',
+
+            marginBottom:
+              '60px',
+
+            padding:
+              '0 20px'
           }}
         >
 
           <h1
+
             style={{
-              fontSize: '72px',
-              fontWeight: 800,
-              color: '#1e3a8a',
-              marginBottom: '20px'
+
+              fontSize:
+                '72px',
+
+              fontWeight:
+                900,
+
+              color:
+                '#1f2a52',
+
+              margin:
+                '0 0 24px 0',
+
+              letterSpacing:
+                '1px',
+
+              lineHeight:
+                1.1
             }}
           >
+
             Peta Sebaran Bencana
+
           </h1>
 
           <p
+
             style={{
-              fontSize: '20px',
-              color: '#334155',
-              maxWidth: '900px',
-              margin: '0 auto',
-              lineHeight: 1.8
+
+              fontSize:
+                '20px',
+
+              fontWeight:
+                600,
+
+              color:
+                '#475569',
+
+              maxWidth:
+                '920px',
+
+              margin:
+                '0 auto',
+
+              lineHeight:
+                1.8
             }}
           >
+
             Monitoring lokasi laporan bencana masyarakat Kota Malang
-            secara real-time berdasarkan data pelaporan HUMINT.
+            berdasarkan data pelaporan HUMINT.
+
           </p>
 
         </section>
@@ -83,11 +141,20 @@ export default function Page() {
         ========================= */}
 
         <section
+
           style={{
-            width: '100%',
-            maxWidth: '1400px',
-            margin: '60px auto',
-            paddingBottom: '80px'
+
+            width:
+              '100%',
+
+            maxWidth:
+              '1500px',
+
+            margin:
+              '0 auto',
+
+            padding:
+              '0 32px'
           }}
         >
 
@@ -102,16 +169,31 @@ export default function Page() {
       ========================= */}
 
       <footer
+
         style={{
-          width: '100%',
-          background: '#2563eb',
-          color: 'white',
-          textAlign: 'center',
-          padding: '24px',
-          fontWeight: 600
+
+          width:
+            '100%',
+
+          background:
+            '#2563eb',
+
+          color:
+            'white',
+
+          textAlign:
+            'center',
+
+          padding:
+            '24px',
+
+          fontWeight:
+            600
         }}
       >
+
         SENTRY © 2026. All rights reserved.
+
       </footer>
 
     </>

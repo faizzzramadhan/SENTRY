@@ -1,19 +1,28 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, {
+  useEffect,
+  useRef,
+  useState
+} from 'react'
+
+import {
+  useRouter
+} from 'next/navigation'
+
 import dynamic from 'next/dynamic'
+
 import styles from './kirim-laporan.module.css'
+
 import Navbar from '../components/navbar'
+
 import LocationSearch from '../components/LocationSearch'
 
-const RAW_API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/api/humint'
-
-const API_URL = RAW_API_URL
-  .replace(/\/$/, '')
-  .replace(/\/humint$/i, '/api/humint')
-  .replace(/\/api$/i, '/api/humint')
+const API_URL =
+  (
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:5555/api/humint'
+  ).replace(/\/$/, '')
 
 
 const getMaxDateTimeLocal = () => {
