@@ -287,9 +287,12 @@ export default function HumintPage() {
         "prioritas tinggi": 1,
         tinggi: 1,
         high: 1,
-        "prioritas rendah": 2,
-        normal: 2,
+
+        "prioritas sedang": 2,
         sedang: 2,
+        normal: 2,
+
+        "prioritas rendah": 3,
         rendah: 3,
         low: 3,
       };
@@ -303,9 +306,19 @@ export default function HumintPage() {
     }
 
     if (sortMode === "status") {
-      result = [...result].sort((a, b) =>
-        String(a.status || "").localeCompare(String(b.status || ""))
-      );
+      const statusOrder: Record<string, number> = {
+        identifikasi: 1,
+        terverifikasi: 2,
+        ditangani: 3,
+        selesai: 4,
+      };
+
+      result = [...result].sort((a, b) => {
+        const sa = statusOrder[String(a.status || "").toLowerCase()] || 99;
+        const sb = statusOrder[String(b.status || "").toLowerCase()] || 99;
+
+        return sa - sb;
+      });
     }
 
     if (sortMode === "name") {
@@ -406,7 +419,7 @@ export default function HumintPage() {
   return (
     <div className={styles.container}>
       <div className={styles.headerTop}>
-        <h1 className={styles.title}>DASHBOARD HUMINT</h1>
+        <h1 className={styles.title}>DAFTAR LAPORAN</h1>
         <div className={styles.hello}>Halo, {namaUser}</div>
       </div>
 
