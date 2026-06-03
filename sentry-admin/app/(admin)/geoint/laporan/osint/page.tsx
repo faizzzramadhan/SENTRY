@@ -116,6 +116,18 @@ export default function OsintPage() {
   ] = useState(false)
 
   // =========================
+  // OSINT FEED PANEL
+  // =========================
+
+  const [
+
+    showFeed,
+
+    setShowFeed
+
+  ] = useState(true)
+
+  // =========================
   // LAST SYNC
   // =========================
 
@@ -138,12 +150,6 @@ export default function OsintPage() {
     setDisplayMode
 
   ] = useState('all')
-
-
-  const [
-  showFeed,
-  setShowFeed
-] = useState(false)
 
   // =========================
   // FETCH OSINT DATA
@@ -266,28 +272,28 @@ export default function OsintPage() {
 
               </div>
 
+              {/* FEED BUTTON */}
+
+              <button
+
+                className={styles.filterButton}
+
+                onClick={() =>
+                  setShowFeed(
+                    !showFeed
+                  )
+                }
+              >
+
+                {
+                  showFeed
+                    ? 'Tutup Feed'
+                    : 'Live Feed'
+                }
+
+              </button>
+
               {/* FILTER BUTTON */}
-
-   <button
-
-  id="close-osint-feed"
-
-  className={styles.filterButton}
-
-  onClick={() =>
-    setShowFeed(
-      !showFeed
-    )
-  }
->
-
-  {
-    showFeed
-      ? 'Tutup Feed'
-      : 'Live Feed'
-  }
-
-</button>
 
               <button
 
@@ -347,8 +353,6 @@ export default function OsintPage() {
 
           <OsintLayer
 
-    
-
             selectedCategory={
               appliedCategory
             }
@@ -383,69 +387,80 @@ export default function OsintPage() {
 
         {
 
-            showFeed && (
+          showFeed && (
 
             <div className={styles.feedDrawer}>
 
               <OsintFeedPanel
-                  data={osintData}
-                      />
 
-                </div>
-        )
-          }
+                data={
+                  osintData
+                }
+
+                onClose={() =>
+                  setShowFeed(false)
+                }
+
+              />
+
+            </div>
+          )
+        }
 
         {/* =========================
             FILTER PANEL
         ========================= */}
 
-        {showFilter && (
+        {
 
-          <FilterPanel
+          showFilter && (
 
-            selectedCategory={
-              selectedCategory
-            }
+            <FilterPanel
 
-            setSelectedCategory={
-              setSelectedCategory
-            }
+              selectedCategory={
+                selectedCategory
+              }
 
-            selectedStatus={
-              selectedStatus
-            }
+              setSelectedCategory={
+                setSelectedCategory
+              }
 
-            setSelectedStatus={
-              setSelectedStatus
-            }
+              selectedStatus={
+                selectedStatus
+              }
 
-            displayMode={
-              displayMode
-            }
+              setSelectedStatus={
+                setSelectedStatus
+              }
 
-            setDisplayMode={
-              setDisplayMode
-            }
+              displayMode={
+                displayMode
+              }
 
-            searchQuery={
-              searchQuery
-            }
+              setDisplayMode={
+                setDisplayMode
+              }
 
-            setSearchQuery={
-              setSearchQuery
-            }
+              searchQuery={
+                searchQuery
+              }
 
-            onApply={
-              handleApplyFilter
-            }
+              setSearchQuery={
+                setSearchQuery
+              }
 
-            onClose={() =>
-              setShowFilter(false)
-            }
+              onApply={
+                handleApplyFilter
+              }
 
-          />
+              onClose={() =>
+                setShowFilter(false)
+              }
 
-        )}
+            />
+
+          )
+        }
 
         {/* =========================
             DETAIL PANEL

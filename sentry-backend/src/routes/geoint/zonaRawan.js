@@ -124,35 +124,6 @@ router.post('/', async (req, res) => {
     }
 
     // =========================
-    // NONAKTIFKAN
-    // POLYGON MANUAL LAMA
-    // =========================
-
-    await ZonaRawan.update(
-
-      {
-
-        status:
-          'NONAKTIF'
-
-      },
-
-      {
-
-        where: {
-
-          jenis_id,
-
-          sumber_data:
-            'MANUAL',
-
-          status:
-            'AKTIF'
-        }
-      }
-    )
-
-    // =========================
     // SIMPAN DATABASE
     // =========================
 
@@ -201,6 +172,83 @@ router.post('/', async (req, res) => {
 
       message:
         'Internal server error'
+    })
+  }
+})
+
+
+// =========================
+// UPDATE ZONA RAWAN
+// EDIT METADATA
+// =========================
+
+router.put('/:id', async (req, res) => {
+
+  try {
+
+    const {
+
+      id
+
+    } = req.params
+
+    const {
+
+      nama_zona,
+
+      tingkat_resiko,
+
+      warna
+
+    } = req.body
+
+    const zona =
+      await ZonaRawan.findByPk(id)
+
+    if (!zona) {
+
+      return res.status(404).json({
+
+        success: false,
+
+        message:
+          'Zona tidak ditemukan'
+      })
+    }
+
+    // =========================
+    // UPDATE DATA
+    // =========================
+
+    await zona.update({
+
+      nama_zona,
+
+      tingkat_resiko,
+
+      warna
+    })
+
+    return res.status(200).json({
+
+      success: true,
+
+      message:
+        'Zona berhasil diperbarui',
+
+      data: zona
+    })
+
+  } catch (error) {
+
+    console.error(error)
+
+    return res.status(500).json({
+
+      success: false,
+
+      message:
+        'Gagal memperbarui zona'
     })
   }
 })
