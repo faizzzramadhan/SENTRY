@@ -204,7 +204,7 @@ export default function Home() {
                 </span>
               </div>
 
-              <div className={styles.statLabel}>Total Keseluruhan Kejadian</div>
+              <div className={styles.statLabel}>Total Kejadian Bulan Ini</div>
 
               <div className={styles.statMeta}>
                 Terakhir update {formatDate(stats.last_update)}
