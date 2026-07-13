@@ -22,17 +22,13 @@ import OsintFeedPanel from '../../components/map/OsintFeedPanel'
 import styles from '../../geoint.module.css'
 
 export default function OsintPage() {
-
   // =========================
   // OSINT DATA
   // =========================
 
   const [
-
     osintData,
-
     setOsintData
-
   ] = useState<any[]>([])
 
   // =========================
@@ -40,27 +36,18 @@ export default function OsintPage() {
   // =========================
 
   const [
-
     selectedCategory,
-
     setSelectedCategory
-
   ] = useState('all')
 
   const [
-
     selectedStatus,
-
     setSelectedStatus
-
   ] = useState('all')
 
   const [
-
     searchQuery,
-
     setSearchQuery
-
   ] = useState('')
 
   // =========================
@@ -68,27 +55,18 @@ export default function OsintPage() {
   // =========================
 
   const [
-
     appliedCategory,
-
     setAppliedCategory
-
   ] = useState('all')
 
   const [
-
     appliedStatus,
-
     setAppliedStatus
-
   ] = useState('all')
 
   const [
-
     appliedSearch,
-
     setAppliedSearch
-
   ] = useState('')
 
   // =========================
@@ -96,11 +74,8 @@ export default function OsintPage() {
   // =========================
 
   const [
-
     selectedReport,
-
     setSelectedReport
-
   ] = useState<any>(null)
 
   // =========================
@@ -108,11 +83,17 @@ export default function OsintPage() {
   // =========================
 
   const [
-
     showFilter,
-
     setShowFilter
+  ] = useState(false)
 
+  // =========================
+  // OSINT FEED PANEL
+  // =========================
+
+  const [
+    showFeed,
+    setShowFeed
   ] = useState(false)
 
   // =========================
@@ -120,11 +101,8 @@ export default function OsintPage() {
   // =========================
 
   const [
-
     lastSync,
-
     setLastSync
-
   ] = useState('')
 
   // =========================
@@ -132,25 +110,15 @@ export default function OsintPage() {
   // =========================
 
   const [
-
     displayMode,
-
     setDisplayMode
-
   ] = useState('all')
-
-
-  const [
-  showFeed,
-  setShowFeed
-] = useState(false)
 
   // =========================
   // FETCH OSINT DATA
   // =========================
 
   useEffect(() => {
-
     fetch(
       'http://localhost:5555/api/geoint/osint'
     )
@@ -158,7 +126,6 @@ export default function OsintPage() {
       .then(res => res.json())
 
       .then(res => {
-
         console.log(
           'OSINT PAGE DATA:',
           res
@@ -168,19 +135,16 @@ export default function OsintPage() {
           res.success &&
           Array.isArray(res.data)
         ) {
-
           setOsintData(res.data)
         }
       })
 
       .catch(err => {
-
         console.error(
           'FETCH OSINT PAGE ERROR:',
           err
         )
       })
-
   }, [])
 
   // =========================
@@ -188,7 +152,6 @@ export default function OsintPage() {
   // =========================
 
   const handleApplyFilter = () => {
-
     setAppliedCategory(
       selectedCategory
     )
@@ -209,23 +172,17 @@ export default function OsintPage() {
   // =========================
 
   return (
-
     <div className={styles.wrapper}>
-
       <div className={styles.mainContent}>
-
         {/* =========================
             TOPBAR
         ========================= */}
 
         <div className={styles.topBar}>
-
           <div className={styles.headerContainer}>
-
             {/* TITLE */}
 
             <div className={styles.headerTitle}>
-
               <small>
                 MONITORING SPASIAL
               </small>
@@ -233,17 +190,14 @@ export default function OsintPage() {
               <h1>
                 Peta Sebaran OSINT
               </h1>
-
             </div>
 
             {/* ACTION BAR */}
 
             <div className={styles.actionBar}>
-
               {/* MODE */}
 
               <div className={styles.modeBadge}>
-
                 Mode:
 
                 {
@@ -251,80 +205,64 @@ export default function OsintPage() {
                     ? ' Data Terbaru'
                     : ' Semua Data'
                 }
-
               </div>
 
               {/* SYNC */}
 
               <div className={styles.syncBadge}>
-
                 Sinkron:
 
                 {
                   lastSync || ' -'
                 }
-
               </div>
+
+              {/* LIVE FEED BUTTON */}
+
+              <button
+                id="close-osint-feed"
+                className={styles.filterButton}
+                onClick={() =>
+                  setShowFeed(
+                    !showFeed
+                  )
+                }
+              >
+                {
+                  showFeed
+                    ? 'Tutup Feed'
+                    : 'Live Feed'
+                }
+              </button>
 
               {/* FILTER BUTTON */}
 
-   <button
-
-  id="close-osint-feed"
-
-  className={styles.filterButton}
-
-  onClick={() =>
-    setShowFeed(
-      !showFeed
-    )
-  }
->
-
-  {
-    showFeed
-      ? 'Tutup Feed'
-      : 'Live Feed'
-  }
-
-</button>
-
               <button
-
                 className={styles.filterButton}
-
                 onClick={() =>
                   setShowFilter(
                     !showFilter
                   )
                 }
               >
-
                 {
                   showFilter
                     ? 'Tutup Filter'
                     : 'Filter'
                 }
-
               </button>
 
               {/* REFRESH */}
 
               <button
-
                 className={styles.refreshButton}
-
                 onClick={() =>
                   window.location.reload()
                 }
               >
-
                 Refresh
-
               </button>
-
             </div>
-
           </div>
 
           {/* =========================
@@ -332,11 +270,8 @@ export default function OsintPage() {
           ========================= */}
 
           <AnalyticsBar
-
             data={osintData}
-
           />
-
         </div>
 
         {/* =========================
@@ -344,37 +279,26 @@ export default function OsintPage() {
         ========================= */}
 
         <BaseMap>
-
           <OsintLayer
-
-    
-
             selectedCategory={
               appliedCategory
             }
-
             selectedStatus={
               appliedStatus
             }
-
             displayMode={
               displayMode
             }
-
             searchQuery={
               appliedSearch
             }
-
             setLastSync={
               setLastSync
             }
-
             setSelectedReport={
               setSelectedReport
             }
-
           />
-
         </BaseMap>
 
         {/* =========================
@@ -382,91 +306,73 @@ export default function OsintPage() {
         ========================= */}
 
         {
-
-            showFeed && (
-
+          showFeed && (
             <div className={styles.feedDrawer}>
-
               <OsintFeedPanel
-                  data={osintData}
-                      />
-
-                </div>
-        )
-          }
+                data={osintData}
+                onClose={() =>
+                  setShowFeed(false)
+                }
+              />
+            </div>
+          )
+        }
 
         {/* =========================
             FILTER PANEL
         ========================= */}
 
-        {showFilter && (
-
-          <FilterPanel
-
-            selectedCategory={
-              selectedCategory
-            }
-
-            setSelectedCategory={
-              setSelectedCategory
-            }
-
-            selectedStatus={
-              selectedStatus
-            }
-
-            setSelectedStatus={
-              setSelectedStatus
-            }
-
-            displayMode={
-              displayMode
-            }
-
-            setDisplayMode={
-              setDisplayMode
-            }
-
-            searchQuery={
-              searchQuery
-            }
-
-            setSearchQuery={
-              setSearchQuery
-            }
-
-            onApply={
-              handleApplyFilter
-            }
-
-            onClose={() =>
-              setShowFilter(false)
-            }
-
-          />
-
-        )}
+        {
+          showFilter && (
+            <FilterPanel
+              selectedCategory={
+                selectedCategory
+              }
+              setSelectedCategory={
+                setSelectedCategory
+              }
+              selectedStatus={
+                selectedStatus
+              }
+              setSelectedStatus={
+                setSelectedStatus
+              }
+              displayMode={
+                displayMode
+              }
+              setDisplayMode={
+                setDisplayMode
+              }
+              searchQuery={
+                searchQuery
+              }
+              setSearchQuery={
+                setSearchQuery
+              }
+              onApply={
+                handleApplyFilter
+              }
+              onClose={() =>
+                setShowFilter(false)
+              }
+            />
+          )
+        }
 
         {/* =========================
             DETAIL PANEL
         ========================= */}
 
         {
-
           selectedReport && (
-
             <DetailPanel
-
               data={
                 selectedReport
               }
-
               onClose={() =>
                 setSelectedReport(null)
               }
-
             />
-
           )
         }
 
@@ -475,9 +381,7 @@ export default function OsintPage() {
         ========================= */}
 
         <MapLegend />
-
       </div>
-
     </div>
   )
 }

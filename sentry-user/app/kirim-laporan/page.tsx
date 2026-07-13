@@ -1,19 +1,30 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, {
+  useEffect,
+  useRef,
+  useState
+} from 'react'
+
+import {
+  useRouter
+} from 'next/navigation'
+
 import dynamic from 'next/dynamic'
+
 import styles from './kirim-laporan.module.css'
+
 import Navbar from '../components/navbar'
+
 import LocationSearch from '../components/LocationSearch'
 
-const RAW_API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5555/api/humint'
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5555/humint"
+).replace(/\/$/, "");
 
-const API_URL = RAW_API_URL
-  .replace(/\/$/, '')
-  .replace(/\/humint$/i, '/api/humint')
-  .replace(/\/api$/i, '/api/humint')
+const PUBLIC_HUMINT_API_URL = API_URL
+  .replace(/\/api\/humint$/i, "/api/humint")
+  .replace(/\/humint$/i, "/api/humint");
 
 
 const getMaxDateTimeLocal = () => {
@@ -405,14 +416,14 @@ const fetchJson = async (url: string) => {
   }, [])
 
   useEffect(() => {
-    fetchJson(`${API_URL}/data-kecamatan`)
+    fetchJson(`${PUBLIC_HUMINT_API_URL}/data-kecamatan`)
       .then((data) => setKecamatanList(getArrayFromResponse(data, ['data', 'kecamatan', 'data_kecamatan'])))
       .catch((err) => {
         console.error('Gagal ambil kecamatan:', err)
         setKecamatanList([])
       })
 
-    fetchJson(`${API_URL}/jenis-bencana`)
+    fetchJson(`${PUBLIC_HUMINT_API_URL}/jenis-bencana`)
       .then((data) => setJenisList(getArrayFromResponse(data, ['data', 'jenis_bencana'])))
       .catch((err) => {
         console.error('Gagal ambil jenis bencana:', err)
@@ -426,7 +437,7 @@ const fetchJson = async (url: string) => {
       return
     }
 
-    fetchJson(`${API_URL}/data-kelurahan?kecamatan_id=${selectedKec}`)
+    fetchJson(`${PUBLIC_HUMINT_API_URL}/data-kelurahan?kecamatan_id=${selectedKec}`)
       .then((data) => setKelurahanList(getArrayFromResponse(data, ['data', 'kelurahan', 'data_kelurahan'])))
       .catch((err) => {
         console.error('Gagal ambil kelurahan:', err)

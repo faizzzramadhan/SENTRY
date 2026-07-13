@@ -46,8 +46,27 @@ export default function ConfirmKirimLaporanPage() {
       const formData = new FormData()
       const form = draft.form
 
+      const manualFields = new Set([
+        'id_bencana',
+        'jenis_laporan',
+        'latitude',
+        'longitude',
+        'browser_gps_lat',
+        'browser_gps_lng',
+        'jenis_korban',
+        'jumlah_korban_identifikasi',
+        'total_korban',
+        'jumlah_terdampak',
+        'jumlah_meninggal',
+        'jumlah_hilang',
+        'jumlah_mengungsi',
+        'jumlah_luka_sakit',
+        'foto_kejadian',
+        'foto_kerusakan',
+      ])
+
       Object.entries(form).forEach(([key, value]: any) => {
-        if (key !== 'id_bencana') {
+        if (!manualFields.has(key)) {
           formData.append(key, value || '')
         }
       })
@@ -126,12 +145,19 @@ export default function ConfirmKirimLaporanPage() {
         }
       }
 
-      const res = await fetch(`${API_URL}/user/add-report`, {
+      const res = await fetch(`${API_URL}/humint/create`, {
         method: 'POST',
         body: formData,
       })
 
-      const data = await res.json()
+      const text = await res.text()
+
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch (error) {
+        throw new Error('Gagal mengirim laporan')
+      }
 
       if (!res.ok) {
         throw new Error(data.message || 'Gagal mengirim laporan')

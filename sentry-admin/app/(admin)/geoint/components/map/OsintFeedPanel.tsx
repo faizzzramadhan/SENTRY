@@ -1,14 +1,12 @@
 'use client'
 
-import styles
-from '../../geoint.module.css'
+import styles from '../../geoint.module.css'
 
 // =========================
 // TYPES
 // =========================
 
 type OsintItem = {
-
   osint_id: number
 
   osint_source: string
@@ -40,6 +38,8 @@ type OsintItem = {
 
 type Props = {
   data: OsintItem[]
+
+  onClose: () => void
 }
 
 // =========================
@@ -47,53 +47,34 @@ type Props = {
 // =========================
 
 export default function OsintFeedPanel({
-  data
+  data,
+  onClose
 }: Props) {
-
-  console.log(
-    'OSINT FEED DATA:',
-    data
-  )
-
   // =========================
   // FILTER SOCIAL FEED
   // =========================
 
   const socialFeed =
-
     data
-
       .filter(item => {
-
         const source =
-
           item.osint_source
             ?.toString()
             ?.trim()
             ?.toUpperCase() || ''
 
-        console.log(
-          'OSINT SOURCE:',
-          source
-        )
-
         return (
-
-          source.includes('X')
-
-          ||
-
-          source.includes('TWITTER')
+          source === 'X' ||
+          source.includes('TWITTER') ||
+          source.includes('X ')
         )
       })
 
       .sort(
-
         (
           a,
           b
         ) =>
-
           new Date(
             b.osint_post_time || 0
           ).getTime()
@@ -112,7 +93,6 @@ export default function OsintFeedPanel({
   const getPriorityColor = (
     priority: string
   ) => {
-
     const text =
       (priority || '')
         .toUpperCase()
@@ -120,14 +100,12 @@ export default function OsintFeedPanel({
     if (
       text.includes('TINGGI')
     ) {
-
       return '#ef4444'
     }
 
     if (
       text.includes('SEDANG')
     ) {
-
       return '#f59e0b'
     }
 
@@ -135,99 +113,103 @@ export default function OsintFeedPanel({
   }
 
   // =========================
+  // FORMAT TEXT
+  // =========================
+
+  const formatEventType = (
+    value: string
+  ) => {
+    if (!value) {
+      return 'UNKNOWN EVENT'
+    }
+
+    return value
+      .replaceAll('_', ' ')
+      .trim()
+  }
+
+  const formatPriority = (
+    value: string
+  ) => {
+    if (!value) {
+      return 'RENDAH'
+    }
+
+    return value
+      .replace('PRIORITAS ', '')
+      .trim()
+  }
+
+  const formatDate = (
+    value: string
+  ) => {
+    if (!value) {
+      return '-'
+    }
+
+    const date =
+      new Date(value)
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return '-'
+    }
+
+    return date.toLocaleString(
+      'id-ID'
+    )
+  }
+
+  // =========================
+  // HEADER
+  // =========================
+
+  const renderHeader = (
+    count: number
+  ) => (
+    <div className={styles.osintFeedHeader}>
+      <div className={styles.osintFeedHeaderText}>
+        <small>
+          REALTIME STREAM
+        </small>
+
+        <h3>
+          LIVE OSINT FEED
+        </h3>
+      </div>
+
+      <div className={styles.osintFeedHeaderRight}>
+        <div className={styles.osintFeedCount}>
+          {count}
+        </div>
+
+        <button
+          type="button"
+          className={styles.osintFeedClose}
+          onClick={onClose}
+          aria-label="Tutup Live OSINT Feed"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+
+  // =========================
   // EMPTY
   // =========================
 
   if (!socialFeed.length) {
-
     return (
-
       <div className={styles.osintFeedPanel}>
-
-<div
-
-  className={styles.osintFeedHeader}
-
-  style={{
-    position: 'relative'
-  }}
->
-
-  <button
-
-    onClick={() => {
-
-      const closeButton =
-
-        document.getElementById(
-          'close-osint-feed'
-        )
-
-      if (
-        closeButton
-      ) {
-
-        closeButton.click()
-      }
-    }}
-
-    style={{
-
-      position: 'absolute',
-
-      top: '18px',
-
-      right: '18px',
-
-      width: '38px',
-
-      height: '38px',
-
-      borderRadius: '50%',
-
-      border: 'none',
-
-      background:
-        'rgba(255,255,255,0.08)',
-
-      color: 'white',
-
-      cursor: 'pointer',
-
-      fontSize: '18px'
-    }}
-  >
-
-    ✕
-
-  </button>
-
-          <div>
-
-            <small>
-              REALTIME STREAM
-            </small>
-
-            <h3>
-              LIVE OSINT FEED
-            </h3>
-
-          </div>
-
-          <div className={styles.osintFeedCount}>
-
-            0
-
-          </div>
-
-        </div>
+        {renderHeader(0)}
 
         <div className={styles.osintFeedLoading}>
-
           Belum ada data OSINT masuk...
-
         </div>
-
       </div>
     )
   }
@@ -237,188 +219,96 @@ export default function OsintFeedPanel({
   // =========================
 
   return (
-
     <div className={styles.osintFeedPanel}>
-
-      <div className={styles.osintFeedHeader}>
-
-        <div>
-
-          <small>
-            REALTIME STREAM
-          </small>
-
-          <h3>
-            LIVE OSINT FEED
-          </h3>
-
-        </div>
-
-        <div className={styles.osintFeedCount}>
-
-          {socialFeed.length}
-
-        </div>
-
-      </div>
+      {renderHeader(socialFeed.length)}
 
       <div className={styles.osintFeedList}>
-
         {
-
           socialFeed.map(item => (
-
             <div
               key={item.osint_id}
               className={styles.osintFeedCard}
             >
-
               {/* =========================
                   TOP
               ========================= */}
 
-              <div
-
-                className={styles.osintFeedTop}
-
-                style={{
-
-                  display: 'flex',
-
-                  justifyContent: 'space-between',
-
-                  alignItems: 'flex-start',
-
-                  gap: '14px'
-                }}
-              >
-
-                <div
-                  style={{
-                    flex: 1,
-                    minWidth: 0
-                  }}
-                >
-
+              <div className={styles.osintFeedTop}>
+                <div className={styles.osintFeedMain}>
                   {/* EVENT */}
 
-                  <div
-
-                    className={styles.osintFeedEvent}
-
-                    style={{
-
-                      wordBreak: 'break-word',
-
-                      lineHeight: 1.4,
-
-                      fontWeight: 800,
-
-                      fontSize: '30px'
-                    }}
-                  >
-
-                    ⚠️ {
+                  <div className={styles.osintFeedEvent}>
+                    ⚠️ {formatEventType(
                       item.osint_event_type
-                    }
-
+                    )}
                   </div>
 
                   {/* USER */}
 
                   <div className={styles.osintFeedUser}>
-
                     {
                       item.osint_account_name
                       || 'UNKNOWN'
                     }
 
                     {
-
                       item.osint_account_username
-
-                      &&
-
-                      ` (@${item.osint_account_username})`
+                        ? ` (@${item.osint_account_username})`
+                        : ''
                     }
-
                   </div>
-
                 </div>
 
                 {/* PRIORITY */}
 
                 <div
-
                   className={styles.osintPriorityBadge}
-
                   style={{
-
                     background:
                       getPriorityColor(
                         item.osint_priority_level
-                      ),
-
-                    flexShrink: 0,
-
-                    whiteSpace: 'nowrap'
+                      )
                   }}
                 >
-
                   {
-                    item.osint_priority_level
-                    || 'RENDAH'
+                    formatPriority(
+                      item.osint_priority_level
+                    )
                   }
-
                 </div>
-
               </div>
 
               {/* SOURCE */}
 
-              <div
-                style={{
-                  marginBottom: '10px',
-                  fontSize: '12px',
-                  opacity: 0.7
-                }}
-              >
-
-                Source:
-                {' '}
+              <div className={styles.osintFeedSource}>
+                Source:{' '}
                 {
                   item.osint_source
                   || '-'
                 }
-
               </div>
 
               {/* CONTENT */}
 
               <div className={styles.osintFeedContent}>
-
                 {
                   item.osint_content
                   || 'Tidak ada konten'
                 }
-
               </div>
 
               {/* AREA */}
 
               <div className={styles.osintFeedArea}>
-
                 📍 {
                   item.osint_area_text
                   || '-'
                 }
-
               </div>
 
               {/* STATS */}
 
               <div className={styles.osintFeedStats}>
-
                 <span>
                   ❤️ {item.osint_like_count || 0}
                 </span>
@@ -430,63 +320,40 @@ export default function OsintFeedPanel({
                 <span>
                   💬 {item.osint_reply_count || 0}
                 </span>
-
               </div>
 
               {/* FOOTER */}
 
               <div className={styles.osintFeedFooter}>
-
                 <small>
-
                   {
-
-                    item.osint_post_time
-
-                      ? new Date(
-                          item.osint_post_time
-                        ).toLocaleString(
-                          'id-ID'
-                        )
-
-                      : '-'
+                    formatDate(
+                      item.osint_post_time
+                    )
                   }
-
                 </small>
 
                 {
-
                   item.osint_link_url && (
-
                     <a
-
                       href={
                         item.osint_link_url
                       }
-
                       target="_blank"
-
                       rel="noreferrer"
-
                       className={
                         styles.osintFeedLink
                       }
                     >
-
                       Buka Source
-
                     </a>
                   )
                 }
-
               </div>
-
             </div>
           ))
         }
-
       </div>
-
     </div>
   )
 }

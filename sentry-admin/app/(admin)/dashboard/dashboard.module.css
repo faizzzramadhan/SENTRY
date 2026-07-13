@@ -121,9 +121,27 @@
 
 .sumberRow {
   display: grid;
-  grid-template-columns: 90px 1fr 30px;
-  gap: 10px;
+  grid-template-columns: 90px minmax(0, 1fr) max-content;
+  gap: 12px;
   align-items: center;
+}
+
+.barTrack {
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  min-width: 0;
+}
+
+.sumberValue {
+  text-align: right;
+  font-weight: 800;
+  color: rgba(255,255,255,0.9);
+  white-space: nowrap;
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
 }
 
 .sumberLabel {
@@ -143,12 +161,6 @@
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, #7a2cff, #b27bff);
-}
-
-.sumberValue {
-  text-align: right;
-  font-weight: 800;
-  color: rgba(255,255,255,0.9);
 }
 
 .sectionTitle {

@@ -14,12 +14,20 @@ import {
 } from "recharts";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5555";
+  (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5555").replace(
+    /\/$/,
+    ""
+  );
 
 type TrendItem = {
   name: string;
   baru: number;
   ditangani: number;
+};
+
+type SumberDataItem = {
+  label: "X" | "BMKG" | "HUMINT" | string;
+  value: number;
 };
 
 type DashboardRow = {
@@ -30,11 +38,6 @@ type DashboardRow = {
   waktu: string;
   status: string;
   prioritas: string;
-};
-
-type SumberDataItem = {
-  label: string;
-  value: number;
 };
 
 type DashboardData = {
@@ -61,6 +64,8 @@ const defaultDashboardData: DashboardData = {
     { name: "Minggu 4", baru: 0, ditangani: 0 },
   ],
   sumber_data: [
+    { label: "X", value: 0 },
+    { label: "BMKG", value: 0 },
     { label: "HUMINT", value: 0 },
   ],
   table: [],
@@ -85,6 +90,41 @@ function formatText(value: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function normalizeSumberData(data: any): SumberDataItem[] {
+  const rawItems = Array.isArray(data) ? data : [];
+
+  const sourceMap: Record<string, number> = {
+    X: 0,
+    BMKG: 0,
+    HUMINT: 0,
+  };
+
+  rawItems.forEach((item) => {
+    const label = String(item?.label || "").trim().toUpperCase();
+    const value = Number(item?.value || 0);
+
+    if (label === "X" || label === "TWITTER") {
+      sourceMap.X += value;
+      return;
+    }
+
+    if (label === "BMKG") {
+      sourceMap.BMKG += value;
+      return;
+    }
+
+    if (label === "HUMINT") {
+      sourceMap.HUMINT += value;
+    }
+  });
+
+  return [
+    { label: "X", value: sourceMap.X },
+    { label: "BMKG", value: sourceMap.BMKG },
+    { label: "HUMINT", value: sourceMap.HUMINT },
+  ];
+}
+
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -94,16 +134,22 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const sumberData = useMemo(() => {
-    return Array.isArray(dashboardData.sumber_data) &&
+  const sumberData = useMemo<SumberDataItem[]>(() => {
+    if (
+      dashboardData &&
+      Array.isArray(dashboardData.sumber_data) &&
       dashboardData.sumber_data.length > 0
-      ? dashboardData.sumber_data
-      : defaultDashboardData.sumber_data;
-  }, [dashboardData.sumber_data]);
+    ) {
+      return dashboardData.sumber_data;
+    }
+
+    return defaultDashboardData.sumber_data;
+  }, [dashboardData]);
 
   const maxSumber = useMemo(() => {
-    return Math.max(1, ...sumberData.map((item) => item.value));
-  }, [sumberData]);
+    const values = sumberData.map((item) => Number(item.value || 0));
+    return Math.max(...values, 1);
+}, [sumberData]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -132,6 +178,10 @@ export default function DashboardPage() {
 
         const response = await fetch(`${API_BASE_URL}/humint/dashboard`, {
           method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
         });
 
         const result = await response.json();
@@ -151,17 +201,24 @@ export default function DashboardPage() {
           },
           trend:
             Array.isArray(result?.data?.trend) && result.data.trend.length > 0
-              ? result.data.trend
-              : defaultDashboardData.trend,
-          sumber_data:
-            Array.isArray(result?.data?.sumber_data) &&
-            result.data.sumber_data.length > 0
-              ? result.data.sumber_data.map((item: SumberDataItem) => ({
-                  label: item.label || "-",
-                  value: Number(item.value) || 0,
+              ? result.data.trend.map((item: any) => ({
+                  name: String(item?.name || "-"),
+                  baru: Number(item?.baru || 0),
+                  ditangani: Number(item?.ditangani || 0),
                 }))
-              : defaultDashboardData.sumber_data,
-          table: Array.isArray(result?.data?.table) ? result.data.table : [],
+              : defaultDashboardData.trend,
+          sumber_data: normalizeSumberData(result?.data?.sumber_data),
+          table: Array.isArray(result?.data?.table)
+            ? result.data.table.map((item: any, index: number) => ({
+                no: Number(item?.no || index + 1),
+                laporan_id: Number(item?.laporan_id || 0),
+                jenis: String(item?.jenis || "-"),
+                lokasi: String(item?.lokasi || "-"),
+                waktu: String(item?.waktu || "-"),
+                status: String(item?.status || "-"),
+                prioritas: String(item?.prioritas || "-"),
+              }))
+            : [],
         });
       } catch (error: any) {
         console.error(error);
@@ -176,6 +233,7 @@ export default function DashboardPage() {
   }, []);
 
   const handleOpenDetail = (laporanId: number) => {
+    if (!laporanId) return;
     router.push(`/humint/detail/${laporanId}`);
   };
 
@@ -215,7 +273,7 @@ export default function DashboardPage() {
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <div>
-              <div className={styles.panelTitle}>Tren Laporan</div>
+              <div className={styles.panelTitle}>Tren Laporan Bulanan</div>
               <div className={styles.legend}>
                 <span className={styles.dotBaru} />
                 Laporan baru
@@ -223,10 +281,6 @@ export default function DashboardPage() {
                 Ditangani
               </div>
             </div>
-
-            <select className={styles.select} defaultValue="Bulanan">
-              <option value="Bulanan">Bulanan</option>
-            </select>
           </div>
 
           <div className={styles.chartWrap}>
@@ -288,13 +342,18 @@ export default function DashboardPage() {
 
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
-            <div className={styles.panelTitle}>Sumber Data</div>
+            <div>
+              <div className={styles.panelTitle}>Sumber Data</div>
+              <div className={styles.legend}>
+                X, BMKG, dan HUMINT bulan ini
+              </div>
+            </div>
           </div>
 
           <div className={styles.sumberList}>
             {sumberData.map((item) => {
-              const width =
-                maxSumber > 0 ? Math.round((item.value / maxSumber) * 100) : 0;
+              const value = Number(item.value || 0);
+              const width = `${Math.max((value / maxSumber) * 100, 0)}%`;
 
               return (
                 <div key={item.label} className={styles.sumberRow}>
@@ -303,11 +362,15 @@ export default function DashboardPage() {
                   <div className={styles.barTrack}>
                     <div
                       className={styles.barFill}
-                      style={{ width: `${width}%` }}
+                      style={{
+                        width,
+                      }}
                     />
                   </div>
 
-                  <div className={styles.sumberValue}>{item.value}</div>
+                  <div className={styles.sumberValue}>
+                    {loading ? "..." : value}
+                  </div>
                 </div>
               );
             })}
@@ -315,52 +378,50 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <h2 className={styles.sectionTitle}>Laporan Masyarakat Terbaru</h2>
+      <div className={styles.sectionTitle}>Laporan Terbaru</div>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
             <tr>
               <th>No</th>
-              <th>Jenis Bencana</th>
+              <th>Jenis</th>
               <th>Lokasi</th>
-              <th>Waktu Kejadian</th>
-              <th>Status Laporan</th>
-              <th>Prioritas Penanganan</th>
+              <th>Waktu</th>
+              <th>Status</th>
+              <th>Prioritas</th>
             </tr>
           </thead>
 
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6}>Memuat data dashboard...</td>
+                <td colSpan={6}>Memuat data...</td>
               </tr>
             ) : dashboardData.table.length === 0 ? (
               <tr>
-                <td colSpan={6}>Belum ada laporan.</td>
+                <td colSpan={6}>Belum ada data laporan.</td>
               </tr>
             ) : (
-              dashboardData.table.map((item) => (
+              dashboardData.table.map((row) => (
                 <tr
-                  key={item.laporan_id}
+                  key={row.laporan_id || row.no}
                   className={styles.clickableRow}
-                  onClick={() => handleOpenDetail(item.laporan_id)}
-                  tabIndex={0}
                   role="button"
+                  tabIndex={0}
+                  onClick={() => handleOpenDetail(row.laporan_id)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      handleOpenDetail(item.laporan_id);
+                      handleOpenDetail(row.laporan_id);
                     }
                   }}
-                  title="Klik untuk melihat detail laporan"
                 >
-                  <td>{item.no}</td>
-                  <td>{item.jenis}</td>
-                  <td>{item.lokasi}</td>
-                  <td>{item.waktu}</td>
-                  <td>{formatText(item.status)}</td>
-                  <td>{formatText(item.prioritas)}</td>
+                  <td>{row.no}</td>
+                  <td>{row.jenis}</td>
+                  <td>{row.lokasi}</td>
+                  <td>{row.waktu}</td>
+                  <td>{formatText(row.status)}</td>
+                  <td>{formatText(row.prioritas)}</td>
                 </tr>
               ))
             )}

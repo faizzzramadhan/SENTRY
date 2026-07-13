@@ -298,7 +298,11 @@ router.post(
           exif_longitude: exifData.exif_longitude,
           selisih_jarak: validasi.selisih_jarak,
           is_valid_location: validasi.is_valid_location,
+
           created_by: actor,
+          creation_date: now,
+          last_updated_by: actor,
+          last_update_date: now,
         },
         { transaction: t }
       );

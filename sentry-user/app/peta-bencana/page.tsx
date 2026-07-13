@@ -4,16 +4,14 @@ import dynamic from 'next/dynamic'
 
 import Navbar from '../components/navbar'
 
-import styles from '../page.module.css'
+import styles from './page.module.css'
 
 // =========================
 // DYNAMIC IMPORT
 // =========================
 
 const DisasterMap = dynamic(
-
   () => import('../components/DisasterMap'),
-
   {
     ssr: false
   }
@@ -24,10 +22,8 @@ const DisasterMap = dynamic(
 // =========================
 
 export default function Page() {
-
   return (
-
-    <>
+    <div className={styles.page}>
 
       {/* =========================
           NAVBAR
@@ -45,35 +41,15 @@ export default function Page() {
             HERO
         ========================= */}
 
-        <section
-          style={{
-            paddingTop: '140px',
-            textAlign: 'center'
-          }}
-        >
+        <section className={styles.hero}>
 
-          <h1
-            style={{
-              fontSize: '72px',
-              fontWeight: 800,
-              color: '#1e3a8a',
-              marginBottom: '20px'
-            }}
-          >
+          <h1 className={styles.title}>
             Peta Sebaran Bencana
           </h1>
 
-          <p
-            style={{
-              fontSize: '20px',
-              color: '#334155',
-              maxWidth: '900px',
-              margin: '0 auto',
-              lineHeight: 1.8
-            }}
-          >
+          <p className={styles.description}>
             Monitoring lokasi laporan bencana masyarakat Kota Malang
-            secara real-time berdasarkan data pelaporan HUMINT.
+            berdasarkan data pelaporan HUMINT.
           </p>
 
         </section>
@@ -82,14 +58,7 @@ export default function Page() {
             MAP SECTION
         ========================= */}
 
-        <section
-          style={{
-            width: '100%',
-            maxWidth: '1400px',
-            margin: '60px auto',
-            paddingBottom: '80px'
-          }}
-        >
+        <section className={styles.mapSection}>
 
           <DisasterMap />
 
@@ -101,19 +70,10 @@ export default function Page() {
           FOOTER
       ========================= */}
 
-      <footer
-        style={{
-          width: '100%',
-          background: '#2563eb',
-          color: 'white',
-          textAlign: 'center',
-          padding: '24px',
-          fontWeight: 600
-        }}
-      >
+      <footer className={styles.footer}>
         SENTRY © 2026. All rights reserved.
       </footer>
 
-    </>
+    </div>
   )
 }

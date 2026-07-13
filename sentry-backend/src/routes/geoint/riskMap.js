@@ -6,10 +6,74 @@ const db = require('../../models')
 
 const { sequelize } = db
 
-router.get('/', async (req, res) => {
+// =========================
+// HELPER
+// =========================
+
+function parseGeojson(value) {
+  if (!value) {
+    return null
+  }
+
+  if (typeof value === 'object') {
+    return value
+  }
 
   try {
+    return JSON.parse(value)
+  } catch (error) {
+    console.error(
+      'INVALID GEOJSON PARSE:',
+      error
+    )
 
+    return null
+  }
+}
+
+function getGeometryFromGeojson(value) {
+  const geojson =
+    parseGeojson(value)
+
+  if (!geojson) {
+    return null
+  }
+
+  // Jika data berupa Feature
+  if (
+    geojson.type === 'Feature' &&
+    geojson.geometry
+  ) {
+    return geojson.geometry
+  }
+
+  // Jika data langsung berupa Geometry
+  if (
+    geojson.type &&
+    geojson.coordinates
+  ) {
+    return geojson
+  }
+
+  return null
+}
+
+function isValidGeometry(geometry) {
+  return (
+    geometry &&
+    typeof geometry === 'object' &&
+    typeof geometry.type === 'string' &&
+    Array.isArray(geometry.coordinates) &&
+    geometry.coordinates.length > 0
+  )
+}
+
+// =========================
+// GET RISK MAP
+// =========================
+
+router.get('/', async (req, res) => {
+  try {
     // =========================
     // QUERY PARAM
     // =========================
@@ -22,123 +86,212 @@ router.get('/', async (req, res) => {
     // =========================
 
     const jenisMap = {
-
       banjir: 60001,
-
       longsor: 60002,
-
       gempa: 60007
     }
 
     const jenisId =
       jenisMap[bencana]
 
-    // =========================
-    // QUERY DATABASE
-    // =========================
-
-    const rows = await sequelize.query(
-
-      `
-      SELECT
-
-        tr.resiko_id,
-
-        tr.tingkat_resiko,
-
-        jb.nama_jenis,
-
-        dk.kelurahan_id,
-
-        dk.nama_kelurahan,
-
-        dk.geojson
-
-      FROM tingkat_resiko tr
-
-      LEFT JOIN jenis_bencana jb
-        ON jb.jenis_id = tr.jenis_id
-
-      LEFT JOIN data_kelurahan dk
-        ON dk.kelurahan_id = tr.kelurahan_id
-
-      WHERE
-        dk.geojson IS NOT NULL
-
-        AND tr.jenis_id = :jenisId
-      `,
-
-      {
-
-        replacements: {
-
-          jenisId
-        },
-
-        type: sequelize.QueryTypes.SELECT
-      }
-    )
+    if (!jenisId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Parameter bencana tidak valid'
+      })
+    }
 
     // =========================
-    // GEOJSON FEATURE
+    // QUERY DEFAULT RISK
+    // dari tingkat_resiko
     // =========================
 
-    const features = rows.map(item => {
+    const defaultRows =
+      await sequelize.query(
+        `
+        SELECT
+          tr.resiko_id,
+          tr.tingkat_resiko,
+          jb.nama_jenis,
+          dk.kelurahan_id,
+          dk.nama_kelurahan,
+          dk.geojson
+        FROM tingkat_resiko tr
 
-      let geometry = null
+        LEFT JOIN jenis_bencana jb
+          ON jb.jenis_id = tr.jenis_id
 
-      try {
+        LEFT JOIN data_kelurahan dk
+          ON dk.kelurahan_id = tr.kelurahan_id
 
-        geometry =
-          JSON.parse(item.geojson)
+        WHERE
+          dk.geojson IS NOT NULL
+          AND tr.jenis_id = :jenisId
+        `,
+        {
+          replacements: {
+            jenisId
+          },
+          type: sequelize.QueryTypes.SELECT
+        }
+      )
 
-      } catch (error) {
 
-        geometry = null
-      }
+    const manualRows =
+      await sequelize.query(
+        `
+        SELECT
+          zr.zona_id,
+          zr.jenis_id,
+          zr.kelurahan_id,
+          zr.nama_zona,
+          zr.geojson,
+          zr.tingkat_resiko,
+          zr.warna,
+          zr.sumber_data,
+          zr.status,
+          jb.nama_jenis,
+          dk.nama_kelurahan
+        FROM zona_rawan zr
 
-      return {
+        LEFT JOIN jenis_bencana jb
+          ON jb.jenis_id = zr.jenis_id
 
-        type: 'Feature',
+        LEFT JOIN data_kelurahan dk
+          ON dk.kelurahan_id = zr.kelurahan_id
 
-        properties: {
+        WHERE
+          zr.geojson IS NOT NULL
+          AND zr.jenis_id = :jenisId
+          AND zr.status = 'AKTIF'
+          AND zr.sumber_data = 'MANUAL'
+        `,
+        {
+          replacements: {
+            jenisId
+          },
+          type: sequelize.QueryTypes.SELECT
+        }
+      )
 
-          resiko_id:
-            item.resiko_id,
+    // =========================
+    // DEFAULT FEATURES
+    // =========================
 
-          kelurahan:
-            item.nama_kelurahan,
+    const defaultFeatures =
+      defaultRows
+        .map(item => {
+          const geometry =
+            getGeometryFromGeojson(
+              item.geojson
+            )
 
-          bencana:
-            item.nama_jenis,
+          if (
+            !isValidGeometry(geometry)
+          ) {
+            return null
+          }
 
-          tingkat:
-            item.tingkat_resiko,
-        },
+          return {
+            type: 'Feature',
 
-        geometry
-      }
-    })
+            properties: {
+              resiko_id:
+                item.resiko_id,
+
+              kelurahan:
+                item.nama_kelurahan,
+
+              bencana:
+                item.nama_jenis,
+
+              tingkat:
+                item.tingkat_resiko,
+
+              sumber_data:
+                'DEFAULT'
+            },
+
+            geometry
+          }
+        })
+        .filter(Boolean)
+
+    // =========================
+    // MANUAL FEATURES
+    // =========================
+
+    const manualFeatures =
+      manualRows
+        .map(item => {
+          const geometry =
+            getGeometryFromGeojson(
+              item.geojson
+            )
+
+          if (
+            !isValidGeometry(geometry)
+          ) {
+            return null
+          }
+
+          return {
+            type: 'Feature',
+
+            properties: {
+              zona_id:
+                item.zona_id,
+
+              kelurahan:
+                item.nama_kelurahan ||
+                item.nama_zona ||
+                'Zona Manual',
+
+              nama_zona:
+                item.nama_zona,
+
+              bencana:
+                item.nama_jenis,
+
+              tingkat:
+                item.tingkat_resiko,
+
+              warna:
+                item.warna,
+
+              sumber_data:
+                item.sumber_data ||
+                'MANUAL'
+            },
+
+            geometry
+          }
+        })
+        .filter(Boolean)
+
+    // =========================
+    // MERGE FEATURES
+    // =========================
+
+    const features = [
+      ...defaultFeatures,
+      ...manualFeatures
+    ]
 
     return res.json({
-
       type: 'FeatureCollection',
-
-      features:
-        features.filter(
-          item => item.geometry
-        )
+      features
     })
 
   } catch (error) {
-
     console.error(
       'RISK MAP ERROR:',
       error
     )
 
     return res.status(500).json({
-
+      success: false,
       message:
         'Failed load risk map'
     })
